@@ -101,8 +101,7 @@ restrição é de requisito, não de fase: dependência de fase sozinha não a c
      origem ao lado da do DeckTech — verificável por leitura, e nenhum find-and-replace tocou
      `felipenalves` como nome de pessoa.
 **Validação nesta máquina**: parcial. Os greps e os `node --test` rodam aqui. O comportamento de
-runtime das duas superfícies repontadas **não**: `DokkeUpdateManager.swift` não compila em
-Windows e `MainActivity.kt` exige Gradle + SDK ausentes.
+runtime das duas superfícies repontadas **não**: `DokkeUpdateManager.swift` não compila em Windows. **Correcao de 2026-09-17:** `MainActivity.kt` **e** validavel aqui — Gradle 8.5 via wrapper, Kotlin 1.9.20, SDK platforms android-34 e android-37.0, JDK 17.0.18, e `app-debug.apk` de 2.297.465 bytes ja construido. O Galaxy S10e esta conectado por adb wireless. Somente macOS segue bloqueado.
 **Plans**: TBD
 
 ### Phase 2: Contrato de plataforma e erros tipados
