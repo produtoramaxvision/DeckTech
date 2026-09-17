@@ -357,10 +357,7 @@ fase — é a restrição de ordem do rebrand.
      (`MainActivity.kt:486`) faz o APK DeckTech ser **rejeitado como update** e instalado lado a
      lado. `signaturesMatch` agrava — o fork não tem o keystore `DOKKE_RELEASE_*` do upstream.
      O critério é a decisão documentada, não um update in-place que não existe.
-**Validação nesta máquina**: **NÃO validável.** `mac/Sources/` não compila em Windows 11 e
-`android/` exige Gradle + SDK ausentes desta máquina. O S10e conectado valida o **APK já
-distribuído**, não um APK novo que não pode ser construído aqui. Critérios 1 e 5 (grep e
-documentação) validam; 2, 3 e 4 exigem um build em outra máquina ou em CI.
+**Validação nesta máquina**: **parcial — corrigido em 2026-09-17.** `mac/Sources/` não compila em Windows 11 (`which swift swiftc xcodebuild` → nenhum), então os critérios de macOS seguem não validáveis aqui. **Android É validável**: Gradle 8.5 via wrapper, Kotlin 1.9.20, SDK platforms android-34 e android-37.0, JDK 17.0.18 LTS, e `app-debug.apk` de 2.297.465 bytes construído nesta máquina em 2026-09-17 07:59. Com o Galaxy S10e em adb wireless, um APK **novo** pode ser construído, instalado e exercitado aqui — o que torna BRAND-08 e FIX-04 verificáveis empiricamente por TEST-07, não só por leitura de código.
 **Plans**: TBD
 **UI hint**: yes
 
@@ -461,7 +458,7 @@ em hardware real.
 | 8 | Integral | — |
 | 9 | **Integral + hardware real** (S10e, iPhone) | — |
 | 10 | Parcial | **PKG-05** — depende de certificado OV/EV ou Azure |
-| 11 | **NÃO validável** | Critérios 2, 3, 4 — exigem build Android/macOS em outra máquina ou CI |
+| 11 | **parcial** | Android validável aqui (Gradle 8.5 + SDK + S10e); só os critérios macOS exigem outra máquina |
 | 12 | Integral | — |
 | 13 | Parcial | **TEST-05** — step de Gradle só se prova em runner com SDK |
 
