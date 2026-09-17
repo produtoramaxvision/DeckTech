@@ -61,7 +61,7 @@ A Fase 0 conserva o número que REQUIREMENTS.md (`### Fase 0 — Prova técnica`
 **Goal**: Nenhuma incógnita de mecanismo resta aberta — o adaptador Windows sabe, por medição
 feita nesta máquina, como extrai ícone, como enumera apps e como resolve atalhos.
 **Depends on**: Nothing (primeira fase; roda em paralelo com as Fases 1, 2, 6 e 13)
-**Requirements**: PROOF-01, PROOF-02, PROOF-03, PROOF-04, PROOF-05
+**Requirements**: PROOF-01, PROOF-02, PROOF-03, PROOF-04, PROOF-05, PROOF-06, PROOF-07, PROOF-08
 **Success Criteria** (what must be TRUE):
   1. Um script de benchmark rodável imprime ms/ícone e taxa de sucesso para cada candidato
      (N-API, koffi, pool PowerShell) contra a linha de base medida de 43,2 ms do
@@ -135,7 +135,7 @@ enumeração, e o seam de injeção que ela formaliza já existe e está verific
 **Goal**: Numa máquina Windows, o servidor lista os apps instalados com ícones de 256px, lista
 processos e ativa janelas — pelo mesmo contrato que o macOS usa hoje.
 **Depends on**: Phase 2 (contrato) e Phase 0 parcialmente — ver "Gating por requisito" abaixo
-**Requirements**: PLAT-02, PLAT-03, PLAT-04, PLAT-05, PLAT-07
+**Requirements**: PLAT-02, PLAT-03, PLAT-04, PLAT-05, PLAT-07, PLAT-09, PLAT-10
 **Gating por requisito** (a Fase 0 não bloqueia esta fase inteira):
   - PLAT-03 ← PROOF-01 (mecanismo de ícone 256px) — **a única aresta que PROOF-01 cria**
   - PLAT-02 ← PROOF-02 (UWP), PROOF-03 (`.lnk`), PROOF-04 (exclusão de desinstaladores)
@@ -194,7 +194,7 @@ vale em Windows nativo, a ACL explícita ou DPAPI deixa de ser opcional.
 **Goal**: O DeckTech abre como um app Windows que sobe, supervisiona e derruba o servidor Node
 embutido, com bandeja, inicialização opcional e renderer endurecido.
 **Depends on**: Phase 2, Phase 3, Phase 4
-**Requirements**: SHELL-01, SHELL-02, SHELL-03, SHELL-04, SHELL-05, SHELL-06, SHELL-07
+**Requirements**: SHELL-01, SHELL-02, SHELL-03, SHELL-04, SHELL-05, SHELL-06, SHELL-07, SHELL-08
 **Success Criteria** (what must be TRUE):
   1. Abrir o DeckTech duas vezes foca a janela existente em vez de subir um segundo processo;
      fechar o app encerra o `utilityProcess` filho e nenhum `node.exe` fica órfão no Gerenciador
@@ -245,7 +245,7 @@ registro documentado de não-amostragem, não um valor.
 **Goal**: A janela do DeckTech abre com a sidebar, a área de caption e a ponte de plataforma do
 host — e um harness de DOM real que prova isso em vez de regex sobre arquivo-fonte.
 **Depends on**: Phase 5, Phase 6
-**Requirements**: UI-01, UI-07, UI-08, UI-11
+**Requirements**: UI-01, UI-07, UI-08, UI-11, UI-12
 **Success Criteria** (what must be TRUE):
   1. A suíte de UI sobe o app por `_electron.launch()` e lê o DOM real; nenhuma asserção de UI
      desta fase em diante é regex sobre código-fonte.
@@ -393,7 +393,7 @@ página para conferir a PWA e o layout em iOS.
 **Goal**: A suíte de testes roda sozinha em cada commit, com os binários de que precisa,
 incluindo os testes Android que hoje não rodam em lugar nenhum.
 **Depends on**: Nothing (roda em paralelo com tudo; não está no caminho crítico do host Windows)
-**Requirements**: TEST-03, TEST-04, TEST-05
+**Requirements**: TEST-03, TEST-04, TEST-05, TEST-06, TEST-07
 **Success Criteria** (what must be TRUE):
   1. Abrir um PR dispara os workflows — hoje ambos são `workflow_dispatch` only
      (`.github/workflows/test.yml:3-4`) e não rodam em nenhum commit.
