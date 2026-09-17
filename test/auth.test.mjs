@@ -103,13 +103,35 @@ test("unit: ensurePin + writePinFile / readPinFile", async () => {
     assert.match(p1, /^\d{4}$/);
     const read = await readPinFile(root);
     assert.equal(read, p1);
-    assert.equal((await stat(pinFilePath(root))).mode & 0o777, 0o600);
     await chmod(pinFilePath(root), 0o644);
     const p2 = await ensurePin(root);
     assert.equal(p2, p1); // não regenera
-    assert.equal((await stat(pinFilePath(root))).mode & 0o777, 0o600);
     await writePinFile("9999", root);
     assert.equal(await readPinFile(root), "9999");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// PROOF-07: `fs.chmod` no Windows só alterna o atributo somente-leitura (sem
+// bits POSIX de owner/group/other) — a igualdade exata `mode & 0o777 === 0o600`
+// só é uma invariante válida em POSIX. Proteção real do arquivo de PIN no
+// Windows (ACL NTFS explícita ou DPAPI) é FIX-02, ainda pendente (Fase 4);
+// até lá não há invariante de acesso restrito verificável aqui, então o
+// gate é explícito em vez de afirmar uma proteção que o produto não tem.
+const posixOnlyPinMode = process.platform === "win32"
+  ? { skip: "mode 0o600 é invariante POSIX; proteção real no Windows depende de FIX-02 (ACL NTFS/DPAPI), ainda não implementado" }
+  : {};
+
+test("unit: pin file fica com modo 0600 restrito ao dono (POSIX)", posixOnlyPinMode, async () => {
+  const root = await mkdtemp(join(tmpdir(), "j5pin-mode-"));
+  try {
+    await ensurePin(root);
+    assert.equal((await stat(pinFilePath(root))).mode & 0o777, 0o600);
+    await chmod(pinFilePath(root), 0o644);
+    await ensurePin(root); // não regenera, mas corrige o modo de volta
+    assert.equal((await stat(pinFilePath(root))).mode & 0o777, 0o600);
+    await writePinFile("9999", root);
     assert.equal((await stat(pinFilePath(root))).mode & 0o777, 0o600);
   } finally {
     await rm(root, { recursive: true, force: true });

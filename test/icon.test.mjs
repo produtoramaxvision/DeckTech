@@ -2,9 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join, sep } from "node:path";
 import { deflateSync, inflateSync } from "node:zlib";
 import { convertToPng, findIconFile, normalizePngIcon, realIconService, scanAppsDirs } from "../apps.js";
+
+// PROOF-07: monogramPng (apps.js) chama o binário `sips`, exclusivo do macOS,
+// para rasterizar o SVG de fallback (ver PLAT-04 — ainda pendente, Fase 3).
+// Sem exec injetado, esses testes exercitam o exec real e falham em qualquer
+// SO sem `sips`. Mocar o exec aqui esconderia a lacuna real (Windows fica sem
+// ícone nenhum hoje) em vez de provar que ela foi corrigida — por isso o gate,
+// e não um fallback simulado.
+const macOnlyMonogramRasterizer = process.platform === "darwin"
+  ? {}
+  : { skip: "monogramPng rasteriza via `sips` (macOS-only); Windows depende de PLAT-04 (rasterizador JS puro), ainda pendente" };
 
 function pngChunk(type, data) {
   const name = Buffer.from(type, "latin1");
@@ -136,7 +146,9 @@ test("realIconService converte icns via exec e cacheia no segundo chamado", asyn
 });
 
 test("realIconService prioriza NSWorkspace pelo path do bundle e cacheia o resultado", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "j5-icon-native-"));
+  // espaço no prefixo é deliberado: pega regressão de separador/regex hardcoded
+  // (ver PROOF-07 — a asserção original quebrava em paths com "\" no Windows).
+  const dir = await mkdtemp(join(tmpdir(), "j5-icon native-"));
   const appPath = join(dir, "Native.app");
   const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
   const helperPath = join(dir, "DokkeIconHelper");
@@ -147,7 +159,10 @@ test("realIconService prioriza NSWorkspace pelo path do bundle e cacheia o resul
       execCalls++;
       assert.equal(cmd, helperPath);
       assert.equal(args[0], appPath);
-      assert.match(args[1], new RegExp(`${join(dir, ".icon-cache")}/[a-f0-9]{40}-z512\\.png$`));
+      // path.join usa "\\" no Windows: checar containment + basename em vez de
+      // um regex com "/" hardcoded (que nunca bateria fora do POSIX).
+      assert.ok(args[1].startsWith(join(dir, ".icon-cache") + sep), "ícone deve cair dentro do cache dir");
+      assert.match(basename(args[1]), /^[a-f0-9]{40}-z512\.png$/);
       assert.equal(args[2], "512");
       await writeFile(args[1], png);
     };
@@ -193,7 +208,7 @@ test("realIconService separa o cache quando a aparência dos ícones muda", asyn
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test("realIconService gera monograma para app desconhecido", async () => {
+test("realIconService gera monograma para app desconhecido", macOnlyMonogramRasterizer, async () => {
   const svc = realIconService({ scan: async () => [], cacheDir: join(tmpdir(), "j5-cache-xyz") });
   const buf = await svc.getIconPng("Fantasma");
   assert.ok(Buffer.isBuffer(buf), "deve retornar um buffer PNG");
@@ -292,7 +307,7 @@ test("realIconService faz um único scan no TTL (N getIconPng)", async () => {
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test("realIconService miss em memória não rescaneia a cada miss", async () => {
+test("realIconService miss em memória não rescaneia a cada miss", macOnlyMonogramRasterizer, async () => {
   let scans = 0;
   const svc = realIconService({
     scan: async () => {
