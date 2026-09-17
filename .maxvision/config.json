@@ -1,0 +1,72 @@
+{
+  "model_profile": "quality",
+  "mode": "yolo",
+  "commit_docs": true,
+  "search_gitignored": false,
+  "context_window": 200000,
+  "parallelization": true,
+  "sub_repos": [],
+  "brave_search": false,
+  "firecrawl": false,
+  "exa_search": false,
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist_validation": true,
+    "auto_advance": true,
+    "auto_prune_state": false,
+    "node_repair": true,
+    "node_repair_budget": 2,
+    "use_worktrees": true,
+    "subagent_timeout": 300000,
+    "inline_plan_threshold": 2,
+    "code_review": true,
+    "code_review_depth": "standard",
+    "_auto_chain_active": false,
+    "tdd_mode": false,
+    "mvp_mode": false,
+    "discuss_mode": "discuss",
+    "text_mode": false,
+    "skip_discuss": false,
+    "research_before_questions": false,
+    "ai_integration_phase": true,
+    "ui_phase": true,
+    "ui_safety_gate": true,
+    "security_enforcement": true,
+    "security_asvs_level": 1,
+    "security_block_on": "high",
+    "plan_chunked": false,
+    "context_coverage_gate": true,
+    "post_planning_gaps": true,
+    "pattern_mapper": true
+  },
+  "git": {
+    "branching_strategy": "none",
+    "base_branch": null,
+    "phase_branch_template": "upstream/phase-{phase}-{slug}",
+    "milestone_branch_template": "upstream/{milestone}-{slug}",
+    "quick_branch_template": null
+  },
+  "features": {
+    "thinking_partner": false,
+    "global_learnings": false
+  },
+  "hooks": {
+    "context_warnings": true
+  },
+  "learnings": {
+    "max_inject": 10
+  },
+  "intel": {
+    "enabled": false
+  },
+  "manager": {
+    "flags": {
+      "discuss": "",
+      "plan": "",
+      "execute": ""
+    }
+  },
+  "granularity": "fine"
+}
