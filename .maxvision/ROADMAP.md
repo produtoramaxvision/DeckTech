@@ -82,7 +82,7 @@ em outro lugar.
 **Goal**: Um build DeckTech nunca baixa nem instala o Dokke upstream, e a linha de versão do
 DeckTech começa em `0.1.0` com os pins de teste que a guardam atualizados no mesmo commit.
 **Depends on**: Nothing (roda em paralelo com as Fases 0, 2, 6 e 13)
-**Requirements**: BRAND-01, BRAND-03, BRAND-04, BRAND-05, BRAND-11
+**Requirements**: BRAND-01, BRAND-03, BRAND-04, BRAND-05, BRAND-11, BRAND-12
 **Ordem interna obrigatória**: **BRAND-01 é o plano `01-01` desta fase.** Nenhum outro requisito
 de rebrand — nesta fase ou em qualquer outra — começa antes de BRAND-01 estar mergeado. A
 restrição é de requisito, não de fase: dependência de fase sozinha não a codifica.
@@ -111,7 +111,7 @@ erros de ação que o companion consegue exibir — sem que nenhuma rota HTTP ou
 **Depends on**: Nothing. **Esta fase não espera a Fase 0**: PLAT-01 não toca em ícones nem em
 enumeração, e o seam de injeção que ela formaliza já existe e está verificado
 (`server.js:295-298`, `apps.js:559-573`).
-**Requirements**: PLAT-01, PLAT-06, PLAT-08
+**Requirements**: PLAT-01, PLAT-06, PLAT-08, OBS-01
 **Success Criteria** (what must be TRUE):
   1. `platform/index.js` existe e, num teste que força `process.platform` para `win32` e
      `darwin`, devolve os 5 membros do contrato (`listInstalledApps`, `listAppProcesses`,
@@ -194,7 +194,7 @@ vale em Windows nativo, a ACL explícita ou DPAPI deixa de ser opcional.
 **Goal**: O DeckTech abre como um app Windows que sobe, supervisiona e derruba o servidor Node
 embutido, com bandeja, inicialização opcional e renderer endurecido.
 **Depends on**: Phase 2, Phase 3, Phase 4
-**Requirements**: SHELL-01, SHELL-02, SHELL-03, SHELL-04, SHELL-05, SHELL-06, SHELL-07, SHELL-08
+**Requirements**: SHELL-01, SHELL-02, SHELL-03, SHELL-04, SHELL-05, SHELL-06, SHELL-07, SHELL-08, OBS-02
 **Success Criteria** (what must be TRUE):
   1. Abrir o DeckTech duas vezes foca a janela existente em vez de subir um segundo processo;
      fechar o app encerra o `utilityProcess` filho e nenhum `node.exe` fica órfão no Gerenciador

@@ -31,7 +31,9 @@ zero de bytes; e 7 de 7 tasks do plano TDD herdado sobrevivem contra 4 de 7.
 | D13 | **Estado vazio de verdade**, conforme PRD §7 *(decisão do usuário)* | O Mac não tem um (`DockGridView.swift:53-60` transforma todo slot livre em `.add`). DeckTech supera a referência. A rubrica F-37 fica válida |
 | D14 | Monolito da PWA **intocado** no v1 *(decisão do usuário)* | 236 asserções leem `public/index.html` como texto. Decomposição vira fase do v2 |
 | D15 | Arquitetura do servidor no host decidida **por medição na Fase 0** *(decisão do usuário)* | `utilityProcess.fork` vs servidor no main process do Electron. A pesquisa nunca avaliou a segunda. Ver PROOF-08 |
-| D16 | **7 expansões aceitas** em revisão CEO, modo SELECTIVE EXPANSION *(decisão do usuário, 2026-09-17)* | PROOF-06, PROOF-07, PROOF-08, PLAT-09, PLAT-10, SHELL-08, UI-12, TEST-06, TEST-07. Total de requisitos v1: **76** |
+| D17 | **Observabilidade entra no v1** *(decisão do usuário)* | Log em arquivo rotativo + ação de exportar. `apps.js`, `auth.js`, `config.js` e `actions.js` têm zero `console.*` hoje. Ver OBS-01, OBS-02 |
+| D18 | **Check de update reaponta e fica desligado por flag** *(decisão do usuário)* | `gh release list` do DeckTech retorna vazio; só reapontar manda o updater para endereço sem releases. RF-10 diz que auto-update silencioso não é MVP. Ver BRAND-12 |
+| D16 | **7 expansões aceitas** em revisão CEO, modo SELECTIVE EXPANSION *(decisão do usuário, 2026-09-17)* | PROOF-06, PROOF-07, PROOF-08, PLAT-09, PLAT-10, SHELL-08, UI-12, TEST-06, TEST-07. Total de requisitos v1: **76**, depois **79** com D17 e D18 |
 
 ---
 
@@ -58,6 +60,7 @@ zero de bytes; e 7 de 7 tasks do plano TDD herdado sobrevivem contra 4 de 7.
 - [ ] **PLAT-06**: Erros tipados para falha de ação. Hoje `fail()` (`server.js:133-137`) colapsa tudo em `{ok:false,error:"erro interno"}`, violando PRD §8.3 **inclusive no macOS**. *(W3)*
 - [ ] **PLAT-07**: Equivalente Windows de `readMacIconAppearance` (`apps.js:281`) lendo `HKCU\...\Personalize\AppsUseLightTheme`. Não existe task para isso no plano herdado. *(W12)*
 - [ ] **PLAT-08**: Nenhuma rota HTTP nem mensagem WebSocket muda. O port é troca de provider, não de protocolo.
+- [ ] **OBS-01**: Logging estruturado no core. Hoje `server.js` tem 7 chamadas `console.*` e `apps.js`, `auth.js`, `config.js` e `actions.js` tem **zero** — sem logger, sem nivel, sem sink. Instrumentar entrada, saida e cada ramo significativo dos caminhos que hoje falham em silencio: `mkdirSync` engolindo erro (`server.js:935`, Q30), a cadeia de icone morrendo sem ruido (W1) e falha de foco virando 500 generico (W3). **Nunca gravar o PIN nem o cookie de sessao.** *(D17)*
 - [ ] **PLAT-09**: Cache de ícone persistente entre reinicializações, com warm em ociosidade e invalidação correta quando o app de origem é atualizado ou desinstalado. Hoje são 43,2 ms por ícone × 122 apps = 5,3 s medidos a cada scan. O PRD §10 já exige ícones assíncronos e cacheáveis; isso é cumprir o requisito por inteiro. *(E1, aceito 2026-09-17)*
 - [ ] **PLAT-10**: Parser binário de `.lnk` em Node, **condicional ao resultado de PROOF-03**. Hoje resolver 149 atalhos via COM custa 2395 ms medidos (~16 ms cada). Se PROOF-03 confirmar o ganho, ship; se não confirmar, registrar a medição e manter o COM. *(E2, aceito 2026-09-17)*
 
@@ -71,6 +74,7 @@ zero de bytes; e 7 de 7 tasks do plano TDD herdado sobrevivem contra 4 de 7.
 - [ ] **SHELL-06**: Endurecimento como critério de aceite, com teste — `contextIsolation:true`, `nodeIntegration:false`, `sandbox:true`, preload mínimo via `contextBridge`, CSP estrita, `webSecurity` on. *(W22)*
 - [ ] **SHELL-07**: Corrigir o overload de `opts.root` entre raiz estática e `pinRoot`. Se o shell passar `opts.root` apontando para o diretório servido, `GET /.j5-pin` entrega o PIN sem auth. *(W13)*
 - [ ] **SHELL-08**: Detectar bloqueio do Windows Firewall na primeira execução e oferecer criar a regra, em vez de deixar o usuário com um erro. O PRD §15 já nomeia o Firewall como bloqueador provável de UDP 3001 e HTTP. Complementa FIX-06, que explica a causa; aqui o app resolve. A criação da regra exige elevação UAC, então o fluxo precisa de consentimento explícito e caminho de recusa que não quebre o app. *(E4, aceito 2026-09-17)*
+- [ ] **OBS-02**: Sink de log em arquivo rotativo em `%LOCALAPPDATA%\DeckTech\logs`, com politica de retencao declarada, e acao na bandeja que abre a pasta. Sem isso o stdout do `utilityProcess` nao chega a lugar nenhum que o usuario alcance, e um bug reportado tres semanas depois nao tem artefato para pedir. *(D17)*
 
 ### UI desktop
 
@@ -118,6 +122,7 @@ zero de bytes; e 7 de 7 tasks do plano TDD herdado sobrevivem contra 4 de 7.
 - [ ] **BRAND-09**: Limpar a chave legada `"j5.baseURL"` em UserDefaults (`DockStore.swift:14`). *(R11)*
 - [ ] **BRAND-10**: Conteúdo novo e verdadeiro para `docs/public/tutorial-dokke.html`, que hoje narra a história de fundação pessoal do Dokke. Não é find-and-replace. *(R9)*
 - [ ] **BRAND-11**: Atribuição a Felipe Natanael preservada e visível; DeckTech soma a sua ao lado. *(D2)*
+- [ ] **BRAND-12**: Reapontar o check de versao para o DeckTech **e mante-lo desligado por flag ate a primeira release existir**. `server.js:90,97,98` apontam hoje para `felipenalves/Dokke/releases/latest` e o asset `dokke.apk`; `gh release list --repo produtoramaxvision/DeckTech` retorna vazio, entao so reapontar manda o updater para um endereco sem releases. A RF-10 do PRD diz que atualizacao automatica silenciosa nao e requisito de MVP. Religar a flag e etapa da primeira release, registrada como tal. *(D18)*
 
 ### Testes e CI
 
