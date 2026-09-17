@@ -164,4 +164,77 @@ Preenchido pelo roadmap.
 
 | REQ-ID | Fase | Status |
 |---|---|---|
-| — | — | — |
+| PROOF-01 | Fase 0 | Pendente |
+| PROOF-02 | Fase 0 | Pendente |
+| PROOF-03 | Fase 0 | Pendente |
+| PROOF-04 | Fase 0 | Pendente |
+| PROOF-05 | Fase 0 | Pendente |
+| PLAT-01 | Fase 2 | Pendente |
+| PLAT-02 | Fase 3 | Pendente |
+| PLAT-03 | Fase 3 | Pendente |
+| PLAT-04 | Fase 3 | Pendente |
+| PLAT-05 | Fase 3 | Pendente |
+| PLAT-06 | Fase 2 | Pendente |
+| PLAT-07 | Fase 3 | Pendente |
+| PLAT-08 | Fase 2 | Pendente |
+| SHELL-01 | Fase 5 | Pendente |
+| SHELL-02 | Fase 5 | Pendente |
+| SHELL-03 | Fase 5 | Pendente |
+| SHELL-04 | Fase 5 | Pendente |
+| SHELL-05 | Fase 5 | Pendente |
+| SHELL-06 | Fase 5 | Pendente |
+| SHELL-07 | Fase 5 | Pendente |
+| UI-01 | Fase 7 | Pendente |
+| UI-02 | Fase 8 | Pendente |
+| UI-03 | Fase 8 | Pendente |
+| UI-04 | Fase 8 | Pendente |
+| UI-05 | Fase 8 | Pendente |
+| UI-06 | Fase 9 | Pendente |
+| UI-07 | Fase 7 | Pendente |
+| UI-08 | Fase 7 | Pendente |
+| UI-09 | Fase 9 | Pendente |
+| UI-10 | Fase 9 | Pendente |
+| UI-11 | Fase 7 | Pendente |
+| DES-01 | Fase 6 | Pendente |
+| DES-02 | Fase 6 | Pendente |
+| DES-03 | Fase 6 | Pendente |
+| DES-04 | Fase 6 | Pendente |
+| DES-05 | Fase 6 | Pendente |
+| DES-06 | Fase 6 | Pendente |
+| PKG-01 | Fase 10 | Pendente |
+| PKG-02 | Fase 10 | Pendente |
+| PKG-03 | Fase 4 | Pendente |
+| PKG-04 | Fase 10 | Pendente |
+| PKG-05 | Fase 10 | Pendente |
+| PKG-06 | Fase 10 | Pendente |
+| BRAND-01 | Fase 1 | Pendente |
+| BRAND-02 | Fase 4 | Pendente |
+| BRAND-03 | Fase 1 | Pendente |
+| BRAND-04 | Fase 1 | Pendente |
+| BRAND-05 | Fase 1 | Pendente |
+| BRAND-06 | Fase 12 | Pendente |
+| BRAND-07 | Fase 12 | Pendente |
+| BRAND-08 | Fase 11 | Pendente |
+| BRAND-09 | Fase 11 | Pendente |
+| BRAND-10 | Fase 12 | Pendente |
+| BRAND-11 | Fase 1 | Pendente |
+| TEST-01 | Fase 6 | Pendente |
+| TEST-02 | Fase 9 | Pendente |
+| TEST-03 | Fase 13 | Pendente |
+| TEST-04 | Fase 13 | Pendente |
+| TEST-05 | Fase 13 | Pendente |
+| FIX-01 | Fase 4 | Pendente |
+| FIX-02 | Fase 4 | Pendente |
+| FIX-03 | Fase 4 | Pendente |
+| FIX-04 | Fase 11 | Pendente |
+| FIX-05 | Fase 11 | Pendente |
+| FIX-06 | Fase 11 | Pendente |
+| FIX-07 | Fase 11 | Pendente |
+| FIX-08 | Fase 6 | Pendente |
+
+**Cobertura: 67 / 67 requisitos v1 mapeados.** Nenhum órfão, nenhum requisito em duas fases.
+Distribuição por fase: 0→5, 1→5, 2→3, 3→5, 4→5, 5→7, 6→8, 7→4, 8→4, 9→4, 10→5, 11→6, 12→3, 13→3.
+
+Os itens de §v2 (WIRE-01, PWA-01, SEC-01..04, MAC-01/02, PERF-01, LAND-01) **não** aparecem nesta
+tabela: estão fora do v1 por decisão registrada e não têm fase atribuída.
+
