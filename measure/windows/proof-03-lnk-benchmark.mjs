@@ -281,6 +281,31 @@ async function main() {
     ? `--- MSI-advertised shortcuts: ${msiRows.length} found, see full report JSON for detail. Not resolved by this parser by design (see module header). ---\n`
     : '--- MSI-advertised shortcuts: 0 found on this machine (not exercised). ---\n');
 
+  // Environment-variable expansion is process.env-dependent (a different
+  // machine, service account, or shell session could have different
+  // values for %windir%/%ProgramFiles%/etc). Snapshot the actual values
+  // of every %VAR% referenced by an env-raw candidate in this run, so a
+  // future re-run can tell whether a disagreement is a real regression or
+  // just a different environment.
+  const envVarNamesReferenced = new Set();
+  const envVarPattern = /%([^%]+)%/g;
+  for (const r of rows) {
+    for (const c of r.parserCandidates) {
+      if (c.source === 'env-raw' || c.source === 'env-raw-ansi') {
+        let m;
+        while ((m = envVarPattern.exec(c.value)) !== null) envVarNamesReferenced.add(m[1]);
+      }
+    }
+  }
+  const envSnapshot = {};
+  const envKeysByLower = new Map(Object.keys(process.env).map((k) => [k.toLowerCase(), k]));
+  for (const name of envVarNamesReferenced) {
+    const realKey = envKeysByLower.get(name.toLowerCase());
+    envSnapshot[name] = realKey !== undefined ? process.env[realKey] : null;
+  }
+
+  const idListOnlyGapCount = tierCounts['parser-empty'];
+
   const report = {
     generatedAt: new Date().toISOString(),
     baseline: { count: BASELINE_COUNT, totalMs: BASELINE_MS, msPerItem: BASELINE_MS_PER_ITEM },
@@ -293,20 +318,35 @@ async function main() {
       nodeParserMsPerItem: binMs / files.length,
       speedupComLoopOverNode: comLoopMs / binMs,
     },
-    agreement: { tierCounts, comSuccess, comEmptyOrError, mismatchCount: mismatches.length },
+    agreement: {
+      tierCounts,
+      comSuccess,
+      comEmptyOrError,
+      mismatchCount: mismatches.length,
+      idListOnlyGapCount,
+      note: `${tierCounts.exact} of ${comSuccess} COM-resolved shortcuts matched exactly; ` +
+        `the other ${idListOnlyGapCount} are the IDList-only coverage gap (parser correctly ` +
+        `returns no candidate, not a wrong answer) -- not full "identical coverage", zero mismatches.`,
+    },
     categoryCensus,
+    envSnapshot,
     rows,
   };
 
   const reportPath = join(__dirname, 'proof-03-results.json');
   writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
   console.log(`Full per-shortcut report written to: ${reportPath}`);
+  console.log(`Environment variables referenced by env-var shortcuts, snapshotted for reproducibility: ${JSON.stringify(envSnapshot, null, 2)}`);
 
   if (mismatches.length > 0) {
-    console.log('\nRESULT: parser output is NOT identical to COM output -- see MISMATCHES above.');
+    console.log('\nRESULT: parser produced a WRONG target for at least one shortcut -- see MISMATCHES above. This is a real regression.');
     process.exitCode = 1;
+  } else if (idListOnlyGapCount > 0) {
+    console.log(`\nRESULT: zero mismatches. ${tierCounts.exact} of ${comSuccess} COM-resolved shortcuts matched exactly. ` +
+      `${idListOnlyGapCount} IDList-only shortcuts are an honest coverage gap (parser abstains, does not guess) -- ` +
+      'PLAT-10 needs a COM/IShellLinkW fallback for these, per docs/adr/0003.');
   } else {
-    console.log('\nRESULT: parser output matches COM output for every shortcut COM resolved.');
+    console.log('\nRESULT: parser output matches COM output for every shortcut COM resolved, with full coverage.');
   }
 }
 

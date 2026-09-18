@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T00:31:39.584Z",
+  "generatedAt": "2026-09-18T00:34:21.242Z",
   "baseline": {
     "count": 149,
     "totalMs": 2395,
@@ -7,12 +7,12 @@
   },
   "thisRun": {
     "count": 182,
-    "comLoopOnlyMs": 267.9023,
-    "comMsPerItem": 1.4719906593406595,
-    "comWallMs": 614.9798,
-    "nodeParserMs": 33.541,
-    "nodeParserMsPerItem": 0.18429120879120878,
-    "speedupComLoopOverNode": 7.987308070719419
+    "comLoopOnlyMs": 244.44330000000002,
+    "comMsPerItem": 1.343095054945055,
+    "comWallMs": 594.9693,
+    "nodeParserMs": 32.1073,
+    "nodeParserMsPerItem": 0.17641373626373627,
+    "speedupComLoopOverNode": 7.613324695629966
   },
   "agreement": {
     "tierCounts": {
@@ -26,7 +26,9 @@
     },
     "comSuccess": 178,
     "comEmptyOrError": 4,
-    "mismatchCount": 0
+    "mismatchCount": 0,
+    "idListOnlyGapCount": 8,
+    "note": "170 of 178 COM-resolved shortcuts matched exactly; the other 8 are the IDList-only coverage gap (parser correctly returns no candidate, not a wrong answer) -- not full \"identical coverage\", zero mismatches."
   },
   "categoryCensus": {
     "envVar": 42,
@@ -34,6 +36,13 @@
     "msiAdvertised": 1,
     "idListOnly": 12,
     "invalidFile": 0
+  },
+  "envSnapshot": {
+    "windir": "C:\\Windows",
+    "systemroot": "C:\\Windows",
+    "ProgramFiles": "C:\\Program Files",
+    "comspec": "C:\\Windows\\system32\\cmd.exe",
+    "SystemRoot": "C:\\Windows"
   },
   "rows": [
     {
