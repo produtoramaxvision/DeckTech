@@ -184,8 +184,16 @@ for public_file in "${PUBLIC_FILES[@]}"; do
 done
 cp "${ROOT}/../package.json" "${ROOT}/../package-lock.json" "${SRV_DIR}/"
 if command -v npm >/dev/null 2>&1; then
-  (cd "${SRV_DIR}" && npm ci --omit=dev >/dev/null 2>&1) \
-    || echo "warn: npm ci falhou — server pode não subir (dependência ws ausente)"
+  # SRV_DIR só precisa da dependência runtime (ws). --omit=dev sozinho NÃO
+  # cobre optionalDependencies (ex.: ds-store — sua dependência macos-alias
+  # tem hasInstallScript=true e só roda em darwin, ver package-lock.json —
+  # e não é usada pelo server: write-dmg-ds-store.mjs resolve "ds-store" a
+  # partir do node_modules da raiz do projeto, não do SRV_DIR do bundle).
+  # dev e optional são conjuntos de omissão independentes no npm.
+  if ! NPM_CI_OUTPUT="$(cd "${SRV_DIR}" && npm ci --omit=dev --omit=optional 2>&1)"; then
+    echo "warn: npm ci falhou — server pode não subir. Saída do npm:" >&2
+    printf '%s\n' "${NPM_CI_OUTPUT}" >&2
+  fi
 elif [ -d "${ROOT}/../node_modules" ]; then
   cp -R "${ROOT}/../node_modules" "${SRV_DIR}/node_modules"
 else
