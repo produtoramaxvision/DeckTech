@@ -46,7 +46,7 @@ import {
   pinnedLimits,
 } from "./config.js";
 import { connectOBS } from "./obs-ws.js";
-import { ensurePin, newPin, isLoopback, sessionCookie, tokenFromCookie, clearLegacyPinCookie, createSessionStore, createPinLocks, safeEqual, writePinFile } from "./auth.js";
+import { ensurePin, newPin, isLoopback, sessionCookie, tokenFromCookie, clearLegacyPinCookie, createSessionStore, createPinLocks, safeEqual, writePinFile, PIN_FILE, SESSION_FILE } from "./auth.js";
 import { WebSocketServer } from "ws";
 
 const MIME = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".apk": "application/vnd.android.package-archive" };
@@ -79,26 +79,40 @@ function sameOrigin(req) {
   }
 }
 
+// BRAND-12 / D18 / RF-10: DeckTech has NO releases yet
+// (gh release list --repo produtoramaxvision/DeckTech returns empty), so repointing alone
+// aims the updater at an empty address. Keep the version check DISABLED behind an explicit
+// flag until the first release exists. PRD RF-10 states silent auto-update is not an MVP
+// requirement. Re-enabling the flag (setting ENABLE_VERSION_CHECK = true) is a first-class
+// step of the first release.
+export const ENABLE_VERSION_CHECK = false;
+
 // versão publicada no GitHub (releases/latest) — stale-while-revalidate; nunca bloqueia o request
 // usa redirect da URL pública (sem API → sem rate limit)
 const VERSION_CACHE_MS = 10 * 60 * 1000;
 const versionCache = { value: null, age: 0, refreshing: null };
-async function refreshVersion() {
+export async function refreshVersion(options = {}) {
+  const enabled = options.enableVersionCheck ?? ENABLE_VERSION_CHECK;
+  if (!enabled) return null;
   if (versionCache.refreshing) return versionCache.refreshing;
   versionCache.refreshing = (async () => {
     let timer = null;
     try {
       const ctrl = new AbortController();
       timer = setTimeout(() => ctrl.abort(), 5000);
-      const r = await fetch("https://github.com/felipenalves/Dokke/releases/latest",
+      const fetchImpl = options.fetch ?? fetch;
+      const r = await fetchImpl("https://github.com/produtoramaxvision/DeckTech/releases/latest",
         { redirect: "manual", signal: ctrl.signal });
       const loc = r.headers.get("location") || "";
       const m = loc.match(/\/releases\/tag\/([^/]+)$/);
       if (!m) return;
       versionCache.value = {
         tag: m[1],
-        htmlUrl: "https://github.com/felipenalves/Dokke/releases/tag/" + m[1],
-        apkUrl: "https://github.com/felipenalves/Dokke/releases/latest/download/dokke.apk",
+        htmlUrl: "https://github.com/produtoramaxvision/DeckTech/releases/tag/" + m[1],
+        // NOTE (BRAND-01/BRAND-08/BRAND-12): apkUrl uses dokke.apk until the Android rebrand
+        // (BRAND-08 in Phase 11) renames the release asset (e.g. decktech.apk) in lockstep with
+        // MainActivity.kt:458 and docs/src/main.js:5. Inactive while ENABLE_VERSION_CHECK is false.
+        apkUrl: "https://github.com/produtoramaxvision/DeckTech/releases/latest/download/dokke.apk",
       };
       versionCache.age = Date.now();
     } catch {
@@ -109,13 +123,23 @@ async function refreshVersion() {
   })();
   return versionCache.refreshing;
 }
-refreshVersion();
+if (ENABLE_VERSION_CHECK) {
+  refreshVersion();
+}
 
-function latestVersionSnapshot() {
+export function latestVersionSnapshot(options = {}) {
+  const enabled = options.enableVersionCheck ?? ENABLE_VERSION_CHECK;
+  if (!enabled) return null;
   if (!versionCache.age || Date.now() - versionCache.age >= VERSION_CACHE_MS) {
-    refreshVersion();
+    refreshVersion(options);
   }
   return versionCache.value;
+}
+
+export function resetVersionCacheForTest() {
+  versionCache.value = null;
+  versionCache.age = 0;
+  versionCache.refreshing = null;
 }
 
 const SEC_HEADERS = {
@@ -200,7 +224,16 @@ const STATUS_POLL_MS = 1500;
  * reinício de roteador). Zero deps — dgram é builtin do Node.
  */
 const DISCOVERY_PORT = 3001;
-export const DISCOVERY_MAGIC = "dokke:discover";
+// WIRE-01 (D19): Dual-accept discovery magic, DeckTech primary.
+// Legacy "dokke:discover" support scheduled for removal: 2027-03-18.
+export const DISCOVERY_MAGIC = "decktech:discover";
+export const DISCOVERY_MAGIC_LEGACY = "dokke:discover";
+export const DECKTECH_HEADER = "x-decktech";
+
+export function isDeckTechClient(req) {
+  if (!req || !req.headers) return false;
+  return "x-decktech" in req.headers;
+}
 
 function ipv4ToInt(ip) {
   const parts = ip.split(".").map(Number);
@@ -231,14 +264,24 @@ function localIpFor(peerIp) {
   return null;
 }
 
-/** Sobe o listener UDP que responde "dokke:<ip>:<porta>" pra quem perguntar. */
+/** Sobe o listener UDP que responde ao broadcast de descoberta. */
 export function startDiscovery(port = DISCOVERY_PORT, { portHint = 3000, log = console.log } = {}) {
   const sock = createSocket("udp4");
   sock.on("message", (msg, rinfo) => {
-    if (msg.toString("utf8").trim() !== DISCOVERY_MAGIC) return;
+    const text = msg.toString("utf8").trim();
+    let prefix = null;
+    if (text === DISCOVERY_MAGIC) {
+      prefix = "decktech";
+    } else if (text === DISCOVERY_MAGIC_LEGACY) {
+      // WIRE-01 (D19): Legacy Dokke UDP discovery reply prefix.
+      // Removal date: 2027-03-18.
+      prefix = "dokke";
+    } else {
+      return;
+    }
     const ip = localIpFor(rinfo.address);
     if (!ip) return;
-    const reply = `dokke:${ip}:${portHint}`;
+    const reply = `${prefix}:${ip}:${portHint}`;
     sock.send(reply, rinfo.port, rinfo.address);
     log(`[discover] ${rinfo.address}:${rinfo.port} → ${reply}`);
   });
@@ -432,7 +475,18 @@ export function makeApp(deps = {}) {
       }
       return { ok: true, position: body.position };
     };
-    if (url.pathname === "/health") { res.writeHead(200, JSON_HEADERS); res.end(JSON.stringify({ ok: true, service: "Dokke" })); return; }
+    if (url.pathname === "/health") {
+      res.writeHead(200, JSON_HEADERS);
+      if (isDeckTechClient(req)) {
+        res.end(JSON.stringify({ ok: true, service: "DeckTech" }));
+        return;
+      }
+      // WIRE-01 (D19): Legacy Dokke health response byte-for-byte.
+      // Android companion (MainActivity.kt:346) and Mac (ServerManager.swift:232)
+      // query health with no distinguishing headers. Removal date: 2027-03-18.
+      res.end(JSON.stringify({ ok: true, service: "Dokke" }));
+      return;
+    }
     if (url.pathname === "/api/probe") {
       const flags = Object.fromEntries(url.searchParams);
       console.log("[probe]", JSON.stringify({ ua: req.headers["user-agent"], ...flags }));
@@ -445,7 +499,10 @@ export function makeApp(deps = {}) {
         const raw = readFileSync(join(root, "version.json"), "utf8");
         local = JSON.parse(raw);
       } catch {}
-      ok({ ok: true, local, latest: latestVersionSnapshot() });
+      const getLatest = typeof deps.latestVersionSnapshot === "function"
+        ? deps.latestVersionSnapshot
+        : () => latestVersionSnapshot({ enableVersionCheck: deps.enableVersionCheck });
+      ok({ ok: true, local, latest: getLatest() });
       return;
     }
     // ---------- auth: pin de 4 dígitos (gate do kiosk da LAN) ----------
@@ -863,11 +920,14 @@ export function makeApp(deps = {}) {
     }
     // Status p/ app Mac: quantos devices escutam o WS + health
     if (url.pathname === "/api/status" && req.method === "GET") {
+      const isDeckTech = isDeckTechClient(req);
       Promise.resolve()
         .then(() => readConfig())
         .then(cfg => ok({
           ok: true,
-          service: "Dokke",
+          // WIRE-01 (D19): Dual-accept service identity for /api/status.
+          // Legacy "Dokke" removal date: 2027-03-18.
+          service: isDeckTech ? "DeckTech" : "Dokke",
           devices: typeof getDeviceCount === "function" ? getDeviceCount() : 0,
           pinned: cfg.pinned.length,
           config: {
@@ -1088,15 +1148,15 @@ export async function startServer(arg = {}) {
   const configFile = configProvided ? null : (opts.configFile ?? userConfig);
   // pin de acesso (4 dígitos): fixo em .j5-pin, só regenera via POST /api/pin
   const pinRoot = opts.root ?? dataDir;
-  if (!existsSync(join(pinRoot, ".j5-pin"))) {
+  if (!existsSync(join(pinRoot, PIN_FILE))) {
     try {
-      const legacy = join(import.meta.dirname, ".j5-pin");
-      if (existsSync(legacy)) copyFileSync(legacy, join(pinRoot, ".j5-pin"));
+      const legacy = join(import.meta.dirname, PIN_FILE);
+      if (existsSync(legacy)) copyFileSync(legacy, join(pinRoot, PIN_FILE));
     } catch {}
   }
   let currentPin = await ensurePin(pinRoot);
   // sessões persistem no dataDir: reinício não desloga os kiosks
-  const sessionStore = opts.sessionStore ?? createSessionStore({ file: join(dataDir, "j5-sessions.json") });
+  const sessionStore = opts.sessionStore ?? createSessionStore({ file: join(dataDir, SESSION_FILE) });
   opts.auth = {
     getPin: () => currentPin,
     setPin: async (p) => {

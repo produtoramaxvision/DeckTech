@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.8 — próxima release
+## v0.1.0 — próxima release
 
 Esta versão consolida a experiência multiplataforma do Dokke, adiciona suporte
 a inglês e prepara a atualização pelo próprio macOS e Android.

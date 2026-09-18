@@ -6,6 +6,8 @@
 
 <p align="center"><a href="README.md">Leia este README em português</a></p>
 
+> **Origin and Attribution:** DeckTech is developed by Produtora MaxVision under the MIT License, as a fork of [Dokke](https://github.com/felipenalves/Dokke) originally created by [Felipe Alves (Felipe Natanael)](https://github.com/felipenalves) under the MIT License. All credits to the original author and project are preserved.
+
 <p align="center">
   <b>An app dock that syncs from your Mac to any device on your LAN.</b><br>
   It started with an old Galaxy J5 — today it runs on Android, iPhone, or any browser.
@@ -104,3 +106,9 @@ npm test
 ```
 
 See the [Portuguese README](README.md) for the complete reference and current release notes.
+
+## License and Attribution
+
+DeckTech is released under the MIT License by Produtora MaxVision.
+
+This project is a fork of [Dokke](https://github.com/felipenalves/Dokke) v0.2.8, originally created and developed by [Felipe Alves (Felipe Natanael)](https://github.com/felipenalves) under the MIT License. Full attribution and credit for the original creation of Dokke are preserved alongside DeckTech.

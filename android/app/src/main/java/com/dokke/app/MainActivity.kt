@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
     private var updateReceiverRegistered = false
     private var updateExpectedVersion: String? = null
 
-    private val updateApkBaseUrl = "https://github.com/felipenalves/Dokke/releases/download"
+    private val updateApkBaseUrl = "https://github.com/produtoramaxvision/DeckTech/releases/download"
     private val updateMime = "application/vnd.android.package-archive"
     private val updateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
