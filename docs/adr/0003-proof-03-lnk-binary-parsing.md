@@ -1,14 +1,86 @@
 # ADR-0003: Binary `.lnk` parsing in Node vs COM (`WScript.Shell`)
 
-- Status: Accepted (revised after round-2, round-3 AND round-4 review — see
-  "Round-4 revision" below, then "Round-3 revision", then "Round-2
-  revision")
+- Status: Accepted (revised after round-2, round-3, round-4 AND round-5
+  review — see "Round-5 revision" below, then "Round-4 revision", then
+  "Round-3 revision", then "Round-2 revision")
 - Date: 2026-09-17
 - Requirement: PROOF-03 (`.maxvision/REQUIREMENTS.md` Fase 0), gates PLAT-10
 - Supersedes: nothing. First measurement of unvalidated assumption U5
   (`.maxvision/research/SUMMARY.md:646`).
 
-## Round-4 revision (this document)
+## Round-5 revision (this document)
+
+A rigorous reviewer rejected the round-4 version of this ADR on two
+findings, both about mislabeling commits already in this repository —
+no re-measurement was needed or performed for either fix:
+
+1. **[blocker, fixed]** The "8.8x–16.4x" headline speedup span was
+   twice asserted (at what were then lines 583/600 and 976–983) to come
+   from "SEVEN independent... repo-verifiable n=5 runs" or "this round's
+   five committed runs." Neither framing survives `git log --format=%h
+   -- measure/windows/proof-03-results.json` (six commits total:
+   `6932c45`, `14a44ac`, `1fa06ae`, `7819df6`, `9d61338`, `7630634`)
+   cross-checked with `git show <sha>:measure/windows/
+   proof-03-results.json` on each: only FOUR of those six carry a
+   `warm.n === 5` block — `6932c45` (median 11.586x), `7819df6` (median
+   13.191x), `1fa06ae` (median 13.770x), `14a44ac` (median 16.428x); the
+   other two (`9d61338`, `7630634`) are single-run, pre-warm-block
+   commits (see finding 2). This round's own "Corroborating run A–D"
+   (this document's "Measured result" table) were never committed as
+   their own artifacts — `49af228`'s own commit message documents that
+   a post-commit smoke-test run silently overwrote
+   `proof-03-results.json` with a different run's numbers before it was
+   `git restore`d back to the canonical (`6932c45`) run, and nothing in
+   this repository's history or working tree contains A–D's raw JSON.
+   And `7819df6` — a genuinely committed n=5 run — was never once cited
+   in the "Measured result" or "Decision" sections, despite the
+   provenance-audit sentence in "Round-4 revision" item 2 naming it as a
+   commit that revision inspected. Fixed: the headline everywhere in
+   this document is now **11.6x–16.4x, across the FOUR repo-verifiable
+   committed n=5 runs** `6932c45`, `7819df6`, `1fa06ae`, `14a44ac` (each
+   independently reproducible right now via `git show
+   <sha>:measure/windows/proof-03-results.json`); the "Corroborating run
+   A–D" cluster is relabeled everywhere as **first-party, this-session,
+   NOT committed** — real, but not independently verifiable by a third
+   party from this repository — and quoted separately, never folded
+   into the repo-verifiable count. Every dependent figure is corrected
+   to match: the factor across the four committed medians' own extremes
+   is **1.42x** (16.428 ÷ 11.586), not the 1.86x/1.93x figures computed
+   against the uncommitted cluster (those remain, correctly scoped, as
+   separate wider-range numbers); the absolute per-scan saving
+   (COM-median minus Node-median) recomputed across the same four
+   committed runs is still **0.23–0.46 s** (226.5 ms `7819df6`, 254.1 ms
+   `1fa06ae`, 289.5 ms `14a44ac`, 456.3 ms `6932c45` — arithmetic on
+   `warm.nodeParserMs.median`/`warm.comLoopOnlyMs.median`, already
+   present in each committed JSON, not a new run), so the Decision's
+   absolute-saving claim now rests on the identical four-run,
+   fully-repo-verifiable set as the ratio, rather than partly on the
+   uncommitted cluster it previously depended on; and every "seven" /
+   "nine" sample-count reference is corrected to "four repo-verifiable"
+   (the headline) or "ten total across three provenance classes" (four
+   repo-verifiable + four uncommitted first-party + two second-hand
+   reviewer-reported — up from round 4's miscounted nine, now that
+   `7819df6` is counted). See "Measured result" and "Decision" below for
+   every corrected occurrence.
+2. **[major, fixed]** The provenance-audit sentence in "Round-4
+   revision" item 2 named six commits as "every commit that touched the
+   results file": `7819df6`, `1fa06ae`, `49af228`, `ceac0c1`,
+   `a1ec19b`, `14a44ac`. Three of those (`49af228`, `ceac0c1`,
+   `a1ec19b`) are docs-only commits — `git show --stat <sha> --
+   measure/windows/proof-03-results.json` returns nothing for each,
+   confirming they never touched that path — while two commits that DID
+   touch it, `9d61338` and `7630634`, were left off the list entirely.
+   Fixed: that sentence now names the six commits `git log` actually
+   returns for this path, states separately that `49af228`, `ceac0c1`
+   and `a1ec19b` are docs-only commits inspected for prose changes to
+   this ADR (not run data), and notes that `9d61338` and `7630634`
+   predate this document's warm-n=5 harness and carry single-run (not
+   n=5) timings — 7.61x (`9d61338`) and 7.99x (`7630634`, the original
+   `feat` commit) — so a reader who follows the audit instruction and
+   inspects all six commits does not land on two unexplained numbers
+   below every range this document states.
+
+## Round-4 revision
 
 A rigorous reviewer rejected the round-3 version of this ADR and the
 benchmark behind it. One blocker, two major, two minor. All five are
@@ -55,8 +127,17 @@ What changed, in order of severity:
    warm min/max). Beyond that one sentence, every number in this document
    attributed to "the reviewer" was audited against this repo's git
    history while preparing this revision (`git show <sha>:measure/windows/
-   proof-03-results.json` for every commit that touched the results file:
-   `7819df6`, `1fa06ae`, `49af228`, `ceac0c1`, `a1ec19b`, `14a44ac`). That
+   proof-03-results.json` for every commit that actually touches the
+   results file, per `git log --format=%h -- measure/windows/
+   proof-03-results.json`: `6932c45`, `14a44ac`, `1fa06ae`, `7819df6`,
+   `9d61338`, `7630634` — corrected in round 5, see "Round-5 revision"
+   finding 2 above; `49af228`, `ceac0c1` and `a1ec19b` are docs-only
+   commits that touched this ADR's prose and never that JSON — `git show
+   --stat <sha> -- measure/windows/proof-03-results.json` returns
+   nothing for each — and do not belong in this list. Of the six that do
+   touch it, `9d61338` and `7630634` predate this document's warm-n=5
+   harness and carry single-run timings — 7.61x and 7.99x respectively,
+   both below every range this document states). That
    audit found the four numbers underpinning the "12.3x–17.0x" headline
    split cleanly into two provenance classes, and this document now labels
    them as such everywhere they appear (not narrowed, not re-ordered — see
@@ -580,58 +661,90 @@ order-of-magnitude gap:
 | Corroborating run C | 266.9 ms | 1.47 | 11.0x | 28.86 ms | 9.2x (8.5x–16.0x) |
 | Corroborating run D | 324.1 ms | 1.78 | 9.0x | 36.72 ms | 9.3x (7.0x–12.1x) |
 
-Every one of these five runs is reproducible from THIS repository at its
-current commit — no reviewer-only, second-hand number is used in this
-table (contrast with the provenance audit in "Round-4 revision" item 2
-above). No re-measurement of the original 149-shortcut run is attempted or
-possible: as established in round 2/3, that script "was not preserved in
-the repo" (see "The COM baseline: two separate open questions" below,
-which replaces the old "149-vs-182 denominator" section and keeps that
-finding, unreconciled, as its OWN, separate question from this one).
+**Corrected in round 5 (round-5 blocker finding 1):** only the Canonical
+row above is committed to this repository — `git show
+6932c45:measure/windows/proof-03-results.json` reproduces it exactly.
+The four "Corroborating run A–D" rows are real, first-party
+measurements from this same session but were never committed as their
+own artifacts (the committed `proof-03-results.json` holds one run per
+commit, and each corroborating run was superseded by the next before
+any of them was committed — see "Round-5 revision" finding 1 above);
+they are this-session, not second-hand, but also not independently
+reproducible by a third party from this repository the way the
+Canonical row is. No re-measurement of the original 149-shortcut run is
+attempted or possible: as established in round 2/3, that script "was
+not preserved in the repo" (see "The COM baseline: two separate open
+questions" below, which replaces the old "149-vs-182 denominator"
+section and keeps that finding, unreconciled, as its OWN, separate
+question from this one).
 
-**The warm speedup claim** is now a WIDER span than any prior round
-reported, because round-4's own five runs measured notably lower ratios
-than round-2's and round-3's committed runs did — this is a real
-observation about COM's variance, not something to suppress in favor of a
-narrower-looking number. Stated with full provenance, not narrowed and not
-re-ordered from prior rounds (round-4 major finding 2): the warm-median
-speedup observed across SEVEN independent n=5 measurements that are
-verifiable from this repository's git history or its current state spans
-**8.8x–16.4x**: round-2's committed run (`git show
-1fa06ae:measure/windows/proof-03-results.json`, median 13.8x, n=5 range
-12.1x–18.5x), round-3's committed run (`git show
-14a44ac:measure/windows/proof-03-results.json`, median 16.4x, n=5 range
-11.6x–18.3x), and this round's five runs (medians 11.6x, 9.7x, 8.8x, 9.2x,
-9.3x — table above; median of these five is 9.3x). Separately, second-hand
-and NOT reproducible from anything
-committed in this repository (the round-3 reviewer's own re-runs, on
-their own machine/session): medians of 17.0x and 12.3x. Combining the
-repo-verifiable seven with the reviewer's second-hand two gives an overall
-reported range of 8.8x–17.0x across nine n=5 samples — noticeably wider
-than round 3's "12.3x–17.0x, consistent to within a factor of ~1.4" claim,
-which this document no longer repeats: the actual factor across the
-nine known medians is closer to 1.93x (17.0 ÷ 8.8), and this revision
-states that directly rather than re-asserting a tighter bound that this
-round's own re-measurement contradicts. At the level of individual
-iterations (not medians), the observed spread is wider still — this
-round's five runs alone span 7.0x–16.0x (the 7.0x is corroborating run D's
-own min; the 16.0x is corroborating run C's single high outlier, `raw:
-[248.1, 266.9, 278.0, 259.8, 412.7]` ms for COM, driven by one slow 412.7
-ms iteration; the RATIO 16.0x it produces, `412.7 ÷ 25.85`, is real but
-should not be read as typical for this round — see run C's own median,
-9.2x, for that). **What is unchanged from round 3: no cold/first-touch
-speedup is claimed at all** — the previously deleted 9.5x–10.2x cold range
-stays deleted, for the same reason (round-3 blocker 1, unaffected by
-anything in round 4).
+**The warm speedup claim (corrected in round 5 — round-5 blocker
+finding 1):** the warm-median speedup observed across the FOUR
+independent n=5 runs that are actually committed to this repository and
+independently reproducible right now by anyone via `git show
+<sha>:measure/windows/proof-03-results.json` spans **11.6x–16.4x**:
+`6932c45` (this round's canonical run, median 11.586x, n=5 range
+9.0x–14.1x), `7819df6` (round 2's first committed run, median 13.191x,
+n=5 range 12.4x–15.4x — cited in the provenance audit above but not
+previously quoted in this section, round-5 major finding 2), `1fa06ae`
+(round 2's second, final committed run, median 13.770x, n=5 range
+12.1x–18.5x), and `14a44ac` (round 3's committed run, median 16.428x,
+n=5 range 11.6x–18.3x). The factor between this four-run set's own
+extremes is **1.42x** (16.428 ÷ 11.586) — close to round 3's retracted
+"~1.4" claim, arrived at independently here from the correctly-scoped
+repo-verifiable set, not by re-asserting that claim. At the iteration
+level (not medians), these four runs' 20 warm iterations span
+**9.0x–18.5x** (min from `6932c45`, max from `1fa06ae`).
 
-**Absolute magnitude, not just the ratio (round-4 blocker finding 1):**
-across this round's five runs, the binary reader saves COM-median minus
-Node-median per full 182-shortcut scan: 456.3 ms (canonical run), 253.5 ms
-(A), 234.2 ms (B), 238.0 ms (C), 287.4 ms (D) — **roughly a quarter to
-half a second per full scan on this machine (0.23–0.46 s across five
-independent runs)**, not the ~2.4 s the 16 ms/shortcut premise would
-suggest for a similarly-sized shortcut set. Even at this range's own high
-end, it is still 5x smaller than the naive 2.4 s extrapolation. See
+Separately — and explicitly NOT part of the headline, because neither
+cluster is independently reproducible from this repository — two more
+clusters of real measurements exist: (1) this round's own four
+"Corroborating run A–D" (table above; medians 9.7x, 8.8x, 9.2x, 9.3x;
+iteration-level span 7.0x–16.0x, the 7.0x from run D's own min and the
+16.0x from run C's single high outlier, `raw: [248.1, 266.9, 278.0,
+259.8, 412.7]` ms for COM, driven by one slow 412.7 ms iteration — the
+ratio is real but not typical for that run, see its own median 9.2x) —
+first-party, this-session, but never committed as their own artifact,
+so a third party cannot reproduce them from this repository; and (2)
+the round-3 reviewer's own two re-runs (medians 17.0x and 12.3x) —
+second-hand, reported in that round's review findings, run on the
+reviewer's own machine/session, likewise not reproducible from anything
+committed here. Combining all three clusters gives an overall observed
+range of **8.8x–17.0x across ten n=5 samples** (four repo-verifiable,
+four uncommitted first-party, two second-hand) — consistent with round
+3's retracted "12.3x–17.0x" bound at its upper end, but this document
+does not restate round 3's "~1.4" factor as a property of that combined
+ten-sample set: the factor across all ten known medians is 1.93x (17.0
+÷ 8.8), or 1.87x restricted to the eight first-party (committed +
+uncommitted) medians (16.428 ÷ 8.8) — both wider than the 1.42x above,
+because both include clusters that figure deliberately excludes. In
+both cases the 8.8x/17.0x table/reviewer figures carry only the
+one-decimal precision they were originally reported at (the uncommitted
+cluster's own raw JSON no longer exists to re-derive a finer figure
+from), so 1.93x/1.87x should be read at that same precision, not as
+five-decimal-accurate as the 1.42x computed from two committed runs'
+full-precision medians.
+**What is unchanged from round 3: no cold/first-touch speedup is
+claimed at all** — the previously deleted 9.5x–10.2x cold range stays
+deleted, for the same reason (round-3 blocker 1, unaffected by anything
+in round 4 or 5).
+
+**Absolute magnitude, not just the ratio (round-4 blocker finding 1;
+re-scoped to the repo-verifiable set in round 5):** across the same
+FOUR repo-verifiable committed runs the ratio above uses, the binary
+reader saves COM-median minus Node-median per full 182-shortcut scan:
+226.5 ms (`7819df6`), 254.1 ms (`1fa06ae`), 289.5 ms (`14a44ac`), 456.3
+ms (`6932c45`, canonical) — **roughly a quarter to half a second per
+full scan on this machine (0.23–0.46 s across four committed runs)**,
+not the ~2.4 s the 16 ms/shortcut premise would suggest for a
+similarly-sized shortcut set. This is arithmetic on each committed
+run's own `warm.nodeParserMs.median` and `warm.comLoopOnlyMs.median`
+fields, already present in the committed JSON, not a new measurement.
+Even at this range's own high end, it is still 5x smaller than the
+naive 2.4 s extrapolation. (This round's four uncommitted
+"Corroborating run A–D" figures — 253.5 ms, 234.2 ms, 238.0 ms, 287.4
+ms — fall inside this same 0.23–0.46 s band and are not needed to
+establish it; they are not cited here, for the reason given above.) See
 "Decision" below for why this matters for PLAT-10's motivation.
 
 COM's own loop-only time varies substantially both run to run and within a
@@ -648,7 +761,9 @@ round-3 reviewer's own two re-runs measured COM warm MEDIANS of 441.8 ms
 and 321.8 ms — second-hand, not reproducible from this repo — a ~120 ms
 difference between two back-to-back re-runs on the same machine, on top of
 whatever intra-run variance each of those runs also had; this round's own
-five committed runs add FIVE more data points to that same picture (COM
+five runs (one committed — the canonical `6932c45` run — plus four
+uncommitted first-party corroborating runs, round-5 blocker finding 1)
+add FIVE more data points to that same picture (COM
 warm medians 499.0 ms, 282.4 ms, 263.5 ms, 266.9 ms, 324.1 ms — a ~235 ms
 spread of their own, wider than either reviewer pair or either prior
 round's single committed run). Other software was running concurrently on
@@ -716,7 +831,8 @@ re-run.
 the one round 3 mislabeled as (A).** Independent of which file-count
 reading is correct, `16.07 ms/shortcut` (`2395 ms ÷ 149`) does not match
 what the SAME `WScript.Shell` mechanism measures on this machine today:
-this round's five committed runs measured COM warm-median per-item rates
+this round's five runs (one committed, four uncommitted first-party —
+round-5 blocker finding 1) measured COM warm-median per-item rates
 of 2.74, 1.55, 1.45, 1.47, and 1.78 ms/shortcut — all roughly an order of
 magnitude below the baseline's rate, over a LARGER file count, which is
 the opposite of what a denominator effect could produce (see "Measured
@@ -733,12 +849,14 @@ and, separately and additionally, as comparing against a total that this
 round establishes does not reproduce on this machine via the same
 mechanism (B, above):** `16.07 ms/shortcut` (`2395/149`) is the research
 doc's own number, restated here for context, not re-derived or extended
-into a speedup claim. This ADR's speedup claim (an 8.8x–16.4x span of
-warm medians across seven independently repo-verifiable n=5 runs —
-round-2's and round-3's committed runs plus this round's own five —
-widening to 8.8x–17.0x if the round-3 reviewer's two second-hand medians
-are included; this round's own canonical run median is 11.6x; no
-cold/iteration-0 ratio is claimed at all — round-3 blocker 1) is computed
+into a speedup claim. This ADR's speedup claim (an 11.6x–16.4x span of
+warm medians across the FOUR independently repo-verifiable committed
+n=5 runs — `6932c45`, `7819df6`, `1fa06ae`, `14a44ac`, round-5 blocker
+finding 1 — widening to 8.8x–17.0x across ten total n=5 samples if this
+round's four uncommitted first-party runs and the round-3 reviewer's two
+second-hand medians are also included; this round's own canonical run
+median is 11.6x; no cold/iteration-0 ratio is claimed at all — round-3
+blocker 1) is computed
 against each run's OWN
 COM measurement (182 shortcuts, both paths, same process, same machine,
 same moment) — not against the 149 baseline — specifically to avoid
@@ -973,52 +1091,71 @@ parser produced somewhere in a candidate list:
    the discriminating `135 + 35 = 170` decomposition and a real mutation
    test (see "Verifying the fix" above).
 2. A warm-state speedup over COM, measured with warmup and repetition
-   across SEVEN independent, repo-verifiable n=5 runs (round-2's and
-   round-3's committed runs, plus this round's own five), claimed as the
-   span of their medians, not any single run's min/max: **8.8x–16.4x**
-   (round-2 committed 13.8x — `git show
-   1fa06ae:measure/windows/proof-03-results.json`; round-3's own committed
-   run 16.4x — `git show 14a44ac:measure/windows/proof-03-results.json`;
-   this round's five committed runs 11.6x, 9.7x, 8.8x, 9.2x, 9.3x — this
-   document's current state). Widening to **8.8x–17.0x** if the round-3
-   reviewer's two second-hand, non-repo-verifiable medians (17.0x, 12.3x)
-   are included alongside the seven verifiable ones — round-4 major
-   finding 2 requires this distinction be stated, not blurred into one
-   undated list of nine equal-looking numbers. Individual iterations
-   across all nine n=5 samples' 45 total warm data points ranged still
-   more widely (as low as 7.0x, one of this round's corroborating runs'
-   own min, to as high as 18.5x, round-2's own committed max) — an
-   OBSERVED spread of data points, not a claimed bound. **Round 3 claimed
-   this span was "consistent to within a factor of ~1.4" (12.3x–17.0x);
-   this document retracts that claim rather than repeating it** —
-   round-4's own re-measurement (medians as low as 8.8x, across five
-   independent runs) widens the known factor to roughly 1.93x (17.0x ÷
-   8.8x among the nine known medians, or 1.86x among the seven
-   repo-verifiable ones), and this decision states that directly instead
-   of quoting a narrower range this round's own evidence contradicts.
+   across FOUR independent, repo-verifiable COMMITTED n=5 runs
+   (round-5 blocker finding 1 — corrected from round 4's inaccurate
+   "seven"), claimed as the span of their medians, not any single run's
+   min/max: **11.6x–16.4x** (`6932c45`, this round's own canonical run,
+   11.6x; `7819df6`, round 2's first committed run, 13.2x — `git show
+   7819df6:measure/windows/proof-03-results.json`; `1fa06ae`, round 2's
+   final committed run, 13.8x — `git show
+   1fa06ae:measure/windows/proof-03-results.json`; `14a44ac`, round 3's
+   committed run, 16.4x — `git show
+   14a44ac:measure/windows/proof-03-results.json`). The factor between
+   these four medians' own extremes is **1.42x** (16.428 ÷ 11.586).
+   Separately, and explicitly NOT folded into this headline because
+   neither cluster is independently reproducible from this repository:
+   this round's own four uncommitted, first-party "Corroborating run
+   A–D" measurements (9.7x, 8.8x, 9.2x, 9.3x) and the round-3 reviewer's
+   two second-hand medians (17.0x, 12.3x). Combining all three clusters
+   (four repo-verifiable + four uncommitted first-party + two
+   second-hand) gives an overall observed range of **8.8x–17.0x across
+   ten n=5 samples** — round-4 major finding 2 required the two-way
+   repo-verifiable/second-hand split; round-5 blocker finding 1 extends
+   it to this three-way split, now that the uncommitted-but-first-party
+   cluster is correctly distinguished from both the other two. Individual iterations across the four
+   repo-verifiable runs' 20 total warm data points span 9.0x–18.5x;
+   widening to all ten runs' 50 total warm data points, the observed
+   spread is 7.0x–18.5x (the 7.0x is one of the uncommitted
+   corroborating runs' own min; the 18.5x is `1fa06ae`'s own committed
+   max) — an OBSERVED spread of data points, not a claimed bound.
+   **Round 3 claimed this span was "consistent to within a factor of
+   ~1.4" (12.3x–17.0x); this document retracts that claim as a
+   description of the combined ten-sample set, but the four
+   repo-verifiable medians alone DO span a 1.42x factor** — round 5
+   states both numbers, correctly scoped, rather than picking one: 1.42x
+   across the four committed runs, 1.93x across all ten known medians
+   (17.0x ÷ 8.8x), or 1.87x across the eight first-party (committed +
+   uncommitted) medians (16.428x ÷ 8.8x) if the second-hand pair is
+   excluded but the uncommitted cluster is kept — 1.93x and 1.87x both
+   carry only the one-decimal precision the 8.8x/17.0x figures were
+   originally reported at, not the five-decimal precision of 1.42x.
    **No cold/first-touch speedup is claimed at all** — round-3 blocker 1
    found the previously-claimed 9.5x–10.2x cold range does not reproduce
    on a genuinely first-touch run (measured 2.2x and 12.5x across two
    attempts, moving in opposite directions for Node vs COM — second-hand,
    reviewer-reported, not reproducible from this repo), so that number
    stays deleted from this decision, not restated with different bounds.
-3. **The ABSOLUTE saving, not only the ratio (round-4 blocker finding 1):**
+3. **The ABSOLUTE saving, not only the ratio (round-4 blocker finding 1;
+   re-scoped to the repo-verifiable set in round 5):**
    the binary reader saves roughly a QUARTER TO HALF A SECOND (0.23–0.46 s
-   across this round's five runs) per full 182-shortcut Start Menu scan
+   across the same four repo-verifiable committed runs the ratio above
+   uses) per full 182-shortcut Start Menu scan
    on this machine — not the ~2.4 s the research baseline's 16
    ms/shortcut premise would imply for a similarly-sized set. That premise
    does not reproduce on this machine at all (COM's own measured per-item
    rate this round is 5.9x–11.1x lower than the baseline claims, over a
    LARGER file count than the baseline used — see "The COM baseline: two
    separate open questions" above). **PLAT-10 should be motivated by the
-   measured 0.23–0.46 s/scan saving and the 8.8x–16.4x ratio, not by an
+   measured 0.23–0.46 s/scan saving and the 11.6x–16.4x ratio, not by an
    extrapolation from the 2395 ms baseline that this document now
-   establishes does not hold on this machine.** This does not change the
-   DIRECTION of the decision (the binary reader is still substantially
-   faster, by every one of nine independent measurements across four
-   review rounds) — it changes the MAGNITUDE PLAT-10 should expect,
-   downward, by roughly an order of magnitude from what the original
-   research doc's 16 ms/shortcut figure would have implied.
+   establishes does not hold on this machine, and not by the wider,
+   partly-uncommitted 8.8x–17.0x range that includes samples a third
+   party cannot reproduce from this repository.** This does not change
+   the DIRECTION of the decision (the binary reader is still
+   substantially faster, by every one of ten independent measurements
+   across five review rounds) — it changes the MAGNITUDE PLAT-10 should
+   expect, downward, by roughly an order of magnitude from what the
+   original research doc's 16 ms/shortcut figure would have implied.
 4. A well-defined, honestly-scoped gap (shortcuts with no usable
    target-path source and a non-empty COM target, 8/182 ≈ 4.4% of this
    machine's set) with an unambiguous signal when it occurs
