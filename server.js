@@ -223,17 +223,11 @@ const DISCOVERY_PORT = 3001;
 // Legacy "dokke:discover" support scheduled for removal: 2027-03-18.
 export const DISCOVERY_MAGIC = "decktech:discover";
 export const DISCOVERY_MAGIC_LEGACY = "dokke:discover";
-export const DISCOVERY_MAGIC_DOKKE = "dokke:discover";
 export const DECKTECH_HEADER = "x-decktech";
-export const DECKTECH_CLIENT_HEADER = "x-decktech-client";
 
 export function isDeckTechClient(req) {
   if (!req || !req.headers) return false;
-  return (
-    "x-decktech" in req.headers ||
-    "x-decktech-client" in req.headers ||
-    (typeof req.headers["x-client"] === "string" && req.headers["x-client"].toLowerCase() === "decktech")
-  );
+  return "x-decktech" in req.headers;
 }
 
 function ipv4ToInt(ip) {

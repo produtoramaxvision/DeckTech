@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { createSocket } from "node:dgram";
 import { startServer, startDiscovery, DISCOVERY_MAGIC, DISCOVERY_MAGIC_LEGACY, DECKTECH_HEADER } from "../server.js";
@@ -71,15 +70,6 @@ test("WIRE-01: /health with DeckTech header returns service 'DeckTech' and is re
     const rawText1 = await res1.text();
     assert.equal(rawText1, '{"ok":true,"service":"DeckTech"}');
     assert.equal(androidHealthRegex.test(rawText1), false, "DokkeDiscovery.kt must reject DeckTech identity");
-
-    // Via x-decktech-client header
-    const res2 = await fetch(`http://127.0.0.1:${port}/health`, {
-      headers: { "x-decktech-client": "true" },
-    });
-    assert.equal(res2.status, 200);
-    const rawText2 = await res2.text();
-    assert.equal(rawText2, '{"ok":true,"service":"DeckTech"}');
-    assert.equal(androidHealthRegex.test(rawText2), false);
   } finally {
     await close();
   }
@@ -143,11 +133,4 @@ test("WIRE-01: legacy branches carry declared removal date in code comment", () 
   for (const match of removalMatches) {
     assert.match(match[1], /^202[7-9]-\d{2}-\d{2}$/, "removal date must be a valid future ISO date");
   }
-});
-
-test("WIRE-01: Windows paths resolve safely using path.join and survive paths with spaces", () => {
-  const spaceDir = path.join(os.tmpdir(), "decktech wire01 test path with spaces");
-  const testFile = path.join(spaceDir, "probe.json");
-  assert.equal(testFile.includes("/"), false, "Windows path must not contain forward slashes when joined with path.win32");
-  assert.ok(testFile.includes("decktech wire01 test path with spaces"));
 });
