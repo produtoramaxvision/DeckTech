@@ -20,8 +20,14 @@ pool PowerShell não vence"); round 3 em 2026-09-17 23:39 (commit `349a3fd`); ro
 de commit descrevia apenas esta edição de uma linha, mas o diff também carregava 152 linhas não
 relacionadas de `docs/adr/0003-proof-03-lnk-binary-parsing.md`, revertidas byte-a-byte em
 `e037bcb` e o conteúdo daquele arquivo recuperado pelo dono da PROOF-03 em `1a17224`; achado do
-round-7 review, ver "Revisão round 7" abaixo) — ver "Revisão round 2", "Revisão round 3",
-"Revisão round 4", "Revisão round 5", "Revisão round 6" e "Revisão round 7" abaixo.
+round-7 review, ver "Revisão round 7" abaixo); round 7 em 2026-09-18 (commit `0c772ba`;
+preenchido retroativamente nesta edição — round 8 — seguindo a mesma restrição estrutural: o
+round 7 não podia citar o próprio hash na sua própria entrada, então essa lacuna ficou para a
+revisão seguinte fechar, exatamente como esta linha descreve). Pelo mesmo motivo, o round 8
+(esta revisão) também não tenta se auto-citar aqui; seu(s) commit(s) serão preenchidos na
+revisão seguinte que tocar este arquivo — ver "Revisão round 2", "Revisão round 3",
+"Revisão round 4", "Revisão round 5", "Revisão round 6", "Revisão round 7" e "Revisão round 8"
+abaixo.
 **Requisito:** PROOF-01 (`.maxvision/REQUIREMENTS.md`, Fase 0)
 **Máquina de medição:** Windows 11 Pro 10.0.22631, x64, Node v25.5.0, VS Build Tools 2022
 (17.14.37411.7) com componente C++ x64, Windows SDK 10.0.26100.0, Python 3.13.13, locale pt-BR
@@ -1285,10 +1291,14 @@ procediam quando verificados; nenhum foi contestado.
    [list-apps] at least one path contains a space: true
    EXIT=0
    ```
-   Três sites de perda silenciosa em `measure/windows/icon-bench/scripts/list-apps.mjs`: :42
-   `if (!existsSync(root)) return found;` (raiz ausente/redirecionada some sem registro); :47-50
+   Três sites de perda silenciosa em `measure/windows/icon-bench/scripts/list-apps.mjs` (código
+   pré-fix — os números de linha citados em revisões anteriores desta seção foram removidos na
+   revisão round 8 por apontarem, no arquivo como commitado, para linhas não relacionadas ao
+   defeito descrito; o trecho de código citado abaixo é a referência estável, não sujeita a essa
+   deriva):
+   `if (!existsSync(root)) return found;` (raiz ausente/redirecionada some sem registro);
    `try { entries = readdirSync(...); } catch { continue; }` (diretório ilegível — EACCES/EPERM,
-   reparse point, redirecionamento de roaming — some sem mensagem nem contador); :69
+   reparse point, redirecionamento de roaming — some sem mensagem nem contador);
    `process.env.APPDATA || "C:\\Users\\Default\\AppData\\Roaming"` (o perfil Default é um
    template de provisionamento, nunca o Start Menu de um usuário real, então um APPDATA não
    definido produzia um conjunto de apps plausível porém ERRADO em vez de um erro). O reviewer
@@ -1334,8 +1344,13 @@ procediam quando verificados; nenhum foi contestado.
    [list-apps] FATAL: %ProgramData% is not set — cannot locate the machine-wide Start Menu root. Refusing to guess a fallback path.
    EXIT=1
    ```
-   Raiz ilegível real (não uma raiz ausente): `icacls <pasta> /deny 'MaxVisionFPV\MaxVision:(RX)'`
-   numa subpasta dentro de uma árvore `APPDATA` fake com um `.lnk` dummy, run com essa `APPDATA`:
+   **Subpasta ilegível real (não uma raiz — retitulado na revisão round 8: este bloco, como
+   originalmente rotulado "Raiz ilegível real", descrevia e mostrava a saída de uma SUBPASTA
+   ilegível dentro de uma raiz que existe e é legível, não de uma raiz ilegível. Nenhum run da
+   raiz ilegível aparecia nesta seção — ver o bloco "Raiz ilegível real (round 8)" logo abaixo,
+   na Revisão round 8, para essa evidência que faltava):** `icacls <pasta> /deny
+   'MaxVisionFPV\MaxVision:(RX)'` numa subpasta dentro de uma árvore `APPDATA` fake com um `.lnk`
+   dummy, run com essa `APPDATA`:
    ```
    [list-apps] enumerated 123 .lnk files in 5.3 ms
    [list-apps] unreadable directories encountered during enumeration: 1 (path/code recorded in apps.json.unreadableDirs)
@@ -1344,9 +1359,12 @@ procediam quando verificados; nenhum foi contestado.
    EXIT=0
    ```
    Confirma a decisão: subpasta ilegível → registrada em `unreadableDirs`, não fatal, `exit 0`.
-   Raiz ausente/ilegível → fatal, `exit 1`, `apps.json` NÃO é reescrito (o `exit(1)` acontece
-   antes de qualquer `writeFileSync`, verificado com `git status --porcelain` mostrando o arquivo
-   intocado depois dos três runs degradados acima).
+   O comportamento do outro ramo — raiz ausente/ilegível → fatal, `exit 1`, `apps.json` NÃO é
+   reescrito — está confirmado para o caso "ausente" pelos três runs degradados acima (raiz que
+   não existe / `APPDATA` não definido / `ProgramData` não definido, todos `exit 1` antes desta
+   linha). O caso "raiz EXISTE mas é ilegível" (`readdirSync` lança na raiz, não numa subpasta)
+   não tinha run nesta seção — essa lacuna é o que a Revisão round 8 abaixo fecha, com uma ACE de
+   deny real aplicada à raiz em si, não a uma subpasta dela.
 
    Run limpo, máquina real, depois de reverter a árvore `APPDATA` fake:
    ```
@@ -1413,3 +1431,196 @@ procediam quando verificados; nenhum foi contestado.
 
 Ambos os achados têm evidência colada nesta revisão (comando executado + saída real). Nenhum
 achado foi contestado.
+
+## Revisão round 8
+
+Um oitavo reviewer rigoroso rejeitou a v7 deste ADR com 3 achados (2 major, 1 minor). Todos
+procediam quando verificados; nenhum foi contestado.
+
+1. **[major] O bloco da revisão round 7 rotulado "Raiz ilegível real (não uma raiz ausente)" não
+   mostrava uma RAIZ ilegível — mostrava uma SUBPASTA ilegível (exit 0), e a conclusão duas
+   linhas depois ("Raiz ausente/ilegível → fatal, exit 1") não tinha nenhum run do ramo
+   raiz-ilegível por trás dela em lugar nenhum do ADR — a mesma classe de defeito que o round 4
+   já havia rejeitado neste mesmo ADR ("um bloco rotulado 'saída real' continha uma linha... que
+   o script nunca imprime").** O reviewer reproduziu o ramo faltante pessoalmente e colou a saída
+   real: `icacls '<fake APPDATA>\...\Start Menu\Programs' /deny 'MaxVisionFPV\MaxVision:(RX)'`
+   (na RAIZ, não numa subpasta) seguido de `node scripts/list-apps.mjs` produz
+   `[list-apps] FATAL: 1 Start Menu root(s) exist but could not be read:` com `(EPERM)` e
+   `EXIT=1`.
+
+   **Corrigido**: o bloco da revisão round 7 foi retitulado para "Subpasta ilegível real (não uma
+   raiz)" — sua saída real não mudou, só a legenda, que agora descreve corretamente o que o
+   comando testou. Um novo bloco, abaixo, fecha a lacuna com um run real do ramo raiz-ilegível,
+   construído do zero nesta revisão (não copiado da citação do reviewer, que era ilustrativa —
+   reconstruído e observado nesta máquina):
+
+   Setup (`.lnk` dummy dentro de uma árvore `APPDATA` fake, para isolar do Start Menu real):
+   ```
+   $ New-Item -ItemType Directory -Force -Path "$scratch\FakeAppData\Microsoft\Windows\Start Menu\Programs"
+   $ "dummy" | Out-File "$scratch\FakeAppData\Microsoft\Windows\Start Menu\Programs\dummy.lnk" -Encoding ascii
+   ```
+   ACE de deny aplicada à RAIZ em si (não a uma subpasta dela — esta é a diferença do bloco
+   acima):
+   ```
+   $ icacls $root /deny 'MaxVisionFPV\MaxVision:(RX)'
+   arquivo processado: ...\FakeAppData\Microsoft\Windows\Start Menu\Programs
+   Processados com sucesso 1 arquivos; falha no processamento de 0 arquivos
+   $ icacls $root
+   ...\Programs MaxVisionFPV\MaxVision:(DENY)(RX)
+                S-1-5-21-...:(I)(OI)(CI)(M)
+                ...
+                MaxVisionFPV\MaxVision:(I)(OI)(CI)(F)
+   ```
+   (a linha `(I)(OI)(CI)(F)` herdada de mais embaixo na lista concede full control por herança,
+   mas a DENY explícita no topo tem precedência na avaliação de ACL do Windows — confirmado pelo
+   comportamento abaixo, não apenas assumido). Discriminação antes de aceitar o resultado, para
+   não cair no MESMO erro do achado que este bloco está corrigindo (uma raiz ausente e uma raiz
+   ilegível produzem mensagens diferentes — `do not exist` vs. `exist but could not be read` — e
+   só a segunda é a alegação que faltava):
+   ```
+   $ node .../test-root-deny.mjs $root
+   root arg: "C:\\Users\\MaxVision\\AppData\\Local\\Temp\\claude\\proof01-round8-scratch\\FakeAppData\\Microsoft\\Windows\\Start Menu\\Programs"
+   existsSync: true
+   readdirSync FAILED: EPERM -4048 EPERM: operation not permitted, scandir '...\Programs'
+   ```
+   `existsSync` verdadeiro + `readdirSync` falhando com `EPERM` é exatamente o ramo raiz-ilegível
+   (não o ramo raiz-ausente, que teria `existsSync` falso). Run do `list-apps.mjs` real com
+   `APPDATA` apontando para essa árvore:
+   ```
+   $ $env:APPDATA = "$scratch\FakeAppData"; node scripts/list-apps.mjs; echo "EXIT=$LASTEXITCODE"
+   [list-apps] enumerated 123 .lnk files in 5.0 ms
+   [list-apps] roots: C:\ProgramData\Microsoft\Windows\Start Menu\Programs ; C:\Users\MaxVision\AppData\Local\Temp\claude\proof01-round8-scratch\FakeAppData\Microsoft\Windows\Start Menu\Programs
+   [list-apps] unreadable directories encountered during enumeration: 1 (path/code recorded in apps.json.unreadableDirs)
+   [list-apps] FATAL: 1 Start Menu root(s) exist but could not be read:
+     - C:\Users\MaxVision\AppData\Local\Temp\claude\proof01-round8-scratch\FakeAppData\Microsoft\Windows\Start Menu\Programs (EPERM)
+   [list-apps] same reasoning as a missing root (round-7 review finding 1): proceeding on a partial read would silently guess the population. Refusing to proceed.
+   EXIT=1
+   ```
+   Isso é exatamente a linha que faltava no round 7: "exist but could not be read" + `(EPERM)` +
+   `EXIT=1` — o ramo raiz-ilegível, não o ramo raiz-ausente já documentado. `apps.json` não foi
+   reescrito por este run (o `exit(1)` acontece antes de qualquer `writeFileSync`):
+   ```
+   $ git status --porcelain -- measure/windows/icon-bench/data/apps.json
+   (sem saída — arquivo intocado)
+   ```
+   Limpeza da ACE de deny e confirmação de que a cadeia de proveniência não mudou:
+   ```
+   $ icacls $root /remove:d 'MaxVisionFPV\MaxVision'
+   arquivo processado: ...\Programs
+   Processados com sucesso 1 arquivos; falha no processamento de 0 arquivos
+   $ Remove-Item Env:\APPDATA; $env:APPDATA = "C:\Users\MaxVision\AppData\Roaming"
+   $ node scripts/list-apps.mjs; echo "EXIT=$LASTEXITCODE"
+   [list-apps] enumerated 182 .lnk files in 10.0 ms
+   [list-apps] unreadable directories encountered during enumeration: 0
+   [list-apps] resolved 182 .lnk targets via single PowerShell/WScript.Shell process in 535.2 ms (2.94 ms/lnk amortized)
+   [list-apps] resolved 140 apps total (all extensions); extension histogram: {"exe":115,"msc":9,"txt":2,"pdf":1,"url":6,"html":3,"htm":3,"chm":1}
+   [list-apps] unresolved .lnk count (resolution itself failed/empty): 4
+   [list-apps] resolved-but-excluded count (uninstaller/dedup/missing file): 38
+   [list-apps] wrote 115 .exe-only deduped apps to ...\data\apps.json (25 non-.exe targets excluded ...)
+   [list-apps] at least one path contains a space: true
+   EXIT=0
+   ```
+   182 → 178 → 140 → 115, idêntico ao já citado no ADR: a cadeia de proveniência não mudou.
+
+2. **[major] O achado do round 7 estava só meio fechado: uma SUBPASTA ilegível ainda encolhia
+   silenciosamente a população benchmarcada até dentro do benchmark. `list-apps.mjs` sai com
+   `exit 0` e sobrescreve o `data/apps.json` commitado com o conjunto encolhido, e `bench.mjs` —
+   o único consumidor — nunca lê `unreadableDirCount`, então o campo de contabilidade era
+   write-only. O dano exato que o blocker do round 7 apontava ("a cadeia de proveniência podia
+   silenciosamente ser uma cadeia diferente em outra máquina enquanto toda alegação do ADR ainda
+   passava") continuava intacto nesse caminho.** Verificado nesta revisão: `grep -n
+   "unreadable|appsData\." measure/windows/icon-bench/scripts/bench.mjs` (antes do fix abaixo)
+   retornava só três linhas — `appsData.hasSpaceInPath`, `appsData.apps`,
+   `appsData.source`/`hasSpaceInPath` — nenhum gate em `unreadableDirCount` em lugar nenhum do
+   harness.
+
+   **Corrigido**, combinando as duas opções que o reviewer ofereceu (não escolhendo só uma):
+   - `list-apps.mjs` agora grava `populationComplete: unreadableDirs.length === 0` em
+     `apps.json` (campo novo, ao lado de `unreadableDirCount`).
+   - `bench.mjs` lê esse campo logo após carregar `apps.json` e é fatal por padrão quando a
+     população é incompleta — `populationComplete !== true` é tratado como incompleta, incluindo
+     o caso do campo estar AUSENTE (um `apps.json` gerado por um `list-apps.mjs` pré-round-8):
+     ausência não é tratada como "completo", exatamente o buraco que este achado descreve seria
+     reproduzido se `undefined` fosse tratado como truthy.
+   - `--allow-incomplete` é o opt-in explícito exigido pra rodar mesmo assim: sem a flag, `bench.mjs`
+     sai com `exit 1` e um banner `*** INCOMPLETE POPULATION ***`; com a flag, o mesmo banner é
+     impresso (deixando claro que é opt-in deliberado, não o caminho padrão), o benchmark roda, e
+     `populationComplete`/`unreadableDirCountAtListTime`/`allowIncompleteFlag` são gravados em
+     `results.json` — não só impressos no console — e o banner é reimpresso perto da SUMMARY
+     TABLE, porque um banner só no início do log some acima de 300+ linhas de saída por
+     candidato.
+   - `list-apps.mjs` continua NÃO fatal para subpasta ilegível — essa decisão do round 7 não foi
+     revisitada (não era o que este achado pedia); o gate fica inteiramente em `bench.mjs`.
+
+   **Evidência dos três caminhos**, com `--limit 2 --passes 1` pra manter o custo baixo (essas
+   rodadas de demonstração sobrescrevem `results.json` e `data/apps.json` — ambos restaurados ao
+   fim, verificado abaixo):
+
+   Caminho A — população completa, sem flag → prossegue (roda o benchmark completo, config real
+   já vista nas seções anteriores do ADR; não repetido aqui por já estar coberto).
+
+   Caminho B — população incompleta (`populationComplete: false`, `unreadableDirCount: 1`), sem
+   `--allow-incomplete` → recusa:
+   ```
+   $ node scripts/bench.mjs --limit 2 --passes 1
+   [bench] config: limit=2 measurePasses=1 poolSize=4 iconSize=256
+   [bench] *** INCOMPLETE POPULATION *** apps.json.populationComplete=false (unreadableDirCount=1) — the benchmarked app set may be smaller than the real Start Menu contents.
+   [bench] FATAL: refusing to benchmark an incomplete population. Re-run scripts/list-apps.mjs after fixing the unreadable directory, or pass --allow-incomplete to proceed deliberately (the incompleteness will be stamped into results.json and re-printed at the end).
+   EXIT=1
+   ```
+
+   Caminho C — mesma população incompleta, com `--allow-incomplete` → prossegue, banner impresso
+   duas vezes (carregamento + perto do SUMMARY TABLE), e o resultado gravado em `results.json`
+   confirma o stamp:
+   ```
+   $ node scripts/bench.mjs --limit 2 --passes 1 --allow-incomplete
+   [bench] *** INCOMPLETE POPULATION *** apps.json.populationComplete=false (unreadableDirCount=1) — ...
+   [bench] --allow-incomplete given: proceeding anyway. This is a deliberate opt-in, not a default.
+   ... (execução completa dos 4 candidatos, 2 apps cada) ...
+   [bench] wrote full results to ...\results.json
+   [bench] *** INCOMPLETE POPULATION *** this run used --allow-incomplete against an apps.json with populationComplete=false (unreadableDirCountAtListTime=1). The numbers below do not reflect the full real app set. See results.json.populationComplete.
+   [bench] === SUMMARY TABLE ===
+   ...
+   EXIT=0
+
+   $ node -e 'console.log(JSON.stringify({populationComplete: require("./results.json").populationComplete, unreadableDirCountAtListTime: require("./results.json").unreadableDirCountAtListTime, allowIncompleteFlag: require("./results.json").allowIncompleteFlag}))'
+   {"populationComplete":false,"unreadableDirCountAtListTime":1,"allowIncompleteFlag":true}
+   ```
+
+   Caminho D (não pedido explicitamente pelo achado, mas necessário pra provar que "ausente" não
+   é tratado como "completo") — `apps.json` sem o campo `populationComplete` (simula um arquivo
+   gerado por um `list-apps.mjs` pré-round-8) → também recusa:
+   ```
+   $ node scripts/bench.mjs --limit 2 --passes 1
+   [bench] *** INCOMPLETE POPULATION *** apps.json.populationComplete=undefined (unreadableDirCount=0) — ...
+   [bench] FATAL: refusing to benchmark an incomplete population. ...
+   EXIT=1
+   ```
+
+   Restauração e verificação de que nada da demonstração vazou pro estado commitado:
+   ```
+   $ git checkout -- measure/windows/icon-bench/results.json
+   $ git status --porcelain -- measure/windows/icon-bench/results.json
+   (sem saída — restaurado)
+   $ git diff -- measure/windows/icon-bench/data/apps.json
+   (apenas: +"populationComplete": true, mais enumMs/resolveMs/generatedAt atualizados pelo
+   re-run limpo desta revisão — nenhum app, contagem ou exclusão mudou; `dedupedAppCount: 115`
+   idêntico)
+   ```
+
+3. **[minor] A seção da revisão round 7 citava `list-apps.mjs:42`, `:47-50` e `:69` sem
+   qualificador de versão; no arquivo como commitado (pós-fix), esses números apontam para
+   comentários e para o próprio fix, não para o defeito descrito.** Verificado: `sed -n
+   '42p;47,50p;69p' measure/windows/icon-bench/scripts/list-apps.mjs` no HEAD anterior a esta
+   revisão (`0c772ba`) retorna comentário de prosa e a linha do fix (`unreadableDirs.push(...)`),
+   não o código pré-fix citado no texto.
+
+   **Corrigido**: os números de linha foram removidos da seção round 7 (não repinados a um
+   commit específico — o exemplo de formato `1a17224:...` que o reviewer deu é ilustrativo, não
+   um pin válido: `1a17224` nunca tocou `list-apps.mjs`, confirmado por `git log --oneline --
+   measure/windows/icon-bench/scripts/list-apps.mjs` retornando apenas `0c772ba`, `349a3fd`,
+   `2c8cc99`, `2ffab25`). O texto agora se apoia só no código citado entre crases, que não
+   envelhece, seguindo a alternativa que o próprio achado ofereceu.
+
+Todos os três achados têm evidência colada nesta revisão (comando executado + saída real).
+Nenhum achado foi contestado.

@@ -253,6 +253,19 @@ if (!hasSpace) {
   process.exit(1);
 }
 
+// Round-8 review fix (finding 2, major): unreadableDirCount was write-only —
+// recorded here, but bench.mjs (the sole consumer of apps.json) never read
+// it, so a subdirectory-level EPERM could silently shrink the benchmarked
+// population all the way into the benchmark with no downstream gate. A
+// subfolder-level unreadable is still deliberately non-fatal HERE (see the
+// round-7 decision in walkLnk() above: a locked/EPERM subfolder shouldn't
+// kill the whole benchmark run) — but the resulting incompleteness must be
+// load-bearing somewhere, not just printed. `populationComplete` is that
+// load-bearing signal: bench.mjs refuses to run against an incomplete
+// population unless the caller explicitly opts in with `--allow-incomplete`,
+// per the round-8 fix in that file.
+const populationComplete = unreadableDirs.length === 0;
+
 mkdirSync(outDir, { recursive: true });
 writeFileSync(
   outFile,
@@ -265,6 +278,7 @@ writeFileSync(
       enumMs: Number(enumMs.toFixed(1)),
       unreadableDirCount: unreadableDirs.length,
       unreadableDirs,
+      populationComplete,
       resolveMs: Number(resolveMs.toFixed(1)),
       resolvedCount: rows.filter((r) => r.target).length,
       unresolvedCount: unresolvedLnks.length,
@@ -291,3 +305,4 @@ console.log(`[list-apps] unresolved .lnk count (resolution itself failed/empty):
 console.log(`[list-apps] resolved-but-excluded count (uninstaller/dedup/missing file): ${excludedResolvedTargets.length} (recorded with reasons in apps.json.excludedResolvedTargets)`);
 console.log(`[list-apps] wrote ${apps.length} .exe-only deduped apps to ${outFile} (${excludedNonExe.length} non-.exe targets excluded from the benchmarked set, recorded in apps.json.excludedNonExeTargets)`);
 console.log(`[list-apps] at least one path contains a space: ${hasSpace}`);
+console.log(`[list-apps] populationComplete: ${populationComplete}${populationComplete ? "" : " — bench.mjs will refuse to run against this apps.json unless invoked with --allow-incomplete"}`);
