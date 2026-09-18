@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, sep } from "node:path";
 import { deflateSync, inflateSync } from "node:zlib";
@@ -74,6 +74,57 @@ function alphaBounds(buf) {
     }
   }
   return { width, height, minX, minY, maxX, maxY };
+}
+
+/** Decodifica um PNG RGBA colorType 6 sem interlace (filtro 0 em toda
+ * scanline, o mesmo formato que encodeRgbaPng/rgbaPng produzem neste
+ * arquivo) pros pixels RGBA crus, sem depender de nenhuma lib nova. */
+function decodePngRgba(buf) {
+  const width = buf.readUInt32BE(16), height = buf.readUInt32BE(20);
+  let off = 8;
+  const chunks = [];
+  while (off < buf.length) {
+    const len = buf.readUInt32BE(off);
+    const type = buf.toString("latin1", off + 4, off + 8);
+    if (type === "IDAT") chunks.push(buf.subarray(off + 8, off + 8 + len));
+    off += len + 12;
+  }
+  const raw = inflateSync(Buffer.concat(chunks));
+  const pixels = Buffer.alloc(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    const rowStart = y * (width * 4 + 1) + 1;
+    raw.copy(pixels, y * width * 4, rowStart, rowStart + width * 4);
+  }
+  return { width, height, pixels };
+}
+
+/** Conta quantas anti-diagonais (x+y constante) do monograma têm mais de
+ * uma cor RGB distinta entre os pixels não-transparentes. O fundo é um
+ * gradiente onde RGB depende SÓ de (x+y) — ver rasterizeMonogramPixels:
+ * `t = (x+y)/diag`, e a cobertura (alpha) não afeta RGB. Então, qualquer
+ * que seja o par de cores do token (c1/c2, escolhido por hash do nome e
+ * não exportado), uma anti-diagonal com >1 RGB só pode ter esse jeito
+ * porque um glifo de tinta foi blendado ali — nenhum acoplamento com a
+ * seleção de token é necessário. Pixels com alpha 0 (recorte dos cantos
+ * arredondados) são ignorados, mesma exclusão da outra correção deste
+ * round de review.
+ */
+function countInkDiagonals(buf) {
+  const { width, height, pixels } = decodePngRgba(buf);
+  const byDiagonal = new Map();
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      if (pixels[idx + 3] === 0) continue;
+      const key = x + y;
+      const rgb = (pixels[idx] << 16) | (pixels[idx + 1] << 8) | pixels[idx + 2];
+      if (!byDiagonal.has(key)) byDiagonal.set(key, new Set());
+      byDiagonal.get(key).add(rgb);
+    }
+  }
+  let diagonalsWithInk = 0;
+  for (const colors of byDiagonal.values()) if (colors.size > 1) diagonalsWithInk++;
+  return diagonalsWithInk;
 }
 
 test("convertToPng chama sips com args corretos e resolve", async () => {
@@ -295,17 +346,24 @@ test("PLAT-04: darwin cai no rasterizador JS se o sips real falhar (nunca mais '
 test("PLAT-04: iniciais com acento/CJK/emoji nunca produzem canvas vazio", async () => {
   // normalizeAppLabel já usa NFD+strip de acento em outro lugar deste
   // arquivo; monogramInitials aplica a mesma técnica. Nomes fora do alfabeto
-  // A-Z0-9 (CJK, emoji) caem no glifo "?" por caractere, nunca em branco.
+  // A-Z0-9 (CJK, emoji) caem no glifo "?" por caractere (glyphRowsFor), em
+  // vez de lançar ou de resolver pra um fallback vazio (canvas em branco).
+  //
+  // "canvas vazio" seria só o gradiente de fundo, sem tinta: decodifica o
+  // PNG de verdade e conta anti-diagonais (x+y constante) com mais de uma
+  // cor RGB entre pixels não-transparentes — ver countInkDiagonals acima.
+  // O fundo tem RGB determinado só por (x+y) (rasterizeMonogramPixels:
+  // `t = (x+y)/diag`), então isso discrimina tinta real sem precisar
+  // conhecer c1/c2 (escolhidos por hash do nome via resolveMonogramTokens,
+  // não exportada) — corrigido no round 2 de review, achado #1.
   const dir = await mkdtemp(join(tmpdir(), "j5-plat04-unicode-"));
   try {
     const svc = realIconService({ scan: async () => [], cacheDir: dir, monogramPlatform: "win32" });
     for (const name of ["Índice", "日本語アプリ", "🎮 Game Center", "Ção"]) {
       const buf = await svc.getIconPng(name);
       assert.ok(Buffer.isBuffer(buf), `deve gerar PNG pra "${name}"`);
-      // "canvas vazio" seria só o fundo (sem tinta): decodifica e confere
-      // que existe pelo menos 1 pixel que não é nenhuma das 2 cores do
-      // gradiente puro (ou seja, teve blend de tinta em algum ponto).
-      assert.ok(buf.length > 100, `PNG de "${name}" não deveria ser suspeitosamente pequeno`);
+      assert.equal(buf[0], 0x89, `PNG de "${name}" deve ter magic number válido`);
+      assert.ok(countInkDiagonals(buf) > 0, `PNG de "${name}" deve ter tinta real, não só o gradiente de fundo`);
     }
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
@@ -313,12 +371,25 @@ test("PLAT-04: iniciais com acento/CJK/emoji nunca produzem canvas vazio", async
 test("PLAT-04: cacheDir com espaço no caminho funciona (Windows real)", async () => {
   const dir = await mkdtemp(join(tmpdir(), "j5 plat04 space cache "));
   try {
-    const svc = realIconService({ scan: async () => [], cacheDir: dir, monogramPlatform: "win32" });
-    const buf = await svc.getIconPng("App Com Espaço");
+    const svc1 = realIconService({ scan: async () => [], cacheDir: dir, monogramPlatform: "win32" });
+    const buf = await svc1.getIconPng("App Com Espaço");
     assert.ok(Buffer.isBuffer(buf));
     assert.equal(buf[0], 0x89);
-    const buf2 = await svc.getIconPng("App Com Espaço");
-    assert.deepEqual([...buf], [...buf2], "cache em disco (path com espaço via join) deve servir o mesmo PNG");
+    // Prova de disco de verdade (não só memória): o arquivo mono-*.png
+    // precisa existir no path com espaço (via join, não separador
+    // hardcoded) — readdir nesse dir, sem passar pelo memPng do svc1.
+    const files = await readdir(dir);
+    const monoFiles = files.filter((f) => f.startsWith("mono-") && f.endsWith(".png"));
+    assert.equal(monoFiles.length, 1, "deve escrever exatamente um arquivo de cache no disco com espaço no path");
+    const onDisk = await readFile(join(dir, monoFiles[0]));
+    assert.deepEqual([...onDisk], [...buf], "bytes em disco devem bater com o PNG retornado");
+    // 2ª instância do serviço aponta pro MESMO dir com cache em MEMÓRIA
+    // vazio: só pode bater byte-a-byte se leu do disco, não da memória do
+    // svc1 (prova real de "cache em disco", não só "resultado
+    // determinístico repetido").
+    const svc2 = realIconService({ scan: async () => [], cacheDir: dir, monogramPlatform: "win32" });
+    const buf2 = await svc2.getIconPng("App Com Espaço");
+    assert.deepEqual([...buf], [...buf2], "cache em disco (path com espaço via join) deve servir o mesmo PNG pra uma instância nova, sem memPng aquecido");
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
@@ -343,10 +414,17 @@ test("rasterizeMonogramPixels: total para initials sem glifo (CJK) — nunca lan
   assert.equal(pixels.length, size * size * 4);
   // conta pixels cuja cor foi alterada pelo blend de tinta (glifo "?" de
   // fallback) comparando contra a cor pura do gradiente no mesmo ponto.
+  // Pixels totalmente transparentes (alpha 0 — o recorte dos cantos
+  // arredondados, fora do retângulo) NÃO contam: eles diferem do gradiente
+  // "puro" (RGB fica 0,0,0 ali, ver rasterizeMonogramPixels) mas isso é o
+  // fundo do canvas, não tinta — achado do round 2 de review (o teste
+  // original contava 92 pixels de canto transparente como "tinta" e por
+  // isso não discriminava um glyphRowsFor quebrado que devolvesse []).
   let inkPixels = 0;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const idx = (y * size + x) * 4;
+      if (pixels[idx + 3] === 0) continue;
       const t = (x + y) / (2 * (size - 1));
       const [r1, g1, b1] = [0x0a, 0x84, 0xff];
       const [r2, g2, b2] = [0x5e, 0x5c, 0xe6];
