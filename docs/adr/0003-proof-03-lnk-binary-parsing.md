@@ -169,11 +169,13 @@ Reading this honestly: the Node parser is consistently faster than COM by
 roughly an order of magnitude, both cold (10.2x) and warm (median 13.8x,
 range 12.1x–18.5x across 5 iterations). It is NOT a stable "8.0x" or any
 other single two-significant-figure number — that was round 1's mistake
-(n=1, no variance reported). Two separate re-runs during this revision
-produced cold speedups of 9.5x and 10.2x and warm medians of 13.6x and
-13.8x with different min/max spreads each time (the committed
-`proof-03-results.json` reflects the LAST run only, printed above) — the
-range itself, not a single figure from either run, is the honest claim.
+(n=1, no variance reported). Several re-runs performed during this
+revision (while iterating on the fixes and re-verifying them) produced
+cold speedups in the 9.5x–10.2x range and warm medians in the 12.2x–13.8x
+range, each with a different min/max spread (the committed
+`proof-03-results.json` reflects exactly ONE of those runs, printed above,
+and is the only one this document's numbers are drawn from) — the range
+itself, not a single figure from any one run, is the honest claim.
 COM's own loop-only time varies by roughly 40% across warm iterations
 (230.5–325.6 ms this run) on a machine with other software running
 concurrently (Blender, Adobe Creative Cloud apps, etc. were present in this
@@ -404,10 +406,11 @@ parser produced somewhere in a candidate list:
    the discriminating `135 + 35 = 170` decomposition and a real mutation
    test (see "Verifying the fix" above).
 2. A roughly-order-of-magnitude speedup over COM, measured with warmup and
-   repetition: 10.2x cold (n=1), median 13.8x warm (n=5, range 12.1x–18.5x).
-   A second independent re-run during this revision produced 9.5x cold /
-   13.6x warm with a different min-max spread — consistent order of
-   magnitude, not a reproducible two-significant-figure constant.
+   repetition: 10.2x cold (n=1), median 13.8x warm (n=5, range 12.1x–18.5x)
+   — the committed run. Other re-runs during this revision landed cold
+   9.5x–10.2x and warm median 12.2x–13.8x, each with its own min-max
+   spread — consistent order of magnitude, not a reproducible
+   two-significant-figure constant.
    Not a single two-significant-figure number, and NOT compared against the
    research doc's 149/2395ms baseline as a validated ratio (see "The
    149-vs-182 denominator" above) — only against this run's own COM
