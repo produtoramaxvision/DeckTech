@@ -202,6 +202,27 @@ test('@spec:AC-343 install.sh verifica orçamento e runtime único no bundle Rel
   assert.match(script, /bundle_kib.*MAX_BUNDLE_SIZE_MB/);
 });
 
+test('install.sh omite optional no npm ci e imprime a saída real em falha', () => {
+  const script = fs.readFileSync(installScriptPath, 'utf8');
+  const npmCiBranchMatch = script.match(/if command -v npm >\/dev\/null 2>&1; then[\s\S]*?\nelif /);
+  assert.ok(npmCiBranchMatch, 'npm ci branch not found in install.sh');
+  const npmCiBranch = npmCiBranchMatch[0];
+
+  // --omit=dev sozinho não cobre optionalDependencies (dev e optional são
+  // conjuntos de omissão independentes no npm — confirmado via context7
+  // /npm/cli, arborist/lib/node.js#shouldOmit).
+  assert.match(npmCiBranch, /npm ci[^\n]*--omit=dev[^\n]*--omit=optional/);
+
+  // Em falha, o script deve imprimir a saída CAPTURADA do npm, não um
+  // chute fixo sobre a causa.
+  assert.match(npmCiBranch, /printf\s+'%s\\n'\s+"\$\{NPM_CI_OUTPUT\}"/);
+
+  // Negativa escopada só ao branch do npm ci: a string "ws ausente" segue
+  // legítima no `else` final (sem npm e sem node_modules), que é uma
+  // descrição precisa daquele caso — não deve ser banida do arquivo todo.
+  assert.doesNotMatch(npmCiBranch, /ws ausente/);
+});
+
 test('ds-store permanece em optionalDependencies (nunca em dependencies/devDependencies)', () => {
   const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
   const why = 'ds-store pulls macos-alias@os:darwin which is not marked optional; a non-optional edge aborts npm ci on every non-darwin platform';
