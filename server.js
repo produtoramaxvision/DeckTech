@@ -46,7 +46,7 @@ import {
   pinnedLimits,
 } from "./config.js";
 import { connectOBS } from "./obs-ws.js";
-import { ensurePin, newPin, isLoopback, sessionCookie, tokenFromCookie, clearLegacyPinCookie, createSessionStore, createPinLocks, safeEqual, writePinFile } from "./auth.js";
+import { ensurePin, newPin, isLoopback, sessionCookie, tokenFromCookie, clearLegacyPinCookie, createSessionStore, createPinLocks, safeEqual, writePinFile, PIN_FILE, SESSION_FILE } from "./auth.js";
 import { WebSocketServer } from "ws";
 
 const MIME = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".json": "application/json", ".webmanifest": "application/manifest+json", ".png": "image/png", ".apk": "application/vnd.android.package-archive" };
@@ -1118,15 +1118,15 @@ export async function startServer(arg = {}) {
   const configFile = configProvided ? null : (opts.configFile ?? userConfig);
   // pin de acesso (4 dígitos): fixo em .j5-pin, só regenera via POST /api/pin
   const pinRoot = opts.root ?? dataDir;
-  if (!existsSync(join(pinRoot, ".j5-pin"))) {
+  if (!existsSync(join(pinRoot, PIN_FILE))) {
     try {
-      const legacy = join(import.meta.dirname, ".j5-pin");
-      if (existsSync(legacy)) copyFileSync(legacy, join(pinRoot, ".j5-pin"));
+      const legacy = join(import.meta.dirname, PIN_FILE);
+      if (existsSync(legacy)) copyFileSync(legacy, join(pinRoot, PIN_FILE));
     } catch {}
   }
   let currentPin = await ensurePin(pinRoot);
   // sessões persistem no dataDir: reinício não desloga os kiosks
-  const sessionStore = opts.sessionStore ?? createSessionStore({ file: join(dataDir, "j5-sessions.json") });
+  const sessionStore = opts.sessionStore ?? createSessionStore({ file: join(dataDir, SESSION_FILE) });
   opts.auth = {
     getPin: () => currentPin,
     setPin: async (p) => {
