@@ -6,7 +6,86 @@
 **Requirement:** `PROOF-04` (`.maxvision/REQUIREMENTS.md`), Phase 0 success criterion 4
 (`.maxvision/ROADMAP.md`)
 
-**Round 5 (this revision).** A rigorous review rejected round 4 on seven
+**Round 8 (this revision).** A rigorous review rejected round 7 on four
+findings, all addressed here:
+
+1. **[major] The `SIGINT`/`SIGTERM` fix for round-7 finding 4 was justified
+   by a mechanism proven not to apply to the window it claimed to
+   protect** — `execFileSync()` blocks the whole Node.js event loop for its
+   full duration, so a JS signal handler cannot execute while a mutant
+   sits on disk inside a `runSuite()` call, yet §9.1c stated the opposite
+   ("does receive and can act on") as settled fact. **Fixed:**
+   `measure/windows/proof-04/mutate.mjs:93`'s comment now names the
+   synchronous `finally` (not the handlers) as what restores the file
+   across that window, and states what the handlers actually cover,
+   backed by two fresh measurements added to §9.1c — a 50ms `setTimeout`
+   scheduled before a 2000ms `execFileSync` not firing until t+2062ms, and
+   the same holding across the JS-only gap between two consecutive
+   `execFileSync` calls. §9.1c's "does receive and can act on"
+   assertion is replaced with the measured fact, and the same measurement
+   is offered as the previously-missing candidate root cause for why the
+   round-7 `GenerateConsoleCtrlEvent` simulation never reached the
+   handler within its 1.8s window, replacing the unmeasured "plausibly
+   this session's lack of a real foreground console" guess.
+2. **[major] The top-of-document revision header said "Round 5 (this
+   revision)" while round 7 had already landed** (`mutate.mjs` commit
+   `16d0794`), misstating the document's own provenance by two rounds, and
+   §12's cross-reference audit heading list did not list the §9.1c heading
+   round 7 itself added. **Fixed:** this header stack now carries a block
+   per round through round 7, and §12's heading list adds `§9.1c`.
+3. **[minor] A round-7 cross-reference pointed at the section that
+   contains it instead of the section holding the cited evidence** — the
+   §9.1c "Conclusion" paragraph's "§9.1c above" cited a `restore
+   byte-identical: true` line that is actually in §9.1b Group 7's
+   transcript, not §9.1c's own (fenced-block-only) content. **Fixed:**
+   citation corrected to §9.1b Group 7.
+4. **[minor] §9.1c described its red-baseline proof as "breaking one
+   baseline assertion" but the pasted block showed `fail=2`**, which a
+   single assertion cannot produce. **Fixed:** replaced with a genuine
+   single-site reproduction (`sed -i '413s/    false,/    true,/'` on one
+   assertion in `test/windows-uninstaller-rule.test.mjs`) and its actual
+   `fail=1` output, prose and numbers now in agreement; the file was
+   restored immediately after and `git diff --stat` confirmed clean
+   before continuing.
+
+**Round 7 (commit `16d0794`, 2026-09-18 01:01).** A rigorous review
+rejected round 6 on four findings against `measure/windows/proof-04/mutate.mjs`
+itself, not the rule it tests, all addressed there and proven in §9.1c: (1)
+[blocker] the Group 7 evidence block's failure names were hand-typed
+because the harness's own name-capture regex truncated and duplicated
+them — fixed and regenerated programmatically, verified byte-identical to
+the captured log; (2) [major] name capture anchored on the first `"("`
+(truncating any name containing one) and never deduplicated `node --test`'s
+streaming+summary double-print — anchored on the trailing `(<duration>ms)`
+instead and deduplicated with `new Set(...)`; (3) [major] no baseline-green
+assertion, and a `null` fail count was folded into "survived" via `null > 0
+=== false` — added an explicit baseline-green/parseable assertion that
+exits 1 before mutating anything, proven with a deliberately red baseline
+(reverted after); (4) [major] no `try`/`finally` or signal handling around
+the mutate/run/restore cycle, so a crash or interrupt could leave a mutant
+on disk silently — added `try`/`finally` (restores even if `runSuite()`
+throws) and `SIGINT`/`SIGTERM` handlers, with the empirical result that a
+`CTRL_C_EVENT` simulation did not reach the handler within this headless
+session, disclosed honestly rather than claimed proven. See §9.1c for the
+full account, corrected by round 8 above where it overstated what the
+handlers cover.
+
+**Round 6 (commit `11ffffa`, 2026-09-18 00:32).** A rigorous review found
+§9.1b's closing claim ("Groups 1-5 exercise anchoring/casing on ...
+MSIEXEC_BASENAME, EXACT_UNINSTALL_NAME and the .exe guard") false: only
+casing (`/i`) was exercised on those three sites, never the `^`/`$`
+anchoring itself. The reviewer's own independent mutation harness, run
+against the 31-test combined suite, found 4 anchoring mutants survived
+undetected. **Fixed:** 4 discriminating fixtures added to
+`test/windows-uninstaller-rule.test.mjs` (20 → 24 tests; combined 31 → 35),
+each verified with `node -e` against both the real regex and its specific
+mutant before being committed; the reviewer's harness checked in at
+`measure/windows/proof-04/mutate.mjs` instead of left in a session
+scratchpad; the overclaiming sentence corrected in place (struck through);
+§9.1b Group 7 added with the measured truth table and harness re-run — see
+§9.1b Group 7 for the evidence.
+
+**Round 5 (commit `cc793b6`, 2026-09-18 00:09).** A rigorous review rejected round 4 on seven
 findings, all addressed here:
 
 1. **[major] `MSI_UNINSTALL_ARG`'s two boundary sub-expressions — `(^|\s)`
@@ -1293,21 +1372,32 @@ would print `(none)`, a total false all-clear. `mutate.mjs` now asserts
 message before touching any file if that assertion fails; a per-mutant
 `r.fail === null` is now reported as its own `!! UNPARSEABLE OUTPUT`
 category — with the raw output tail printed for diagnosis — never folded
-into `survivors`. Proven by deliberately breaking one baseline assertion
-in `test/windows-uninstaller-rule.test.mjs` (a scripted, reverted edit,
-not a permanent change — the file was restored immediately after and
-`git status`/`git diff --stat` confirmed clean, and the full 35-test suite
-was re-confirmed green before continuing) and running the harness against
-the red suite, genuine output:
+into `survivors`. Proven by deliberately breaking exactly one assertion in
+`test/windows-uninstaller-rule.test.mjs` — a single-site, scripted, reverted
+edit (`sed -i '413s/    false,/    true,/'`, flipping the expected value of
+one `assert.equal` call from `false` to `true`), not a permanent change:
+the file was restored immediately after (`cp` from a pre-edit backup) and
+`git diff --stat` confirmed byte-identical to the committed version, and
+the full 35-test suite was re-confirmed green before continuing. Breaking
+one assertion measurably yields `fail=1`, not `fail=2` — running the
+harness against that red suite, genuine output:
 
 ```
+$ sed -i '413s/    false,/    true,/' test/windows-uninstaller-rule.test.mjs
 $ node measure/windows/proof-04/mutate.mjs
-BASELINE: tests=35 pass=33 fail=2
+BASELINE: tests=35 pass=34 fail=1
 
-BASELINE NOT GREEN (fail=2) — fix test/windows-uninstaller-rule.test.mjs, test/windows-dedupe-order.test.mjs and test/windows-dedupe-target.test.mjs first. Refusing to mutate against a red baseline: every mutant run would report fail>0 regardless of the mutation and the harness would print a false "SURVIVORS: (none)".
+BASELINE NOT GREEN (fail=1) — fix test/windows-uninstaller-rule.test.mjs, test/windows-dedupe-order.test.mjs and test/windows-dedupe-target.test.mjs first. Refusing to mutate against a red baseline: every mutant run would report fail>0 regardless of the mutation and the harness would print a false "SURVIVORS: (none)".
 $ echo $?
 1
 ```
+
+(An earlier revision of this section pasted a `fail=2` block here while
+describing the method as "breaking one baseline assertion" — internally
+consistent with itself, `33+2=35`, but not reproducible from a single-site
+edit as described; `fail=2` requires a sed pattern matching two assertion
+sites. The block above is the actual output of the single-site edit the
+prose describes, not hand-adjusted to match it.)
 
 No mutant ran, no file was written to, and the harness exited non-zero
 instead of producing a false `SURVIVORS: (none)`.
@@ -1334,18 +1424,62 @@ against different failure modes that are not interchangeable on Windows:
 - *A real interrupt signal.* `process.on("SIGINT", ...)` and
   `process.on("SIGTERM", ...)` handlers were added, registered before the
   first mutation is written, restoring every file in `originals` before
-  calling `process.exit()`. This is the POSIX-idiomatic, correct pattern —
-  and it is genuinely what fires for the common case of a person running
-  this harness interactively in their own terminal and pressing Ctrl+C, a
-  well-established Node-on-Windows behavior (Windows delivers a real
-  `CTRL_C_EVENT` to every process attached to the same console, which
-  Node's `process.on("SIGINT")` does receive and can act on).
+  calling `process.exit()`. This is the POSIX-idiomatic pattern to
+  register, and round 8 corrects what round 7 claimed it proves: it does
+  **not** cover the window a mutant sits on disk. `execFileSync()` blocks
+  the whole Node.js event loop for its full duration — Node's own docs,
+  read via context7 (`/nodejs/node`, `child_process.md`): *"The
+  child_process.spawnSync(), child_process.execSync(), and
+  child_process.execFileSync() methods are synchronous and will block the
+  Node.js event loop, pausing execution of any additional code until the
+  spawned process exits."* A signal handler is JS code dispatched from
+  that same event loop, so it cannot execute while `runSuite()` blocks —
+  measured directly, not assumed from the doc quote alone. A 50ms
+  `setTimeout` scheduled immediately before a ~2000ms `execFileSync`
+  (`measure/windows/proof-04/eventloop-probe.mjs`):
 
-  **What was and was not empirically provable from this session.** This
-  session runs headless, with no attached interactive terminal to press
-  Ctrl+C in, so two different simulation mechanisms were tried instead,
-  and their results differ — reported both rather than picking the
-  favorable one:
+  ```
+  $ node measure/windows/proof-04/eventloop-probe.mjs
+  t0=1789705316072, scheduling execFileSync for ~2000ms of blocking work now
+  execFileSync returned at t+2056ms
+  50ms timer actually fired at: NOT YET (still pending)
+  50ms timer actually fired at: fired at t+2057ms
+  ```
+
+  did not fire at t+50ms — it fired at t+2057ms, immediately after
+  `execFileSync` itself returned, not during it. The same holds for the
+  brief JS-only gap between two consecutive `execFileSync` calls with
+  nothing but ordinary synchronous statements in between — exactly the
+  shape of one iteration of `mutate.mjs`'s mutant loop handing off to the
+  next (`measure/windows/proof-04/gap-probe.mjs`, two ~500ms blocking
+  calls with a 50ms timer scheduled before both):
+
+  ```
+  $ node measure/windows/proof-04/gap-probe.mjs
+  t+0ms: starting call 1 (~500ms)
+  t+576ms: call 1 returned. fired=false (checking the GAP before call 2 starts)
+  t+577ms: starting call 2 (~500ms)
+  t+1134ms: call 2 returned. fired=false
+  t+1134ms: end of synchronous script
+  [timer callback] fired at t+1134ms
+  ```
+
+  The timer had not fired by the time the second call started (`fired`
+  still `false` at t+577ms) — it only ran once the whole script's own
+  synchronous top-level code had finished, at t+1134ms. It is the
+  synchronous `try`/`finally` in the bullet above, not these handlers,
+  that restores the file across the mutated window, for every mutant, in
+  every run in this ADR (`restore byte-identical: true` in §9.1b Group
+  7's transcript). The handlers are kept registered as defense-in-depth
+  and idiomatic practice — should this loop ever gain a genuine
+  asynchronous yield point — not as a demonstrated protection for the
+  window this fix set out to close.
+
+  **What was and was not empirically provable from this session, for the
+  handlers themselves.** This session runs headless, with no attached
+  interactive terminal to press Ctrl+C in, so two different simulation
+  mechanisms were tried instead, and their results differ — reported both
+  rather than picking the favorable one:
   1. `child_process.kill(pid, "SIGINT")` (a parent Node process killing
      this one) was tried first. Node's own documentation, read via
      context7 before testing (`/nodejs/node/v25.9.0`,
@@ -1370,24 +1504,48 @@ against different failure modes that are not interchangeable on Windows:
      stopped, which — as expected from (1) — left a mutant on disk
      (`measure/windows/lib/uninstaller-rule.mjs` diffed to the `X2`
      mutation), restored manually with `git checkout --` afterward and the
-     35-test suite re-confirmed green. Why the simulated console event did
-     not reach the handler in this specific hidden/background-console
-     configuration was not root-caused further — plausibly this session's
-     lack of a real foreground console changes how the event propagates,
-     which is itself informative: the mechanism this fix relies on needs a
-     real interactive terminal, and headless automation (a CI runner, a
-     scheduled task, a supervisor process) killing this harness will hit
-     path (1) — uncatchable — not path (2).
+     35-test suite re-confirmed green.
+
+     **Round-8 candidate root cause, measured rather than guessed.** Round
+     7 left "why the simulated console event did not reach the handler"
+     not root-caused, speculating it was "plausibly this session's lack of
+     a real foreground console." A concrete, testable alternative follows
+     directly from the event-loop measurement above: the full 18-mutant
+     harness run takes, measured fresh on this machine across four runs
+     just now, 4.2–5.4s wall-clock (`node measure/windows/proof-04/mutate.mjs`,
+     timed with `time`), almost entirely spent inside 19 sequential
+     `execFileSync()` calls (1 baseline + 18 mutants) averaging ~200ms
+     each, with negligible synchronous JS between them — and the gap-probe
+     above already shows that inter-call JS gap does not give the event
+     loop a chance to run a pending callback either. The 1.8s
+     `GenerateConsoleCtrlEvent` wait, sent at an arbitrary point after the
+     harness started, therefore had a high chance of landing inside one of
+     those 19 blocking calls purely from their share of the run's total
+     wall-clock time, and — per the measurement above — no JS signal
+     handler can execute during a blocking `execFileSync()` regardless of
+     whether Windows actually delivered `CTRL_C_EVENT` to the process.
+     This does not rule out the foreground-console explanation (both could
+     be true at once, and this session cannot distinguish them without an
+     attached interactive terminal to test against), but it is a
+     mechanism this session *can* measure and *did* measure, so it
+     replaces the unmeasured guess as the leading candidate rather than
+     sitting beside it unranked.
 
   **Conclusion, stated plainly rather than smoothed over.** The `finally`
-  fix is proven working (§9.1c above, every full run in this ADR has
-  `restore byte-identical: true`). The `SIGINT`/`SIGTERM` handlers are
-  correct, idiomatic code that documented Node.js behavior says will run
-  for a real interactive Ctrl+C in an attached terminal, but that specific
-  path could not be exercised to a passing result from this headless
-  session — only disproven for the programmatic-kill path, which is
-  expected to be uncatchable on every platform and is not what those
-  handlers exist for.
+  fix is proven working (§9.1b Group 7 above, every full run in this ADR
+  has `restore byte-identical: true`). The `SIGINT`/`SIGTERM` handlers are
+  correct, idiomatic code to register, but this session measured — rather
+  than assumed — that they cannot fire during a `runSuite()` call, and
+  found no synchronous-execution point in this harness's own loop shape
+  where they demonstrably can fire either; the round-7 claim that they
+  "do receive and can act on" a real Ctrl+C is corrected above to what
+  was actually observed. Whether they fire for a genuine interactive
+  Ctrl+C in an attached terminal — a scenario this headless session
+  cannot itself exercise — remains open; only the programmatic-kill path
+  is disproven (expected to be uncatchable on every platform, and not
+  what those handlers exist for), and the `GenerateConsoleCtrlEvent`
+  simulation's non-result now has a measured, testable candidate
+  explanation above instead of an unmeasured one.
 
 ### 9.2 Reproducing round-3 finding 1's exact defect (the import, not a clause)
 
@@ -1807,7 +1965,9 @@ as a one-off grep):** `grep -oE '§[0-9]+(\.[0-9]+)?[a-z]?'` run over this
 document, the three lib modules, `scan-apps.mjs`, and the three test files,
 deduplicated, gives 22 distinct tokens. Checked one at a time against this
 document's own heading list (`§1`–`§12`, `§4a`–`§4c`, `§6.1`, `§9.1`–`§9.5`,
-`§9.1b`):
+`§9.1b`, `§9.1c` — the last added by round 7, after this audit was first
+run in round 5; every `§9.1c` self-reference added by round 7 and round 8
+resolves against it):
 
 - `§9.6` — the one genuinely dangling token, only in prose *naming* the
   round-4 defect (this line, and the Round 5 header block's finding 5) —

@@ -90,10 +90,34 @@ function counts(out) {
 const originals = new Map();
 for (const f of [RULE, DEDUPE, RESOLVE]) originals.set(f, readFileSync(f, "utf8"));
 
-// If a Ctrl-C, OOM or machine sleep lands while a mutant is written to disk,
-// the process must restore every original file before it goes away — a
-// mutated copy of the module this whole proof defends must never be left
-// behind silently. Registered before the first mutation is written.
+// What these handlers do NOT cover: the window a mutant sits on disk is
+// exactly one blocking `execFileSync()` call inside `runSuite()`, and
+// `execFileSync` blocks the whole Node.js event loop for its full duration
+// (Node's own docs, via context7 `/nodejs/node` `child_process.md`:
+// "spawnSync(), execSync(), and execFileSync() ... are synchronous and
+// will block the Node.js event loop, pausing execution of any additional
+// code until the spawned process exits"). A registered signal handler is
+// JS code dispatched from that same event loop, so it cannot run while
+// `runSuite()` blocks — measured directly: a 50ms `setTimeout` scheduled
+// immediately before a 2000ms `execFileSync` did not fire until the call
+// returned (t+2062ms, not t+50ms), and the same held across the gap
+// between two consecutive `execFileSync` calls with nothing but ordinary
+// synchronous statements in between (fired only once the whole script's
+// own top-level synchronous code had finished, not in the gap) — see ADR
+// §9.1c for both raw runs. What actually restores the file across that
+// window is the synchronous `try/finally` around each `runSuite()` call
+// below, which runs unconditionally the instant `runSuite()` returns,
+// throw or not.
+//
+// What these handlers DO cover: an interrupt Node's runtime is able to
+// dispatch to JS at all — i.e. once the event loop regains control, which
+// for this fully-synchronous script is only once the whole top-level run
+// completes (at which point every file is already restored) or, per the
+// measurement above, not demonstrably at any earlier point either.
+// Registered anyway, before the first mutation is written, as the
+// POSIX-idiomatic pattern and as defense-in-depth should this file ever
+// gain a genuine async yield point (e.g. a future maintainer adding real
+// I/O to the loop) that would otherwise leave a mutant unrestored.
 let restoring = false;
 function restoreAllAndExit(signalName, code) {
   if (restoring) return;
@@ -158,8 +182,11 @@ for (const m of MUTANTS) {
     // --shortstat` while the harness ran and catching it dirty on 7 of 7
     // samples) is still expected behavior with this fix — the file IS
     // legitimately mutated for the duration of each `runSuite()` call by
-    // design; only a same-process crash mid-mutant, or SIGINT/SIGTERM
-    // (handled below), is what this hardens against.
+    // design; only a same-process crash mid-mutant is what this hardens
+    // against. SIGINT/SIGTERM (handled below) cannot fire during this
+    // exact window either — see the comment above the handlers for the
+    // measurement — so it is this `finally`, not those handlers, that
+    // covers the file while `runSuite()` runs.
     writeFileSync(m.file, orig, "utf8");
   }
   const r = counts(out);
