@@ -94,9 +94,10 @@ const TIMED_ITERATIONS = 5; // iterations 1..5: warm, aggregated (median/min/max
  * "expected," and the previous wording blessed exactly the defect this
  * fix closes. A directory that disappears MID-WALK (a subfolder deleted
  * between `readdirSync` calls, e.g.) is still genuinely benign and stays
- * silently skipped, not recorded -- only the two top-level roots this
- * benchmark passes in at :N below get the ROOT treatment, via the `isRoot`
- * flag `walk()` carries through its own recursion.
+ * silently skipped, not recorded -- only the top-level roots `main()`
+ * passes to this function (via `resolveStartMenuRoots`) get the ROOT
+ * treatment, via the `isRoot` flag `walk()` carries through its own
+ * recursion.
  *
  * Any OTHER readdir error (EACCES, EPERM, ENOTDIR, EMFILE, ...), at any
  * depth including the root, is recorded into `dirErrors` instead of being
