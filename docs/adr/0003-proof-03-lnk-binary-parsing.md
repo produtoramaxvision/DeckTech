@@ -1,6 +1,6 @@
 # ADR-0003: Binary `.lnk` parsing in Node vs COM (`WScript.Shell`)
 
-- Status: Accepted (revised through round 6 — see "Revision history" below)
+- Status: Accepted (revised through round 7 — see "Revision history" below)
 - Date: 2026-09-17
 - Requirement: PROOF-03 (`.maxvision/REQUIREMENTS.md` Fase 0), gates PLAT-10
 - Supersedes: nothing. First measurement of unvalidated assumption U5
@@ -236,83 +236,94 @@ claimed at all** — the previously deleted 9.5x–10.2x cold range stays
 deleted, for the same reason (round-3 blocker 1, unaffected by anything
 in round 4 or 5).
 
-**Corrected in round 6 (round-6 major finding 1): the four-run committed
-span is not a predictive interval, and PLAT-10 was wrongly told to plan
-against it as one.** Round 5 narrowed the headline floor to 11.6x by
-selecting on whether a run happened to be committed — a provenance label,
-not a measurement-validity criterion — and round 5's Decision then told
-PLAT-10 to plan against that narrowed 11.6x–16.4x span specifically
-**instead of** the wider, already-disclosed 8.8x–17.0x combined range.
-Two independently-executed rounds of fresh measurement now falsify that as
-planning guidance: the round-6 reviewer re-ran the committed benchmark
-twice and landed at medians of 9.306x and 8.3x — neither reaching the
-11.6x floor; this round's own worker re-ran it twice more (the "Round-6
-worker verification" rows above) and landed at medians of 8.6x and 8.6x —
-also below 11.6x, independently. Four of the last four fresh n=5 runs
-(none of them the reviewer's or worker's first attempt) have now landed
-below the range round 5 told PLAT-10 to plan against.
+**Round 6 found the committed-only 11.6x–16.4x span was not a predictive
+interval** (round-6 major finding 1): round 5 had narrowed the headline
+floor to 11.6x by selecting on whether a run happened to be committed — a
+provenance label, not a measurement-validity criterion — and told PLAT-10
+to plan against that narrowed span specifically. Two independently-run
+re-measurements during round 6 (reviewer medians 9.306x/8.3x, worker
+medians 8.6x/8.6x) landed below 11.6x, falsifying it as planning guidance.
+Round 6's fix widened the stated range to the full fourteen-run
+distribution (8.3x–17.0x median-level, 6.2x–18.5x iteration-level) and
+published THAT as the new floor instead.
 
-The fix is not to relabel these four runs as another disclosed-but-
-disregarded aside — that is what round 5 already did to the corroborating
-and second-hand clusters, and the reviewer rejected the pattern, not just
-the specific number. The fix is to compute PLAT-10's planning floor from
-the full first-party-and-second-hand distribution, all fourteen n=5 warm
-runs measured for this ADR across rounds 2 through 6 (four committed +
-four uncommitted first-party, round 5; two second-hand, round 3's
-reviewer; two second-hand, round 6's reviewer; two first-party, round 6's
-worker — the table above lists all fourteen with their provenance):
+**Round 7 finding (round-7 blocker finding 1): that fix reproduced the
+same defect at a different number, and the defect is structural, not
+numeric.** `min(observed samples)`, published as both a range endpoint and
+a design floor, is monotonically non-increasing in N by construction —
+every additional run can only lower it or leave it unchanged, never raise
+it. Round 6's own "6.2x" floor (the document's then-stated lowest-ever
+iteration speedup — see the "Round-6 revision" entry in "Revision
+history" below for its own verbatim wording) was itself broken by three
+fresh confirmation runs of the committed benchmark
+executed on this machine for round 7 (`node
+measure/windows/proof-03-lnk-benchmark.mjs`, run three times,
+`proof-03-results.json` restored via `git checkout --` after each and
+verified byte-identical to `HEAD` via `git hash-object` before
+committing): warm-median speedups of **7.80x, 9.60x, 10.16x**, and
+per-iteration ratios spanning **6.18x–13.13x** — a new low, 6.18x, below
+round 6's own just-published 6.2x floor. This is not a correction to
+6.2x; it is the identical failure mode recurring one round after the
+document last "fixed" it, exactly as this round's reviewer predicted it
+would ("every future reviewer breaks it").
 
-- **Warm-median speedup, full distribution: 8.3x–17.0x** (floor: round-6
-  reviewer run 2; ceiling: round-3 reviewer's higher re-run — unchanged
-  from round 5's combined figure at the top end, moved down at the bottom
-  end by 0.5x from round 5's 8.8x).
-- **Individual warm-iteration speedup, full distribution: 6.2x–18.5x**
-  (floor: this round's own worker run 2, min 6.2x — the lowest single
-  data point recorded across every run of this benchmark to date, in any
-  round; ceiling: `1fa06ae`'s committed max, unchanged from round 5).
-- The four committed runs' 11.6x–16.4x span remains true, remains the
-  only span independently reproducible right now by a stranger via `git
-  show <sha>:measure/windows/proof-03-results.json` with no session-
-  specific state required, and remains worth stating for that reason. It
-  is **not**, and is no longer presented as, a bound a fresh run is
-  expected to land inside.
+**Ratio evidence — canonical statement (this is the ONE place this
+document states it; "Decision" and the round-6 history entry below point
+here instead of restating it):** across seventeen n=5 warm runs measured
+for this ADR through round 7 (four committed + four uncommitted
+first-party round 5, two second-hand round 3, two second-hand round 6,
+two first-party round 6, three first-party round 7 — this section's table
+above plus the three round-7 runs just described), the binary reader has
+been faster than COM in every single one of roughly 85 individual warm
+iterations measured to date, by a factor that has ranged from
+**as low as ~6x to as high as ~18x** at the individual-iteration level,
+with run-medians observed **roughly 7.8x–17x**. These figures are
+reported as **a sample range
+observed to date, not a bound**: a pooled percentile over the full
+iteration set was considered and rejected for this document, because
+most of the second-hand rows (the round-3 and round-6 reviewer runs)
+report only a median and a min/max, not the per-iteration raw values a
+defensible percentile needs — only the four committed JSONs plus this
+round's three fresh runs (~35 of the ~85 iterations) have recoverable raw
+per-iteration data, and computing a percentile over 35-of-85 and
+presenting it as "the" pooled floor would be a new, narrower-sounding
+overclaim of the same shape this finding exists to stop. The honest
+statement is the one above: an observed range, expected to widen
+(specifically downward) as more runs accumulate, with **no** "lowest
+ever", "no lower than", or "floor" language attached to any specific
+number, because the very next run — on this machine or anyone else's —
+can and, on this document's own seven-round track record, reliably does
+move that number. **PLAT-10 must not plan capacity or set an SLA against
+any ratio figure in this document.** For a planning input that does NOT
+have this defect, see the absolute-saving band immediately below, which
+is the number "Decision" leads with.
 
-**PLAT-10 should plan for a speedup no lower than roughly 6x at the
-single-scan level and roughly 8x at the run-median level**, treating
-11.6x–16.4x (the committed cluster) and anything above 8x/6x as upside,
-not a guarantee. See "Decision" below, where this replaces round 5's
-"motivated by... 11.6x–16.4x, not by... 8.8x–17.0x" instruction.
-
-**Absolute magnitude, not just the ratio (round-4 blocker finding 1;
-re-scoped to the repo-verifiable set in round 5):** across the same
-FOUR repo-verifiable committed runs the ratio above uses, the binary
-reader saves COM-median minus Node-median per full 182-shortcut scan:
-226.5 ms (`7819df6`), 254.1 ms (`1fa06ae`), 289.5 ms (`14a44ac`), 456.3
-ms (`6932c45`, canonical) — **roughly a quarter to half a second per
-full scan on this machine (0.23–0.46 s across four committed runs)**,
-not the ~2.4 s the 16 ms/shortcut premise would suggest for a
-similarly-sized shortcut set. This is arithmetic on each committed
-run's own `warm.nodeParserMs.median` and `warm.comLoopOnlyMs.median`
-fields, already present in the committed JSON, not a new measurement.
-Even at this range's own high end, it is still 5x smaller than the
-naive 2.4 s extrapolation. (This round's four uncommitted
-"Corroborating run A–D" figures — 253.5 ms, 234.2 ms, 238.0 ms, 287.4
-ms — fall inside this same 0.23–0.46 s band and are not needed to
-establish it; they are not cited here, for the reason given above.)
-
-**Round 6 adds four more absolute-saving samples, none of which move
-this band (round-6 major finding 1):** round-6 reviewer run 1 saved
-278.6 ms (reported directly in the finding); round-6 reviewer run 2
-saved 227.6 ms (258.3 − 30.73, also reported directly in the finding —
-the reviewer flagged this as "grazing" a rounded 0.23 s floor, but it is
-227.6 ms against an exact floor of 226.5 ms from the committed
-`7819df6` run, so it lands inside the band, not below it); round-6
-worker run 1 saved 277.34 ms (313.8 − 36.46, this section's own table
-above); round-6 worker run 2 saved 234.07 ms (269.8 − 35.73). All four
-fall inside 226.5–456.3 ms — the absolute-saving band is confirmed by
-eight samples now (four committed, four round-6), not narrowed or
-widened by round 6, unlike the ratio band above. See "Decision" below
-for why this matters for PLAT-10's motivation.
+**Absolute magnitude — the figure that has NOT moved (round-4 blocker
+finding 1; the figure round 6 already found survives fresh sampling,
+confirmed again in round 7):** across the four repo-verifiable committed
+runs, the binary reader saves COM-median minus Node-median per full
+182-shortcut Start Menu scan: 226.5 ms (`7819df6`), 254.1 ms (`1fa06ae`),
+289.5 ms (`14a44ac`), 456.3 ms (`6932c45`, canonical) — **roughly a
+quarter to half a second per full scan on this machine (0.23–0.46 s)** —
+not the ~2.4 s the research baseline's 16 ms/shortcut premise would
+suggest for a similarly-sized set (that premise does not reproduce on
+this machine at all; see "The COM baseline" above). This is arithmetic on
+each committed run's own `warm.nodeParserMs.median` and
+`warm.comLoopOnlyMs.median` fields, already present in the committed
+JSON, not a new measurement. Eleven further samples, none committed, all
+land inside this same 226.5–456.3 ms band without moving either edge: the
+four uncommitted, first-party "Corroborating run A–D" figures from this
+document's round-4/5 measurement session (253.5 ms, 234.2 ms, 238.0 ms,
+287.4 ms), round 6's reviewer's two runs (278.6 ms, 227.6 ms — the latter
+grazes but does not fall below the observed 226.5 ms lower edge,
+compared at full millisecond precision rather than the rounded "0.23
+s"), round 6's
+worker's two runs (277.34 ms, 234.07 ms), and this round's (round 7's)
+three fresh confirmation runs (241.65 ms, 236.26 ms, 254.47 ms — computed
+from this section's three round-7 runs above: 277.0546 − 35.407, 264.8426
+− 28.5819, 286.4326 − 31.9648). Fifteen samples across seven review
+rounds, zero of them outside 0.23–0.46 s. This band, not any ratio
+figure, is what "Decision" motivates PLAT-10 with.
 
 COM's own loop-only time varies substantially both run to run and within a
 single warm run. Within-run: this round's canonical run's 5 warm
@@ -587,7 +598,7 @@ rather than fabricating a wrong path.
 | Category | Found on this machine | Parser handles it |
 |---|---|---|
 | Environment-variable targets (`HasExpString`) | **42** | Yes — all 42 matched COM exactly on the parser's PRIMARY output: 35 via `env-expanded` (LinkInfo absent or `ForceNoLinkInfo`-forced-off) and 7 via `linkinfo-local` (LinkInfo present and usable, so it outranked the env block per spec priority) — 42/42, 0 mismatches, 0 secondary-only matches |
-| UNC path targets (`CommonNetworkRelativeLink`) | **0** | Implemented (`CommonNetworkRelativeLink` parsing, `\\server\share` reconstruction) but **not exercised** — no UNC-targeted shortcut exists in this Start Menu. Not claimed as validated. |
+| UNC path targets (`CommonNetworkRelativeLink`) | **0** | Implemented (`CommonNetworkRelativeLink` parsing, `\\server\share` reconstruction, both the ANSI and Unicode `NetNameOffset` forks) and, as of round 7, unit- and mutation-tested against two synthetic fixtures — but **not exercised against a real file**: no UNC-targeted shortcut exists in this Start Menu. Not claimed as validated against COM's own UNC resolution. |
 | MSI-advertised shortcuts (`HasDarwinID`/`DarwinDataBlock`) | **1** (Topaz Video AI) | Detected (`category.msiAdvertised: true`) but **not resolved** — by design (documented limitation 2). Resolving it needs the Windows Installer API (`MsiGetShortcutTarget`), not a binary read. This is also one of the 8 IDList-only gaps above. |
 | UWP/Store app shortcuts | **0** `.lnk` files carry a UWP/Store marker | Real, reproducible finding — see next section, not the correct-by-assumption prose round 1 asserted with no committed artifact behind it. |
 | Truncated/corrupt `ExtraData` block (round-4 minor finding 4) | **0** | Detected (`extraDataTruncated` on the parse result, `categoryCensus.extraDataTruncated` in the report) and, if it occurred, unconditionally routed into `unexpectedParserEmptyGapCount` (gates the exit code) — **not exercised on this machine**: none of the 182 real `.lnk` files here have a corrupt `ExtraData` block. Covered instead by a synthetic unit test (a hand-built buffer whose block claims 0x314 bytes with only 20 present) and a mutation-test that confirms the guard actually fails when the fix is reverted — see "Round-4 revision" item 4 in the "Revision history" appendix below. |
@@ -661,95 +672,32 @@ parser produced somewhere in a candidate list:
    tier, checked against the parser's actual returned value — verified by
    the discriminating `135 + 35 = 170` decomposition and a real mutation
    test (see "Verifying the fix" above).
-2. A warm-state speedup over COM, measured with warmup and repetition
-   across FOUR independent, repo-verifiable COMMITTED n=5 runs
-   (round-5 blocker finding 1 — corrected from round 4's inaccurate
-   "seven"), claimed as the span of their medians, not any single run's
-   min/max: **11.6x–16.4x** (`6932c45`, this round's own canonical run,
-   11.6x; `7819df6`, round 2's first committed run, 13.2x — `git show
-   7819df6:measure/windows/proof-03-results.json`; `1fa06ae`, round 2's
-   final committed run, 13.8x — `git show
-   1fa06ae:measure/windows/proof-03-results.json`; `14a44ac`, round 3's
-   committed run, 16.4x — `git show
-   14a44ac:measure/windows/proof-03-results.json`). The factor between
-   these four medians' own extremes is **1.42x** (16.428 ÷ 11.586).
-   Separately, and explicitly NOT folded into this headline because
-   neither cluster is independently reproducible from this repository:
-   this round's own four uncommitted, first-party "Corroborating run
-   A–D" measurements (9.7x, 8.8x, 9.2x, 9.3x) and the round-3 reviewer's
-   two second-hand medians (17.0x, 12.3x). Combining all three clusters
-   (four repo-verifiable + four uncommitted first-party + two
-   second-hand) gives an overall observed range of **8.8x–17.0x across
-   ten n=5 samples** — round-4 major finding 2 required the two-way
-   repo-verifiable/second-hand split; round-5 blocker finding 1 extends
-   it to this three-way split, now that the uncommitted-but-first-party
-   cluster is correctly distinguished from both the other two. Individual iterations across the four
-   repo-verifiable runs' 20 total warm data points span 9.0x–18.5x;
-   widening to all ten runs' 50 total warm data points, the observed
-   spread is 7.0x–18.5x (the 7.0x is one of the uncommitted
-   corroborating runs' own min; the 18.5x is `1fa06ae`'s own committed
-   max) — an OBSERVED spread of data points, not a claimed bound.
-   **Round 3 claimed this span was "consistent to within a factor of
-   ~1.4" (12.3x–17.0x); this document retracts that claim as a
-   description of the combined ten-sample set, but the four
-   repo-verifiable medians alone DO span a 1.42x factor** — round 5
-   states both numbers, correctly scoped, rather than picking one: 1.42x
-   across the four committed runs, 1.93x across all ten known medians
-   (17.0x ÷ 8.8x), or 1.87x across the eight first-party (committed +
-   uncommitted) medians (16.428x ÷ 8.8x) if the second-hand pair is
-   excluded but the uncommitted cluster is kept — 1.93x and 1.87x both
-   carry only the one-decimal precision the 8.8x/17.0x figures were
-   originally reported at, not the five-decimal precision of 1.42x.
-   **No cold/first-touch speedup is claimed at all** — round-3 blocker 1
-   found the previously-claimed 9.5x–10.2x cold range does not reproduce
-   on a genuinely first-touch run (measured 2.2x and 12.5x across two
-   attempts, moving in opposite directions for Node vs COM — second-hand,
-   reviewer-reported, not reproducible from this repo), so that number
-   stays deleted from this decision, not restated with different bounds.
-   **Round 6 correction (round-6 major finding 1): the 11.6x–16.4x
-   committed-only span above is not a predictive interval, and this
-   Decision no longer tells PLAT-10 to plan against it specifically.**
-   Two fresh n=5 re-runs of the exact committed benchmark during round
-   6 — one by the reviewer (medians 9.306x, 8.3x), one by this round's
-   worker (medians 8.6x, 8.6x) — all four landed below 11.6x. The correct
-   planning number is the full distribution across all FOURTEEN n=5 warm
-   runs measured for this ADR to date (four committed, four uncommitted
-   first-party, two second-hand round-3, two second-hand round-6, two
-   first-party round-6): warm-median speedup **8.3x–17.0x**, individual
-   warm-iteration speedup **6.2x–18.5x** (both floors set by round-6 data;
-   see "Measured result" → "Corrected in round 6" for the full table and
-   arithmetic). The committed cluster's 11.6x–16.4x remains true and
-   remains the only span a stranger can reproduce with zero session state
-   via `git show <sha>`, so it stays in this document — but as a
-   reproducibility anchor, not a floor.
-3. **The ABSOLUTE saving, not only the ratio (round-4 blocker finding 1;
-   re-scoped to the repo-verifiable set in round 5):**
-   the binary reader saves roughly a QUARTER TO HALF A SECOND (0.23–0.46 s
-   across the same four repo-verifiable committed runs the ratio above
-   uses) per full 182-shortcut Start Menu scan
-   on this machine — not the ~2.4 s the research baseline's 16
-   ms/shortcut premise would imply for a similarly-sized set. That premise
-   does not reproduce on this machine at all (COM's own measured per-item
-   rate across every run of this benchmark, rounds 4 through 6, is
-   5.9x–11.3x lower than the baseline claims, over a LARGER file count
-   than the baseline used — see "The COM baseline: two separate open
-   questions" above). **Round 6 correction (round-6 major finding 1):
-   PLAT-10 should be motivated by the measured 0.23–0.46 s/scan saving
-   (confirmed, not moved, by round 6's four additional samples — see
-   "Measured result") and by the FULL first-party-and-second-hand ratio
-   distribution, 8.3x–17.0x at the run-median level and 6.2x–18.5x at the
-   single-iteration level — not by an extrapolation from the 2395 ms
-   baseline that this document establishes does not hold on this machine,
-   and not by the narrower 11.6x–16.4x committed-only span, which round 5
-   told PLAT-10 to plan against instead of the wider range and which two
-   independent round-6 re-runs (reviewer and worker, four n=5 samples
-   total) then fell entirely below.** This does not change
-   the DIRECTION of the decision (the binary reader is still
-   substantially faster, by every one of fourteen independent
-   measurements across six review rounds) — it changes the MAGNITUDE
-   PLAT-10 should plan for, downward: treat 6x/8x as the floor to design
-   around, 11.6x–16.4x as upside from the reproducible commits, and
-   anything above that as further upside, not the other way around.
+2. **The ABSOLUTE time saved, which is what PLAT-10 should plan around
+   (round-4 blocker finding 1; canonicalized in round 7 — round-7 blocker
+   finding 1):** the binary reader saves **0.23–0.46 s per full
+   182-shortcut Start Menu scan** on this machine, not the ~2.4 s the
+   research baseline's 16 ms/shortcut premise would suggest for a
+   similarly-sized set. Fifteen independent samples across all seven
+   review rounds land inside this exact band and none has moved either
+   edge — see "Measured result" → "Absolute magnitude" above for the full
+   sample list and arithmetic. This is the number this Decision leads
+   with, specifically because — unlike the ratio in item 3 below — it has
+   not required revision in three consecutive rounds.
+3. **The ratio (ancillary context, not a planning floor — round-7 blocker
+   finding 1):** the binary reader has been faster than COM in every
+   measured iteration to date (roughly 85 of them, across seventeen n=5
+   runs, seven review rounds), by a factor observed so far to span
+   roughly 6x–18x at the single-iteration level and roughly 7.8x–17x at
+   the run-median level. **This document does not, and after this round
+   will not again, publish a minimum from this distribution as a design
+   floor:** rounds 5 and 6 each did exactly that (11.6x, then 6.2x/8.3x),
+   and both were falsified by the next round's fresh measurement —
+   including this round's own three confirmation runs, one of which
+   (6.18x) landed below round 6's just-published floor. See "Measured
+   result" → "Ratio evidence — canonical statement" above for the full
+   reasoning, including why a pooled percentile was considered and
+   rejected. **PLAT-10 must not plan capacity or set an SLA against any
+   number in this paragraph** — use item 2 above instead.
 4. A well-defined, honestly-scoped gap (shortcuts with no usable
    target-path source and a non-empty COM target, 8/182 ≈ 4.4% of this
    machine's set) with an unambiguous signal when it occurs
@@ -771,10 +719,21 @@ resolution for that one shortcut (an 8/182 ≈ 4.4% fallback rate on this
 machine). This ADR does not itself implement that fallback — it is a
 decision record for PROOF-03, consumed by PLAT-10 (Fase 3).
 
-**Not validated, flagged for PLAT-10 to re-check if it matters there:**
-UNC-targeted shortcuts and MSI-advertised shortcut *resolution* (detection
-works; resolution does not and is not attempted). Both are present in the
-codebase as documented, deliberate gaps, not silent ones. The file-count
+**Not validated against a real shortcut, flagged for PLAT-10 to re-check
+if it matters there:** UNC-targeted shortcut resolution IS implemented
+(`parseCommonNetworkRelativeLink`, both its ANSI and Unicode-offset
+branches) and, as of round 7, is unit- and mutation-tested against two
+synthetic fixtures (round-7 major finding 2) — but no UNC-targeted
+`.lnk` exists on this machine's Start Menu, so it has never been checked
+against COM's own resolution of a real one; "Category coverage" corrects
+an earlier drift where this paragraph read "resolution does not and is
+not attempted" (true only of the separate MSI-advertised case below,
+never true of UNC — the code already resolved it, just untested).
+MSI-advertised shortcut *resolution* is the case where detection works
+but resolution genuinely does not and is not attempted (documented
+limitation 2, by design — it needs the Windows Installer API, not a
+binary read). Both remain present in the codebase as documented,
+deliberate gaps, not silent ones. The file-count
 (149-vs-182) denominator question above is also still unresolved and
 should not be treated as closed by this document — nor should the
 SEPARATE finding that the baseline's own total does not reproduce on this
@@ -796,10 +755,13 @@ and the UWP-marker scan. It runs 1 discarded warmup iteration plus 5 timed
 iterations (both Node parser and COM), so a re-run takes roughly 6x the
 single-pass time reported in round 1 (a handful of seconds on this
 machine, dominated by the 6 PowerShell process spawns). `node --test`
-should report 11 tests, 11 pass, 0 fail (round 2 added 7, round 3 added 2
+should report 13 tests, 13 pass, 0 fail (round 2 added 7, round 3 added 2
 more — the ANSI-branch and `noUsablePathSource` guards — round 4 added 2
 more — the `extraDataTruncated` guard and the stale-`expandEnvVars`-cache
-regression guard).
+regression guard — round 7 added 2 more — the two `CommonNetworkRelativeLink`
+/ UNC fixtures, round-7 major finding 2 — and widened an existing fixture's
+expansion target to include a space, round-7 minor finding 3, without
+adding a test for it).
 
 **Exit code is a real pass/fail signal, not merely mismatches/secondary-
 only matches (round-3 minor finding 5).** The benchmark exits 1 if ANY of:
@@ -822,6 +784,103 @@ states; that verification run is
 deliberately NOT the canonical run this section's numbers are drawn from.)
 
 ## Revision history
+
+### Round-7 revision
+
+A rigorous reviewer rejected the round-6 version of this ADR on three
+findings.
+
+1. **[blocker, fixed]** Round 6's own fix for round 5's rejection
+   (narrowing the floor to 11.6x, then falsified) reproduced the identical
+   defect at different numbers: it published `min(observed samples)` —
+   6.2x at the iteration level, 8.3x at the median level — as both a range
+   endpoint and PLAT-10's design floor. That quantity is monotonically
+   non-increasing in N by construction, so it was guaranteed to be broken
+   by the next fresh sample, and it was broken TWICE in the reviewer's own
+   three re-runs of the committed benchmark: run 2's warm median printed
+   8.2x, below the document's then-stated 8.3x median-level floor, and
+   run 3's warm median printed 9.0x but its iteration-level min printed
+   5.7x (exact value read from the regenerated `proof-03-results.json`
+   before it was restored: `thisRun.warm.speedupComLoopOverNode.min =
+   5.724901984188925`), below the document's then-stated 6.2x
+   iteration-level floor. (Run 1: median 9.4x, min 7.4x, max 10.5x — no
+   violation.) The reviewer restored the working tree with `git checkout
+   -- measure/windows/proof-03-results.json` and confirmed it
+   byte-identical to `HEAD` via `git hash-object`. Fixed with the two
+   changes the finding specified: (a) this document stops publishing any sample
+   minimum as a floor — "Measured result" now carries ONE canonical
+   ratio statement (a new "Ratio evidence — canonical statement"
+   subsection) that reports the observed range as a range observed to
+   date, explicitly not a bound, and explains why a pooled percentile
+   over the full iteration set was considered and rejected (most
+   second-hand rows report only a median and min/max, not per-iteration
+   raw values, so a percentile over the ~35-of-~85 iterations with
+   recoverable raw data would be a new, narrower-sounding overclaim of
+   the same shape). This round's own worker independently re-ran the
+   committed benchmark three times (not transcribing the reviewer's
+   number) and got warm medians of 7.80x/9.60x/10.16x with an
+   iteration-level min of 6.18x — again below round 6's just-published
+   6.2x floor, cited in the new canonical statement as living
+   confirmation of why no minimum is published as a floor anymore. (b)
+   The four sites that previously restated the floor independently —
+   the corroborating-run table's caption, "Measured result"'s "Corrected
+   in round 6" analysis, "Decision" items 2–3, and this "Revision
+   history" section's own round-6 entry (preserved below, unedited, as a
+   historical record of what round 6 did and why it was itself
+   insufficient — its "roughly 6x/8x" planning floor is superseded by
+   this entry, not retroactively rewritten) — are folded into that one
+   canonical statement: "Decision" and the table caption now point to it
+   instead of restating it. "Decision" is reordered so item 2 (the
+   absolute-saving band, which the reviewer noted is the one figure that
+   has survived four rounds of fresh sampling without moving) leads, and
+   the ratio moves to item 3, explicitly marked ancillary context with
+   an instruction that PLAT-10 must not plan capacity against it.
+2. **[major, fixed]** `CommonNetworkRelativeLink` — the UNC resolution
+   path, including the ANSI-vs-Unicode `NetNameOffset` fork at
+   `lnk-parser.mjs:262` — shipped as the primary mechanism for UNC
+   shortcuts with zero test coverage: no real sample on this machine (the
+   Start Menu has none) and, until this round, no synthetic fixture,
+   despite this file already hand-building synthetic fixtures for two
+   other real-file-unreachable branches (the all-NUL-Unicode ANSI
+   env-var fallback, the truncated `ExtraData` block). Fixed: two
+   fixtures added to `test/windows-lnk-parser.test.mjs` — one with
+   `NetNameOffset == 0x14` (exercises the ANSI-only fork), one with
+   `NetNameOffset == 0x1c` (exercises the Unicode-offset fork), the
+   latter carrying a deliberately-wrong ANSI `NetName` value so the
+   assertion discriminates whether the Unicode fork actually executed,
+   not merely whether some candidate was produced. Both assert the
+   reconstructed primary candidate is `\\server\share\sub\app.exe`.
+   Mutation-tested per this document's own established standard: `sed`
+   flipped the `netNameUnicode ?? netName` precedence at
+   `lnk-parser.mjs:341` to `netName ?? netNameUnicode` — the Unicode-fork
+   fixture failed (`actual: '\\server\WRONG-ANSI\sub\app.exe'`, `expected:
+   '\\server\share\sub\app.exe'`), the ANSI-only fixture stayed green,
+   exactly discriminating the mutation; separately, `sed` dropped the
+   `+ suffix` concatenation (`resolvedUnc = netFull;`) and BOTH fixtures
+   failed. Both mutations were reverted (`git checkout --
+   measure/windows/lnk-parser.mjs`) and the full suite re-confirmed green
+   (13/13) after each. `node --test` before/after: 13/13 clean;
+   mutation 1: 12 pass / 1 fail (the Unicode fixture only); mutation 2:
+   11 pass / 2 fail (both UNC fixtures). "Category coverage" and the
+   "Not validated" paragraph under "Decision" are corrected to say UNC
+   resolution IS implemented and now unit/mutation-tested, just not
+   exercised against a real file — replacing a pre-existing drift where
+   the latter paragraph read "resolution does not and is not attempted"
+   for UNC, which was only ever true of the separate MSI-advertised case.
+3. **[minor, fixed]** No synthetic fixture in `test/windows-lnk-parser.test.mjs`
+   used a path containing a space, despite task rule 5 naming that
+   explicitly (the real-machine benchmark does exercise spaces — 93 of
+   182 rows in the committed `proof-03-results.json` have one in the COM
+   target — but that coverage does not travel to a machine whose Start
+   Menu differs). Fixed: the Unicode env-var expansion fixture's
+   expansion target changed from `C:\Fake\Expanded\Dir` to
+   `C:\Fake\Program Files\Dir` (both assertion sites updated); this is
+   the fixture the finding named as the right one, since `%VAR%`
+   expansion into a spaced path is where a naive split/quote/trim bug
+   would surface. No new test was added, per the finding's own required
+   fix. `node --test` test count sentence in "Reproducing this
+   measurement" updated from 11 to 13 (the two round-7 UNC tests, not
+   this fixture edit, account for the increase) to keep it accurate.
 
 ### Round-6 revision
 

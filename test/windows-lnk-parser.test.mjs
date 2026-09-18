@@ -31,6 +31,17 @@
 //     once and never refreshed, so a call made before the environment was
 //     fully populated permanently and silently locked in an incomplete
 //     keyset for the rest of the process's life.
+//   - Round-7 major 2: CommonNetworkRelativeLink (the UNC path, including
+//     the ANSI-vs-Unicode NetNameOffset fork at lnk-parser.mjs:262) shipped
+//     as the primary resolution mechanism for UNC shortcuts with zero test
+//     coverage -- no real sample on this machine, no synthetic fixture.
+//     Two fixtures below exercise both forks; the Unicode-fork fixture uses
+//     a deliberately-wrong ANSI value so the assertion discriminates
+//     whether the fork actually executed, not just whether some candidate
+//     was produced.
+//   - Round-7 minor 3: no fixture in this file used a path containing a
+//     space, despite task rule 5 naming that explicitly. The env-var
+//     expansion test's target now does.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -65,9 +76,101 @@ function buildEnvBlock(ansiStr, unicodeStr) {
 }
 
 const HAS_EXP_STRING = 1 << 9;
+const HAS_LINK_INFO = 1 << 1;
+const CNRL_AND_PATH_SUFFIX = 1 << 1; // LinkInfoFlags.CommonNetworkRelativeLinkAndPathSuffix
 
-test('resolvedTargetPath for an env-var shortcut is the EXPANDED form, not the raw %VAR% string', () => {
-  process.env.DECKTECH_TEST_LNK_VAR = 'C:\\Fake\\Expanded\\Dir';
+/**
+ * Builds a CommonNetworkRelativeLink structure (section 2.3.2) whose
+ * NetNameOffset is exactly 0x14 -- the boundary value at which
+ * lnk-parser.mjs's `hasUnicodeOffsets = netNameOffset > 0x14` fork (:262)
+ * evaluates FALSE, so only the ANSI NetName field is present/read. No
+ * device name (ValidDevice left unset).
+ */
+function buildCnrlAnsiOnly(netNameAnsi) {
+  const FIXED_HEADER_SIZE = 0x14; // Size, Flags, NetNameOffset, DeviceNameOffset, NetworkProviderType
+  const netNameBytes = Buffer.from(`${netNameAnsi}\0`, 'latin1');
+  const size = FIXED_HEADER_SIZE + netNameBytes.length;
+  const buf = Buffer.alloc(size);
+  buf.writeUInt32LE(size, 0); // Size
+  buf.writeUInt32LE(0, 4); // Flags: ValidDevice not set
+  buf.writeUInt32LE(FIXED_HEADER_SIZE, 8); // NetNameOffset == 0x14 -- NOT > 0x14, ANSI-only fork
+  buf.writeUInt32LE(0, 12); // DeviceNameOffset (unused, ValidDevice unset)
+  buf.writeUInt32LE(0, 16); // NetworkProviderType (not read by lnk-parser.mjs)
+  netNameBytes.copy(buf, FIXED_HEADER_SIZE);
+  return buf;
+}
+
+/**
+ * Builds a CommonNetworkRelativeLink structure whose NetNameOffset is 0x1c
+ * (> 0x14), so lnk-parser.mjs's `hasUnicodeOffsets` fork (:262) evaluates
+ * TRUE and NetNameOffsetUnicode/DeviceNameOffsetUnicode are read (:266-267)
+ * and the Unicode NetName is what the parser actually uses (:276-277).
+ *
+ * The ANSI NetName field is populated with a DELIBERATELY WRONG value
+ * (`netNameAnsiWrong`) distinct from the correct Unicode value: if the
+ * parser's Unicode-offset fork were dead code (e.g. `netNameUnicode ??
+ * netName` silently fell through to the ANSI field), this fixture would
+ * still resolve to a path, but to the WRONG one -- making the assertion
+ * below actually discriminate whether :262-277 executed, not just whether
+ * SOME candidate was produced.
+ */
+function buildCnrlWithUnicodeOffsets(netNameAnsiWrong, netNameUnicode) {
+  const FIXED_HEADER_SIZE = 0x1c; // Size, Flags, NetNameOffset, DeviceNameOffset, NetworkProviderType, NetNameOffsetUnicode, DeviceNameOffsetUnicode
+  const ansiBytes = Buffer.from(`${netNameAnsiWrong}\0`, 'latin1');
+  const netNameOffsetUnicode = FIXED_HEADER_SIZE + ansiBytes.length;
+  const unicodeBytes = Buffer.from(`${netNameUnicode}\0`, 'utf16le');
+  const size = netNameOffsetUnicode + unicodeBytes.length;
+  const buf = Buffer.alloc(size);
+  buf.writeUInt32LE(size, 0); // Size
+  buf.writeUInt32LE(0, 4); // Flags: ValidDevice not set
+  buf.writeUInt32LE(FIXED_HEADER_SIZE, 8); // NetNameOffset == 0x1c -- > 0x14, Unicode-offset fork
+  buf.writeUInt32LE(0, 12); // DeviceNameOffset (unused)
+  buf.writeUInt32LE(0, 16); // NetworkProviderType (not read by lnk-parser.mjs)
+  buf.writeUInt32LE(netNameOffsetUnicode, 20); // NetNameOffsetUnicode
+  buf.writeUInt32LE(0, 24); // DeviceNameOffsetUnicode (unused)
+  ansiBytes.copy(buf, FIXED_HEADER_SIZE);
+  unicodeBytes.copy(buf, netNameOffsetUnicode);
+  return buf;
+}
+
+/**
+ * Builds a LinkInfo structure (section 2.3) carrying ONLY a
+ * CommonNetworkRelativeLink (VolumeIDAndLocalBasePath left unset, so
+ * `resolvedLocal` is null and `linkinfo-unc` is the ONLY -- hence primary
+ * -- candidate this LinkInfo can produce). `commonPathSuffix` is prefixed
+ * with its own leading separator: lnk-parser.mjs concatenates
+ * `netFull + suffix` with NO separator inserted between them (:342), so the
+ * separator must live inside the suffix string, exactly as a real .lnk
+ * written by Explorer stores it.
+ */
+function buildLinkInfoWithCnrl(cnrlBuf, commonPathSuffix) {
+  const FIXED_HEADER_SIZE = 0x1c; // LinkInfoHeaderSize < 0x24 -- Unicode local-base-path offset fields absent
+  const cnrlOffset = FIXED_HEADER_SIZE;
+  const suffixOffset = cnrlOffset + cnrlBuf.length;
+  const suffixBytes = Buffer.from(`${commonPathSuffix}\0`, 'latin1');
+  const size = suffixOffset + suffixBytes.length;
+  const buf = Buffer.alloc(size);
+  buf.writeUInt32LE(size, 0); // LinkInfoSize
+  buf.writeUInt32LE(FIXED_HEADER_SIZE, 4); // LinkInfoHeaderSize
+  buf.writeUInt32LE(CNRL_AND_PATH_SUFFIX, 8); // LinkInfoFlags: CNRL present, VolumeIDAndLocalBasePath NOT set
+  buf.writeUInt32LE(0, 12); // VolumeIDOffset (unused)
+  buf.writeUInt32LE(0, 16); // LocalBasePathOffset (unused -- VolumeIDAndLocalBasePath unset)
+  buf.writeUInt32LE(cnrlOffset, 20); // CommonNetworkRelativeLinkOffset
+  buf.writeUInt32LE(suffixOffset, 24); // CommonPathSuffixOffset
+  cnrlBuf.copy(buf, cnrlOffset);
+  suffixBytes.copy(buf, suffixOffset);
+  return buf;
+}
+
+test('resolvedTargetPath for an env-var shortcut is the EXPANDED form, not the raw %VAR% string -- expansion target contains a space (round-7 minor finding 3)', () => {
+  // The expansion target deliberately contains a space
+  // ('Program Files'-shaped), per task rule 5 ("test with a path containing
+  // a space") -- round-7 minor finding 3 found every synthetic fixture in
+  // this file was space-free even though task rule 5 names spaces
+  // explicitly. This is the right fixture to carry that coverage: %VAR%
+  // expansion into a spaced path is where a naive split/quote/trim bug
+  // would surface, and this test already asserts the exact expanded string.
+  process.env.DECKTECH_TEST_LNK_VAR = 'C:\\Fake\\Program Files\\Dir';
   try {
     const raw = '%DECKTECH_TEST_LNK_VAR%\\sub\\app.exe';
     const buf = Buffer.concat([buildHeader(HAS_EXP_STRING), buildEnvBlock(raw, raw)]);
@@ -77,7 +180,7 @@ test('resolvedTargetPath for an env-var shortcut is the EXPANDED form, not the r
     assert.equal(parsed.category.envVar, true);
     assert.equal(
       parsed.resolvedTargetPath,
-      'C:\\Fake\\Expanded\\Dir\\sub\\app.exe',
+      'C:\\Fake\\Program Files\\Dir\\sub\\app.exe',
       'resolvedTargetPath must be the EXPANDED path (round-2 blocker 1) -- if this fails with the raw "%DECKTECH_TEST_LNK_VAR%\\..." string, env-raw is outranking env-expanded again',
     );
     assert.ok(!parsed.resolvedTargetPath.includes('%'), 'resolvedTargetPath must not contain an unexpanded %VAR%');
@@ -85,7 +188,7 @@ test('resolvedTargetPath for an env-var shortcut is the EXPANDED form, not the r
     // The raw form must still be PRESENT (as a diagnostic candidate,
     // round-2 fix note (a)) -- just not primary.
     assert.equal(parsed.candidates[0].source, 'env-expanded');
-    assert.equal(parsed.candidates[0].value, 'C:\\Fake\\Expanded\\Dir\\sub\\app.exe');
+    assert.equal(parsed.candidates[0].value, 'C:\\Fake\\Program Files\\Dir\\sub\\app.exe');
     assert.equal(parsed.candidates[1].source, 'env-raw');
     assert.equal(parsed.candidates[1].value, raw);
   } finally {
@@ -245,6 +348,74 @@ test('a shortcut with LinkInfo present but ForceNoLinkInfo set, no env block, ha
     true,
     'candidates.length === 0 despite HasLinkInfo being true (ForceNoLinkInfo strips it) -- this row must be classified into the honest coverage-gap bucket, not fall through into unexpectedParserEmptyGapCount',
   );
+});
+
+test('a UNC shortcut (CommonNetworkRelativeLink, ANSI NetName offset fork) resolves to the reconstructed \\\\server\\share path as the PRIMARY candidate -- round-7 major finding 2', () => {
+  // The CommonNetworkRelativeLink / UNC path -- the most intricate offset
+  // arithmetic in the parser, including the ANSI-vs-Unicode offset fork at
+  // lnk-parser.mjs:262 -- shipped in round 6 with zero test coverage of any
+  // kind (no real sample on this machine, no synthetic fixture), even
+  // though this file already builds synthetic fixtures for other branches
+  // real files never reach (the ANSI env-var fallback, the truncated
+  // ExtraData block). This fixture exercises the NetNameOffset == 0x14
+  // (NOT > 0x14) ANSI-only fork.
+  const cnrl = buildCnrlAnsiOnly('\\\\server\\share');
+  const linkInfo = buildLinkInfoWithCnrl(cnrl, '\\sub\\app.exe');
+  const buf = Buffer.concat([buildHeader(HAS_LINK_INFO), linkInfo]);
+  const parsed = parseLnk(buf);
+
+  assert.equal(parsed.valid, true);
+  assert.equal(parsed.flags.HasLinkInfo, true);
+  assert.equal(parsed.linkInfo.hasCommonNetworkRelativeLink, true);
+  assert.equal(parsed.category.unc, true);
+  assert.equal(
+    parsed.linkInfo.commonNetworkRelativeLink.netNameUnicode,
+    null,
+    'NetNameOffset == 0x14 must NOT trigger the Unicode-offset fork (lnk-parser.mjs:262, hasUnicodeOffsets = netNameOffset > 0x14)',
+  );
+  assert.equal(
+    parsed.candidates[0].source,
+    'linkinfo-unc',
+    'with VolumeIDAndLocalBasePath unset, linkinfo-unc must be the ONLY (hence primary) candidate',
+  );
+  assert.equal(parsed.candidates[0].value, '\\\\server\\share\\sub\\app.exe');
+  assert.equal(parsed.resolvedTargetPath, '\\\\server\\share\\sub\\app.exe');
+});
+
+test('a UNC shortcut (CommonNetworkRelativeLink, Unicode NetName offset fork) resolves via the Unicode field, not the deliberately-wrong ANSI one -- round-7 major finding 2', () => {
+  // NetNameOffset == 0x1c (> 0x14) so hasUnicodeOffsets is TRUE and
+  // lnk-parser.mjs:266-277 -- the branch round 6 shipped with zero
+  // coverage -- is the code path that actually executes. The ANSI NetName
+  // field is deliberately WRONG ('\\server\WRONG-ANSI'); if the
+  // Unicode-offset fork were dead code and the reconstruction silently fell
+  // back to the ANSI field (or if `netNameUnicode ?? netName` were flipped
+  // to `netName ?? netNameUnicode`), this assertion would catch it by
+  // resolving to the wrong share name instead of just failing to resolve.
+  const cnrl = buildCnrlWithUnicodeOffsets('\\\\server\\WRONG-ANSI', '\\\\server\\share');
+  const linkInfo = buildLinkInfoWithCnrl(cnrl, '\\sub\\app.exe');
+  const buf = Buffer.concat([buildHeader(HAS_LINK_INFO), linkInfo]);
+  const parsed = parseLnk(buf);
+
+  assert.equal(parsed.valid, true);
+  assert.equal(parsed.linkInfo.hasCommonNetworkRelativeLink, true);
+  assert.equal(parsed.category.unc, true);
+  assert.equal(
+    parsed.linkInfo.commonNetworkRelativeLink.netName,
+    '\\\\server\\WRONG-ANSI',
+    'sanity check: the deliberately-wrong ANSI field must actually be present and readable (it must be the Unicode fork, not an absent field, that makes the assertion below pass)',
+  );
+  assert.equal(
+    parsed.linkInfo.commonNetworkRelativeLink.netNameUnicode,
+    '\\\\server\\share',
+    'NetNameOffset == 0x1c (> 0x14) must trigger the Unicode-offset fork (lnk-parser.mjs:262-267)',
+  );
+  assert.equal(parsed.candidates[0].source, 'linkinfo-unc');
+  assert.equal(
+    parsed.candidates[0].value,
+    '\\\\server\\share\\sub\\app.exe',
+    'resolvedUnc must be built from netNameUnicode (the correct value), not netName (the deliberately-wrong ANSI value) -- if this reads "\\\\server\\WRONG-ANSI\\sub\\app.exe", the Unicode-offset fork at lnk-parser.mjs:262-277 is dead code or the ?? precedence at :341 was flipped',
+  );
+  assert.equal(parsed.resolvedTargetPath, '\\\\server\\share\\sub\\app.exe');
 });
 
 test('a .lnk with a truncated/size-lying ExtraData block sets extraDataTruncated, not silently a plain zero-candidate result -- round-4 minor finding 4', () => {
