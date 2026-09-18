@@ -38,7 +38,7 @@
 //
 // Usage: node measure/windows/proof-08/run.mjs [--reps N] [--crash-reps N]
 import { spawn, execFile } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,6 +47,27 @@ import { isolatedAppData, waitForHttp200, processTree, sumRss, mb, fmtTree, isPi
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
+
+// ROUND-8 FIX (blocker finding #1): `raw-results.json` used to be written
+// ONLY to a per-run `mkdtemp` scratch directory — a path that is, by
+// construction, never committed and (once the process exits) never
+// recoverable by anyone, including the worker who ran it. Every figure in
+// §4.2/§5.1/§5.2/§6/§8 that cited "raw-results.json" was therefore citing
+// evidence that could not exist on disk by the time a reviewer read the
+// ADR. Fixed the way round-6 fixed the identical defect for
+// crash-timeline.mjs (committed, round-tagged .txt captures): the
+// aggregate JSON this script produces is now ALSO written to a committed,
+// round-tagged path under measure/windows/proof-08/results/, in addition
+// to (not instead of) the per-rep scratch dir (which still holds the
+// high-volume per-rep log/heartbeat files — those were never what the ADR
+// cited by name). `--out-tag` lets a future round pick its own tag instead
+// of silently overwriting round-8's committed evidence; default is
+// "round8" since this script has no other way to know which round is
+// invoking it.
+const RESULTS_DIR = join(here, "results");
+const outTagFlagIndex = args.indexOf("--out-tag");
+const OUT_TAG = outTagFlagIndex >= 0 ? args[outTagFlagIndex + 1] : "round8";
+const COMMITTED_RESULTS_FILE = join(RESULTS_DIR, `raw-results-${OUT_TAG}.json`);
 
 // ROUND-3 FIX (minor finding #5): the old flag() parser did `Number(args[i+1])`
 // with no validation — a malformed value (e.g. --reps abc) becomes NaN,
@@ -482,10 +503,34 @@ warm GPU/shader cache from a previous rep or a previous arm regardless of
 position.`);
 
   const results = {
-    meta: { concurrentProcessCountAtStart: concurrentProcs, idleReps: IDLE_REPS, crashReps: CRASH_REPS },
+    meta: {
+      concurrentProcessCountAtStart: concurrentProcs,
+      idleReps: IDLE_REPS,
+      crashReps: CRASH_REPS,
+      outTag: OUT_TAG,
+      startedAt: new Date().toISOString(),
+    },
     utility: { idle: [], crashDefault: [], crashMatched: [] },
     inprocess: { idle: [], crashDefault: [], crashMatched: [] },
   };
+
+  // ROUND-8 FIX (blocker finding #1, part 2): the committed JSON is now
+  // written after EVERY phase (idle / crash-default / crash-matched), not
+  // only once at the very end. A throw mid-battery (this machine's
+  // documented Get-CimInstance flakiness under load, §6) previously meant
+  // `writeFileSync` at the bottom of main() never ran, and NOTHING was
+  // committed — structurally the same "the only evidence is unrecoverable"
+  // defect as the scratch-dir path this fix replaces, just triggered by a
+  // crash instead of by design. Every completed phase is now durable on
+  // disk before the next one starts, so a partial run still leaves
+  // real, committed, correctly-labeled partial evidence instead of nothing.
+  mkdirSync(RESULTS_DIR, { recursive: true });
+  function saveCommitted(phase) {
+    results.meta.lastPhaseCompleted = phase;
+    results.meta.savedAt = new Date().toISOString();
+    writeFileSync(COMMITTED_RESULTS_FILE, JSON.stringify(results, null, 2));
+    console.log(`[checkpoint] wrote ${COMMITTED_RESULTS_FILE} after phase "${phase}"`);
+  }
 
   for (let i = 0; i < IDLE_REPS; i++) {
     const order = armOrder(i);
@@ -498,6 +543,7 @@ position.`);
       console.log(`[run] ${approach} idle rep ${i + 1}: coldStart=${fmtMs(r.coldStartMs)} healthError=${r.healthError}`);
     }
   }
+  saveCommitted("idle");
 
   for (let i = 0; i < CRASH_REPS; i++) {
     const order = armOrder(i);
@@ -510,6 +556,7 @@ position.`);
       console.log(`[run] ${approach} crash(default) rep ${i + 1}: mainAliveAfterCrash=${r.crash?.mainAlive} exitCode=${r.exitInfo?.code} signal=${r.exitInfo?.signal}`);
     }
   }
+  saveCommitted("crashDefault");
 
   for (let i = 0; i < CRASH_REPS; i++) {
     const order = armOrder(i);
@@ -522,6 +569,7 @@ position.`);
       console.log(`[run] ${approach} crash(matched-handler) rep ${i + 1}: mainAliveAfterCrash=${r.crash?.mainAlive} exitCode=${r.exitInfo?.code} signal=${r.exitInfo?.signal}`);
     }
   }
+  saveCommitted("crashMatched");
 
   const statsA = summarize("A) utilityProcess.fork", results.utility.idle);
   const statsB = summarize("B) in-process (imported into main)", results.inprocess.idle);
@@ -544,8 +592,14 @@ position.`);
   // header comment above.
   deltaVsSpread("idle RSS (whole process tree)", "MB", statsA?.idleStats, statsB?.idleStats, (v) => v.toFixed(1));
 
+  // Still written to the per-run scratch dir too (high-volume per-rep log/
+  // heartbeat files already live only there and nothing in the ADR cites
+  // this copy by path) — but the COMMITTED copy above is the one any
+  // "raw-results.json" citation in the ADR must now point at.
   writeFileSync(join(runsScratch, "raw-results.json"), JSON.stringify(results, null, 2));
-  console.log(`\nraw JSON results: ${join(runsScratch, "raw-results.json")}`);
+  saveCommitted("complete");
+  console.log(`\nraw JSON results (scratch, ephemeral): ${join(runsScratch, "raw-results.json")}`);
+  console.log(`raw JSON results (COMMITTED): ${COMMITTED_RESULTS_FILE}`);
 }
 
 main().catch((e) => { console.error(e); process.exitCode = 1; });

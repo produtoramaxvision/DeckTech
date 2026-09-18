@@ -4,7 +4,8 @@
 - Date: 2026-09-17 (round-1), revised 2026-09-17 (round-2), revised
   2026-09-18 (round-3 — see below), revised 2026-09-18 (round-4 — see below),
   revised 2026-09-18 (round-5 — see below), revised 2026-09-18
-  (round-6 — see below), revised 2026-09-18 (round-7 — see below)
+  (round-6 — see below), revised 2026-09-18 (round-7 — see below), revised
+  2026-09-18 (round-8 — see below)
 - Requirement: PROOF-08 (`.maxvision/REQUIREMENTS.md` Fase 0), decides D15,
   informs SHELL-01/SHELL-02/SHELL-03 (Fase 5)
 - Supersedes: nothing. Closes the gap `WINDOWS-STACK.md` §9 left open — that
@@ -25,8 +26,8 @@
 > its own within-arm spread. All 9 are fixed below, in the probe code and in
 > this text, and the full battery was re-run from the corrected code —
 > **every number in §4 and §5 is from that re-run**, not carried over. The
-> decision (ship `utilityProcess.fork`) is unchanged; §5 and §8.1's reasoning
-> for it are rewritten. See §6 and the inline "ROUND-2 FIX" comments in
+> decision (ship `utilityProcess.fork`) is unchanged; §5 and §8's reasoning
+> for it (reason (1)) are rewritten. See §6 and the inline "ROUND-2 FIX" comments in
 > `measure/windows/proof-08/*.mjs` for the mechanism of each fix.
 
 > **Round-3 revision note.** A rigorous review rejected the round-2 version on
@@ -222,6 +223,53 @@
 > decision is unchanged. See §5.1's round-7 correction, §5's round-7 fix
 > and the Appendix for the mechanism of each fix.
 
+> **Round-8 revision note.** A rigorous review rejected the round-7 version
+> on 2 findings (1 blocker, 1 minor). The blocker: `run.mjs` (the
+> `--reps 8 --crash-reps 3` battery §4/§4.1/§4.2/§5.1/§5.2/§6/§8 all cite)
+> wrote its aggregate `raw-results.json` only into a per-run `mkdtemp`
+> scratch directory — never committed, never on disk once the process
+> exited, and structurally impossible to recover after the fact (unlike
+> round-6's crash-timeline defect, where the run itself could at least in
+> principle be repeated under the same alignment; here the file simply
+> never existed anywhere a reviewer could read it). Every "this round"
+> figure in those sections — the 58.8 MB idle-RSS delta, the 3173/3212/
+> 3200ms child-exit latencies, the 3/6 stderr-capture count, the 108/133/
+> 112ms propagation values, the 69.2–66.6 MB forked-child working sets —
+> was cited to that unrecoverable file. **Fixed the way round-6 fixed the
+> identical defect class for `crash-timeline.mjs`:** `run.mjs` now also
+> writes its aggregate JSON to a committed, round-tagged path,
+> `measure/windows/proof-08/results/raw-results-<tag>.json` (default tag
+> `round8`), in addition to the scratch copy — and writes it after EVERY
+> phase (idle / crash-default / crash-matched), not only once at the very
+> end, so a mid-battery throw (this machine's documented
+> `Get-CimInstance` flakiness under load, §6) still leaves real, correctly
+> partial evidence on disk instead of nothing. The full battery
+> (`--reps 8 --crash-reps 3 --out-tag round8`) was then re-run from this
+> fixed code and its full console output captured with `| tee` to
+> `measure/windows/proof-08/results/round8-run-output.txt` (same
+> commit-the-console-output convention round 6 used for
+> `crash-timeline-inprocess-run{1,2,3}.txt`) — **every "this round" number
+> in §4/§4.1/§4.2/§5.1/§5.2/§6/§8 below is re-derived from that committed
+> run, not carried over**, and every prior round's own figures (round-2
+> through round-7's battery numbers — round-4's being the most recent
+> battery re-run before this one) are kept, explicitly labeled by round,
+> as historical measurements of their own runs, not superseded. Round-4's
+> "every number in this section is from a fresh re-run" note at the top of
+> §4 is similarly re-labeled round-8, so it does not claim round-4
+> provenance for numbers that are now round-8's. The minor: two live
+> cross-references to a section numbered 8 dot 1 pointed at a subsection
+> that does not exist in this document's heading structure (`## 8.
+> Decision` has no `### 8.1`) — fixed by repointing both to `§8 reason
+> (1)`, the crash-isolation
+> reasoning they actually meant, per the reviewer's own sanctioned
+> alternative to adding the subsection; the whole document was then
+> grepped for every `§N.M` token to confirm each resolves to a real
+> heading (`§4.1`, `§4.2`, `§5.1`, `§5.2` do; nothing else does now). The decision
+> is unchanged. See §4's note, §4.1, §4.2, §5.1, §5.2, §6 and the inline
+> "ROUND-8 FIX" comment in `measure/windows/proof-08/run.mjs` for the
+> mechanism of the fix, and `measure/windows/proof-08/results/` for the
+> committed evidence.
+
 > Evidence convention: every number and behavior below is `[MEASURED]` — produced
 > by running the probes in `measure/windows/proof-08/` on this machine — or
 > `[DOC]` (Electron/Node documentation, fetched via context7, not memory).
@@ -359,22 +407,38 @@ Fase-5-only detail.
 
 ## 4. Cold start and idle RSS — measured, 8 repetitions each, order-alternated
 
-> **Round-4 note: every number in this section is from a fresh re-run, not
-> carried over from round-3.** Round-3's idle-RSS table (6.4 MB / 3.5 MB
-> spreads, "reproduces cleanly across all 8 reps") was invalidated by
-> blocker finding #1 — a stale-ppid process contaminated 2 of that round's
-> 41 measured trees (§6). The fix (a `CreationDate`-based ppid-staleness
-> guard validating every descendant, not just the root) landed **before**
-> this round's battery below was run, and this battery's own raw trees were
-> scanned for any surviving `non-Electron (...)`-labeled entry (finding
-> #6's visible safety net): **zero found across all 28 measured trees**.
-> This section republishes §4's table, spreads and delta claim from that
-> clean run.
+> **Round-8 note: every number in this section is from a fresh re-run,
+> committed this round, not carried over from round-4.** (Round-4's own
+> note — "every number in this section is from a fresh re-run, not carried
+> over from round-3" — described that round's battery; rounds 5–7 touched
+> only the crash-timeline probe, never re-ran `run.mjs`, so round-4's
+> numbers stood unchanged through round 7. Round-8's blocker finding fixes
+> exactly that: round-4's `raw-results.json` was cited by name but never
+> committed and no longer exists anywhere; see the Round-8 revision note
+> above.) The fix — `run.mjs` now writes its aggregate JSON to a
+> committed, round-tagged path in addition to the per-run scratch copy,
+> after every phase, not only at the end — landed **before** this round's
+> battery below was run:
+> `node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3
+> --out-tag round8`, captured in full with `| tee` to
+> `measure/windows/proof-08/results/round8-run-output.txt`, its aggregate
+> JSON committed at
+> `measure/windows/proof-08/results/raw-results-round8.json`. This
+> battery's own raw trees were scanned for any surviving
+> `non-Electron (...)`-labeled entry (finding #6's visible safety net,
+> round-4): **zero found across all 28 measured trees** (16 idle-rep trees
+> at the reported sample + 12 crash-rep post-crash trees — same 28-tree
+> definition round-4 used, re-verified directly against this round's own
+> committed JSON, not assumed to still hold). This section republishes
+> §4's table, spreads and delta claim from that clean, committed run.
 
-Method: `node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3`, run
-fresh for round-4 (793 concurrent OS processes on this machine at the start
-of this run, per `Get-CimInstance Win32_Process | Measure-Object`, printed by
-`run.mjs` itself). The inner per-rep order **alternates** (rep 0: utility,
+Method: `node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3
+--out-tag round8`, run fresh for round-8 (795 concurrent OS processes on
+this machine at the start of this run, per
+`Get-CimInstance Win32_Process | Measure-Object`, printed by `run.mjs`
+itself — round-4's own run started at 793; both are ordinary variation on a
+machine that runs 100+ unrelated processes, not a discrepancy). The inner
+per-rep order **alternates** (rep 0: utility,
 inprocess; rep 1: inprocess, utility; ...), round-3's fix for a residual
 run-order position effect — this **reduces**, but (being a fixed alternation
 rather than a randomization) does not fully eliminate it. Each rep still
@@ -386,7 +450,8 @@ process tree rooted at the main process, validated by the round-4
 ppid-staleness guard (§6, finding #1) so a stale/recycled pid cannot be
 summed into it; the nominal sample point is t+8s after `/health` first
 answered (`REPORTED_SAMPLE_MS`), and the **actual** elapsed time is recorded
-per sample, ranging 8.8s–9.4s across the 16 idle reps of this run.
+per sample, ranging 8.8s–9.0s across the 16 idle reps of this run (all 16
+last-sample readings: 8797–9047 ms, from `raw-results-round8.json`).
 **Median, throughout this ADR, is the actual median** (the two middle values
 averaged at even n). **Round-4 addition:** the delta-vs-spread FLAG that
 already covered cold start now covers idle RSS too (§6, finding #1's
@@ -396,53 +461,56 @@ required fix #2) — printed by `run.mjs` itself, not asserted in prose.
 
 | | reps (ms) | min | median | max | spread |
 |---|---|---|---|---|---|
-| A) `utilityProcess.fork` | 568, 436, 473, 525, 420, 371, 428, 403 | 371 ms | **432 ms** | 568 ms | 197 ms |
-| B) in-process | 381, 356, 359, 300, 350, 353, 360, 395 | 300 ms | **358 ms** | 395 ms | 95 ms |
+| A) `utilityProcess.fork` | 410, 489, 375, 337, 369, 386, 394, 394 | 337 ms | **390 ms** | 489 ms | 152 ms |
+| B) in-process | 298, 333, 340, 295, 383, 299, 341, 338 | 295 ms | **336 ms** | 383 ms | 88 ms |
 
-**Median delta: 75 ms (B faster).** This does **not** support a directional
+**Median delta: 55 ms (B faster).** This does **not** support a directional
 claim at this n: `run.mjs` flags it automatically — `FLAG: median delta
-(75 ms) is SMALLER than at least one arm's own spread (197 ms) — not a
+(55 ms) is SMALLER than at least one arm's own spread (152 ms) — not a
 reproducible directional claim at this n`. **Cold start is not a
 reproducible factor in this decision** and §8 does not cite it as one — this
-conclusion is unchanged across all four rounds, on freshly re-measured
-round-4 numbers, at a noticeably *tighter* spread than round-3's (197 ms/
-95 ms vs. round-3's 526 ms/169 ms) that still does not flip the FLAG.
+conclusion is unchanged across all four battery re-runs (round-2, round-3,
+round-4, round-8), on freshly re-measured round-8 numbers, at a spread
+(152 ms/88 ms) in the same range round-4 showed (197 ms/95 ms) that still
+does not flip the FLAG.
 
 **Position-effect split:**
 
 | | ran FIRST (n=4) median | ran SECOND (n=4) median |
 |---|---|---|
-| A) `utilityProcess.fork` | 451 ms | 420 ms |
-| B) in-process | 355 ms | 360 ms |
+| A) `utilityProcess.fork` | 385 ms | 390 ms |
+| B) in-process | 316 ms | 341 ms |
 
-Both arms show essentially no position effect this round (A: 451 ms vs.
-420 ms; B: 355 ms vs. 360 ms) — unlike round-3, where arm A showed a real
+Both arms show essentially no position effect this round (A: 385 ms vs.
+390 ms; B: 316 ms vs. 341 ms) — unlike round-3, where arm A showed a real
 455 ms/711 ms gap. This is additional evidence that the effect is
 real-but-load-dependent, not a new conclusion: cold start already carries no
 weight in §8's decision regardless.
 
-### Idle RSS — whole process tree, nominal t+8s (actual 8.8s–9.4s) after ready
+### Idle RSS — whole process tree, nominal t+8s (actual 8.8s–9.0s) after ready
 
 | | reps (MB) | min | median | max | spread |
 |---|---|---|---|---|---|
-| A) `utilityProcess.fork` | 336.3, 336.5, 335.7, 336.3, 336.5, 336.9, 332.3, 336.5 | 332.3 MB | **336.4 MB** | 336.9 MB | 4.6 MB |
-| B) in-process | 278.6, 277.8, 277.1, 277.6, 277.6, 280.1, 277.3, 277.2 | 277.1 MB | **277.6 MB** | 280.1 MB | 2.9 MB |
+| A) `utilityProcess.fork` | 336.0, 331.2, 336.5, 336.3, 336.3, 333.8, 333.3, 333.4 | 331.2 MB | **334.9 MB** | 336.5 MB | 5.3 MB |
+| B) in-process | 277.0, 277.3, 276.9, 277.6, 276.5, 277.4, 276.5, 277.4 | 276.5 MB | **277.1 MB** | 277.6 MB | 1.1 MB |
 
-**Delta: 58.8 MB** (median), i.e. what moving the server in-process actually
+**Delta: 57.7 MB** (median), i.e. what moving the server in-process actually
 saves — not the 68.6–71.2 MB "floor" reported for the standalone
 `node server.js` process, because the in-process host still pays the extra
-JS heap/Node overhead where it now lives (main's own working set is ~94.7 MB
-in Approach B vs ~81.6 MB in Approach A — see the trees below). **This
-delta exceeds both arms' spreads (4.6 MB and 2.9 MB)** — `run.mjs`'s own
+JS heap/Node overhead where it now lives (main's own working set is ~94.5 MB
+in Approach B vs ~81.9 MB in Approach A — see the trees below). **This
+delta exceeds both arms' spreads (5.3 MB and 1.1 MB)** — `run.mjs`'s own
 FLAG (now applied to idle RSS, not just cold start — see the round-4 note
 above) prints `Median delta exceeds both arms' spread — directionally
 supported at this n` rather than a bare prose assertion. This is a
 reproducible, directional finding, on a battery whose 28 measured trees
 were scanned for contamination and found clean. (Round-2 reported
 57.3 MB/8.4 MB/7.5 MB, round-3 reported an invalidated 56.3 MB/6.4 MB/
-3.5 MB — the difference from this round's clean 58.8/4.6/2.9 is a fresh run
-on a live, load-sensitive machine, not a further correction beyond
-round-3's figures already being retracted above.)
+3.5 MB, round-4 reported 58.8 MB/4.6 MB/2.9 MB — this round's clean
+57.7/5.3/1.1 continues the same pattern each of the last three clean runs
+has shown: a fresh run on a live, load-sensitive machine lands in the same
+narrow band without ever reproducing the previous run's exact figure, not a
+further correction beyond round-3's figures already being retracted above.)
 
 Full tree, one representative rep per approach (rep 8, the last of this
 run), role of every process shown (via `--type=`/`--utility-sub-type=`, not
@@ -452,17 +520,17 @@ guessed from name, and every non-`electron.exe` name would print as
 
 ```
 A) utilityProcess.fork:
-electron.exe [browser (main)] (pid 45152) — 81.6 MB WS
-  electron.exe [gpu-process] (pid 11776) — 82.2 MB WS
-  electron.exe [utility (network.mojom.NetworkService)] (pid 42872) — 39.7 MB WS
-  electron.exe [renderer] (pid 17216) — 63.9 MB WS
-  electron.exe [utility (Node — our forked server.js)] (pid 34432) — 69.1 MB WS
+electron.exe [browser (main)] (pid 984) — 81.9 MB WS
+  electron.exe [gpu-process] (pid 43668) — 81.5 MB WS
+  electron.exe [utility (network.mojom.NetworkService)] (pid 50608) — 39.8 MB WS
+  electron.exe [renderer] (pid 16908) — 60.9 MB WS
+  electron.exe [utility (Node — our forked server.js)] (pid 42904) — 69.2 MB WS
 
 B) in-process (imported into main):
-electron.exe [browser (main)] (pid 27812) — 94.7 MB WS   <- vs A's main ~81.6 MB
-  electron.exe [gpu-process] (pid 39668) — 81.6 MB WS
-  electron.exe [utility (network.mojom.NetworkService)] (pid 28336) — 39.6 MB WS
-  electron.exe [renderer] (pid 49756) — 61.4 MB WS
+electron.exe [browser (main)] (pid 51032) — 94.5 MB WS   <- vs A's main ~81.9 MB
+  electron.exe [gpu-process] (pid 2532) — 81.7 MB WS
+  electron.exe [utility (network.mojom.NetworkService)] (pid 30396) — 39.9 MB WS
+  electron.exe [renderer] (pid 17168) — 61.4 MB WS
                                         (no 5th process — this is the whole saving)
 ```
 
@@ -493,21 +561,27 @@ itself boots.
 > (not by scraping stdout for a "bound" success line — `startDiscovery` never
 > emits one; it only logs on its own bind **error**, `server.js:212`).
 >
-> **What this round's fresh 8-rep battery shows, in full (round-4
-> re-measurement — same pattern as round-3, freshly confirmed, not carried
-> over):** all 8 of 8 Approach-A idle reps printed the identical stdout pair
+> **What this round's fresh 8-rep battery shows, in full (round-8
+> re-measurement — same pattern as round-3 and round-4, freshly confirmed
+> from `raw-results-round8.json`, not carried over):** all 8 of 8
+> Approach-A idle reps printed the identical stdout pair
 > `Dokke ouvindo em http://127.0.0.1:<port>` followed by `[discover] erro:
 > bind EADDRINUSE 0.0.0.0:3001`, and `Get-NetUDPEndpoint -LocalPort 3001`
 > confirmed, in all 8 reps, that port 3001 is owned by pid **45020** — the
-> same unrelated ambient `node.exe` process as round-3 (still running on
-> this machine at this round's measurement, confirmed separately: process
-> start time 10:54:44, this round's run at 01:17), not our forked server
-> child (whose own pid was checked and differed in every rep: 27268, 45916,
-> 32856, 37464, 26100, 31364, 26928, 34432). This is **machine-state
-> dependent**, not a property of the code: on a machine where nothing else
-> holds UDP 3001, Approach A's idle cell would additionally hold a live
-> discovery socket. Both are disclosed as `boundToUs=false` for all 8 reps
-> below, exactly as observed — no rep in this battery shows the alternative.
+> **identical pid** round-3 and round-4 both observed holding this same
+> port, re-verified independently this round with `Get-Process -Id 45020`:
+> still a live `node.exe`, same `StartTime 2026-09-17 10:54:44` round-4
+> observed — the matching creation timestamp, not the bare pid (§6's own
+> pid-reuse guard exists precisely because a bare pid match proves
+> nothing), is what identifies this as the same ambient process round-3
+> and round-4 both saw, not our forked server child (whose own pid was
+> checked and differed in every
+> rep: 27732, 3020, 20044, 50792, 13836, 50352, 32756, 42904). This is
+> **machine-state dependent**, not a property of the code: on a machine
+> where nothing else holds UDP 3001, Approach A's idle cell would
+> additionally hold a live discovery socket. Both are disclosed as
+> `boundToUs=false` for all 8 reps below, exactly as observed — no rep in
+> this battery shows the alternative.
 >
 > | rep | A: server-stdout | UDP 3001 owner | bound to our child? |
 > |---|---|---|---|
@@ -522,7 +596,7 @@ itself boots.
 > the server's own footprint … versus that same code folded into main's
 > heap" — it is that same code, **plus a discovery-bind attempt whose
 > success is ambient-machine-dependent**, folded into main's heap. This does
-> not change §4's 58.8 MB delta (which is driven by the forked server
+> not change §4's 57.7 MB delta (which is driven by the forked server
 > process's own working set existing as a fifth OS process at all, not by
 > whether its UDP socket happened to bind) or §8's decision.
 >
@@ -531,25 +605,29 @@ itself boots.
 > Approach B — so §5's crash comparison is code-path matched between arms
 > and this asymmetry does not reach it (see §2's per-file notes and §5.1).
 
-### 4.2 Cross-check against `WINDOWS-STACK.md` (round-2 correction, re-measured round-3, re-measured again round-4)
+### 4.2 Cross-check against `WINDOWS-STACK.md` (round-2 correction, re-measured round-3, re-measured round-4, re-measured again round-8)
 
 The forked-server-child working set across all 8 idle reps of this round's
-run (from `raw-results.json`, not the single representative tree printed
-above): 69.2, 71.2, 71.4, 71.7, 71.7, 69.6, 66.6, 69.1 MB — **range
-66.6–71.7 MB, median 70.4 MB**, against `WINDOWS-STACK.md`'s standalone-
-process floor of **68.6–71.2 MB** (`.maxvision/research/WINDOWS-STACK.md:45`,
-measured with standalone Node v25.5.0). This round's range dips below the
-standalone floor's low end (66.6 vs. 68.6) **and** rises above its high end
-(71.7 vs. 71.2) — the same both-directions pattern round-2's own
-re-measurement showed (66.0–71.7 MB), not round-3's one-directional dip
-(68.4–71.0 MB). All three are correct readings of their own runs: this is
-one methodology (an isolated OS process running `server.js`, `APPDATA`
-redirected, `PORT` overridden) applied to two different Node runtimes
-(standalone Node v25.5.0 vs. Electron-bundled Node 24.21.0, see §3) on a
-machine whose ambient load varies run to run — "the server's own footprint
-is roughly similar whichever runtime hosts it, within a few MB," not "agrees
-to within 3% of a single figure," and three independent rounds now show
-three different (overlapping) ranges around that same floor.
+run (from the committed
+`measure/windows/proof-08/results/raw-results-round8.json`, `.utility.idle[i]
+.idle.at(-1).tree` entries matching role `utility (Node — our forked
+server.js)`, not the single representative tree printed above): 71.7, 66.9,
+71.6, 69.3, 71.6, 69.1, 69.2, 69.2 MB — **range 66.9–71.7 MB, median
+69.2 MB**, against `WINDOWS-STACK.md`'s standalone-process floor of
+**68.6–71.2 MB** (`.maxvision/research/WINDOWS-STACK.md:45`, measured with
+standalone Node v25.5.0). This round's range dips below the standalone
+floor's low end (66.9 vs. 68.6) **and** rises above its high end (71.7 vs.
+71.2) — the same both-directions pattern round-2's own re-measurement
+showed (66.0–71.7 MB) and round-4's re-measurement showed (66.6–71.7 MB),
+not round-3's one-directional dip (68.4–71.0 MB). All four are correct
+readings of their own runs: this is one methodology (an isolated OS process
+running `server.js`, `APPDATA` redirected, `PORT` overridden) applied to
+two different Node runtimes (standalone Node v25.5.0 vs. Electron-bundled
+Node 24.21.0, see §3) on a machine whose ambient load varies run to run —
+"the server's own footprint is roughly similar whichever runtime hosts it,
+within a few MB," not "agrees to within 3% of a single figure," and four
+independent rounds now show four different (overlapping) ranges around
+that same floor.
 
 ## 5. Crash behavior — what actually happens, timestamped, in two handler configurations
 
@@ -827,18 +905,18 @@ three different (overlapping) ranges around that same floor.
 Method: after `/health` first answers 200, an exception is thrown from a
 `setTimeout` callback 3 s later. `run.mjs --crash-reps 3` ran 3 reps of each
 of the 4 combinations below (A/B × default/matched), order-alternated with
-the idle reps as described in §4, from this round's fresh battery (round-4
+the idle reps as described in §4, from this round's fresh battery (round-8
 — see §4's note; the process-tree numbers below all benefit from the same
 ppid-staleness guard).
 
 ### 5.1 Default handler policy (n=3 reps each, all 3 identical in shape per arm)
 
 **A) `utilityProcess.fork`:** every rep — forked child exits(code 1) within
-~3.17–3.22s of ready (`server-exit` event, computed from `raw-results.json`'s
-own `server-exit` minus `crash-scheduled` timestamps this round: 3173ms,
-3212ms, 3200ms), main process alive the whole observation window, window
-still exists, `/health` would answer `ECONNREFUSED` once the child is gone.
-Example log excerpt (rep 1):
+~3.14–3.20s of ready (`server-exit` event, computed from the committed
+`raw-results-round8.json`'s own `server-exit` minus `crash-scheduled`
+timestamps this round: 3186ms, 3200ms, 3143ms), main process alive the
+whole observation window, window still exists, `/health` would answer
+`ECONNREFUSED` once the child is gone. Example log excerpt (rep 1):
 `{"event":"crash-scheduled","afterMs":3000,"target":"utility-child"}` →
 `{"event":"server-exit","code":1,"mainStillAlive":true,"windowStillExists":true}`
 → (9s later) `{"event":"quitting",...}`. `electron exit: code=0` (our own
@@ -848,29 +926,30 @@ scheduled `app.quit()`, not the crash) in all 3 reps.
 a fourth data point, not a fixed number.** Round-2 reported 2/7 (with an
 internal denominator contradiction, corrected in round-3); round-3's own
 fresh battery captured the literal `server-stderr` text in 6 of 6 A-arm
-crash reps (3 default + 3 matched). **This round's fresh battery captured
-it in 3 of 6** — default-handler reps 1 and 2 show no `server-stderr` log
-event (only `code=1` via the `exit` event, which fired every time, every
-round), rep 3 does; matched-handler reps 1 and 3 show it, rep 2 does not
-(checked directly against `raw-results.json`'s `logEvents`, not inferred).
-This is a *third* distinct count from the same intermittent race (round-2:
-2/7 with the arithmetic issue noted above; round-3: 6/6; round-4: 3/6) —
-exactly the behavior an unfixed, load-dependent race under a live machine's
-variable concurrent process count is expected to produce, not a
-contradiction to resolve. `main-utility.mjs`'s `child.stderr.on("data",
-...)` forwarding still races the child's `exit` event and `run.mjs`'s
-subsequent log-file read; **not fixed in code** (round-4's required fixes
-did not include this one — see the task's 8 findings). What is reliably
-true regardless of the race, across all four rounds without exception:
-`code=1` matches Node's own documented default `uncaughtException` exit
-code exactly, and a standalone check on this machine
-(`node -e "setTimeout(()=>{throw new Error('x')},50)"`) confirms Node's
-default prints the full stack to stderr and exits 1.
+crash reps (3 default + 3 matched); round-4's fresh battery captured it in
+3 of 6. **This round's fresh battery captured it in 6 of 6 again** — all 3
+default-handler reps and all 3 matched-handler reps show a `server-stderr`
+log event (checked directly against the committed
+`raw-results-round8.json`'s `logEvents`, not inferred — see the exact
+event objects quoted below). This is a *fourth* distinct count from the
+same intermittent race (round-2: 2/7 with the arithmetic issue noted
+above; round-3: 6/6; round-4: 3/6; round-8: 6/6) — exactly the behavior an
+unfixed, load-dependent race under a live machine's variable concurrent
+process count is expected to produce, not a contradiction to resolve.
+`main-utility.mjs`'s `child.stderr.on("data", ...)` forwarding still races
+the child's `exit` event and `run.mjs`'s subsequent log-file read; **not
+fixed in code** (no round's required fixes have included this one — the
+race is disclosed, not eliminated, because no number in §8's decision
+depends on it). What is reliably true regardless of the race, across all
+four battery rounds without exception: `code=1` matches Node's own documented
+default `uncaughtException` exit code exactly, and a standalone check on
+this machine (`node -e "setTimeout(()=>{throw new Error('x')},50)"`)
+confirms Node's default prints the full stack to stderr and exits 1.
 
 **B) in-process:** every rep — `mainAliveAfterCrash: true`, `electron exit:
 code=null signal=SIGTERM` (our watchdog force-killed it; it never exited on
 its own), process tree still fully present (main + gpu + network + renderer,
-~279.6–301.4 MB total) at the post-crash snapshot ~8.9–9.1s after ready —
+~279.1–303.9 MB total) at the post-crash snapshot ~8.8–8.9s after ready —
 checked against the round-4 ppid-staleness guard (§6, finding #1), which
 validates every process in the tree, not just the root, so this "still
 fully present" reading is not at risk from the specific stale/recycled-ppid
@@ -933,9 +1012,9 @@ is the diagnostic; stderr genuinely gets nothing).
 true`, `electron exit: code=0` (self-scheduled quit) in all 3 reps.
 Installing the handler in `server-entry-crash.mjs` produced the same
 observable outcome (`code=1` child exit, main/window survive) as 5.1's
-default; **2 of these 3 reps' logs contain the literal `server-stderr`
-text** this round (rep 1 and rep 3; see 5.1's corrected count — 3/6
-combined this round) — e.g. rep 1: `Error: PROOF-08 injected crash:
+default; **all 3 of these 3 reps' logs contain the literal `server-stderr`
+text** this round (rep 1, rep 2 and rep 3; see 5.1's corrected count —
+6/6 combined this round) — e.g. rep 1: `Error: PROOF-08 injected crash:
 simulated unhandled error in server process (utility, via entry wrapper)\n
 at Timeout._onTimeout (...server-entry-crash.mjs:50:11)`. This is the same
 exit code and survival outcome as the default, not a byte-for-byte stderr
@@ -960,33 +1039,35 @@ the risk category outright).
 Log confirms
 the handler fired: `{"event":"main-uncaught-exception-handled","message":
 "PROOF-08 injected crash...","stack":"Error: ...\n    at Timeout._onTimeout
-(.../main-inprocess.mjs:137:13)\n..."}`. Real propagation time, computed from
-`raw-results.json`'s own event timestamps (not estimated): crash fires at
-t+3000ms as scheduled, the handler observes it 2–5ms later, and
-`exitInfo.at` follows the handler by **108ms, 133ms, 112ms** across this
-round's 3 reps.
+(.../main-inprocess.mjs:137:13)\n..."}`. Real propagation time, computed
+from the committed `raw-results-round8.json`'s own event timestamps (not
+estimated): crash fires at t+3000ms as scheduled, the handler observes it
+11–16ms later, and `exitInfo.at` follows the handler by **127ms, 124ms,
+131ms** across this round's 3 reps.
 
 **Round-3 correction (finding #4), reinforced by round-4 (minor finding
 #5): stop publishing a numeric band at n=3 at all.** Round-2 published
 "90–118ms" as a stable band; round-3 corrected that to an approximate
 "~100–220ms" range after a reviewer's own reproduction (119/136/122ms) and
 round-3's own measurement (224/108/195ms) both fell outside round-2's
-stated band. **Round-4's own reviewer's reproduction (143ms/94ms/95ms) and
-this round's fresh measurement (108ms/133ms/112ms) are two more
-non-overlapping ranges** — five independent measurements now
+stated band. Round-4's own reviewer's reproduction (143ms/94ms/95ms) and
+round-4's own fresh measurement (108ms/133ms/112ms) were two more
+non-overlapping ranges, and **this round's fresh measurement
+(127ms/124ms/131ms) is a sixth** — six independent measurements now
 (round-2: 90–118; a round-3 reviewer: 119/136/122; round-3's own battery:
-224/108/195; a round-4 reviewer: 143/94/95; this round: 108/133/112), and
-no two of the five agree on a band. Per round-4's required fix, this ADR
-now states the **substantive finding only, with raw values and load
-context, and no numeric band**: propagation from the handler observing the
-crash to the process actually exiting is **on the order of 100ms**, never
-anywhere near round-1's original ~1s estimate — confirmed a fifth time, on
-this round's own fresh 108/133/112ms reps at 793 concurrent OS processes
+224/108/195; a round-4 reviewer: 143/94/95; round-4's own battery:
+108/133/112; round-8's own battery: 127/124/131), and no two of the six
+agree on a band. Per round-4's required fix, this ADR states the
+**substantive finding only, with raw values and load context, and no
+numeric band**: propagation from the handler observing the crash to the
+process actually exiting is **on the order of 100ms**, never anywhere near
+round-1's original ~1s estimate — confirmed a sixth time, on this round's
+own fresh 127/124/131ms reps at 795 concurrent OS processes
 (`Get-CimInstance Win32_Process | Measure-Object`, printed by `run.mjs`
 itself, not estimated). The process is fully gone roughly 3.1–3.2s after
-ready either way, not the ~12s figure below. The ~12.4–13.3s
-`postCrashElapsedMs` reported per rep (this round: 12383ms, 12421ms,
-13333ms) is when `run.mjs` *takes its post-crash snapshot* (crash at 3s +
+ready either way, not the ~12s figure below. The ~12.1–12.4s
+`postCrashElapsedMs` reported per rep (this round: 12133ms, 12380ms,
+12401ms) is when `run.mjs` *takes its post-crash snapshot* (crash at 3s +
 the probe's own fixed settle wait before snapshotting, not "time for the
 process to actually exit") — the snapshot simply finds an already-empty
 tree, since the process exited ~9s earlier than the snapshot was taken.
@@ -1033,10 +1114,10 @@ The four behaviors, side by side:
 
 | | main process survives | window survives | server signals down cleanly | diagnostic produced | self-terminates |
 |---|---|---|---|---|---|
-| A, default | **yes** | **yes** | yes — `ECONNREFUSED` once child gone | `code=1` matches Node's documented default exactly; literal stderr text captured in this probe's own log **1/3 default reps** this round's battery (see §5.1 for the running denominator across all four rounds: 2/7, 6/6, now 1/3) | yes — child exits(1) in ~3.2s |
-| A, matched | **yes** | **yes** | yes — `ECONNREFUSED` once child gone | same as default; literal stderr text captured **2/3 reps** this round's battery (§5.2) — **3/6 total across both A-arm configs this round** | yes — child exits(1) in ~3.2s |
+| A, default | **yes** | **yes** | yes — `ECONNREFUSED` once child gone | `code=1` matches Node's documented default exactly; literal stderr text captured in this probe's own log **3/3 default reps** this round's battery (see §5.1 for the running denominator across all four battery rounds: 2/7, 6/6, 3/6, now 6/6) | yes — child exits(1) in ~3.2s |
+| A, matched | **yes** | **yes** | yes — `ECONNREFUSED` once child gone | same as default; literal stderr text captured **3/3 reps** this round's battery (§5.2) — **6/6 total across both A-arm configs this round** | yes — child exits(1) in ~3.2s |
 | B, default | technically, but frozen | frozen (independently re-confirmed via committed `enum-windows.ps1`, §5's box — `windowExists` in the heartbeat itself is last-known-good, age-labeled, not trusted alone) | no — `TIMEOUT`, indistinguishable from "slow" | **yes — a modal dialog**, `class=#32770 title=Error`, reproduced from the committed probe (not stderr — confirmed empty; round-1 mischaracterized the dialog itself as absent) | **no — needs external kill** |
-| B, matched | **no — whole process exits** | **no — dies with it** (post-crash tree empty, verified with round-4's `CreationDate`-based ppid-staleness guard, §6) | yes — connection refused once process is gone | yes — full stack trace to stderr, captured in log for all 3 reps | **yes — process exits(1)**, on the order of 100ms (five independent measurements across four rounds, no stable band — §5.2) after the handler runs, but takes the window with it |
+| B, matched | **no — whole process exits** | **no — dies with it** (post-crash tree empty, verified with round-4's `CreationDate`-based ppid-staleness guard, §6) | yes — connection refused once process is gone | yes — full stack trace to stderr, captured in log for all 3 reps | **yes — process exits(1)**, on the order of 100ms (six independent measurements across four rounds, no stable band — §5.2) after the handler runs, but takes the window with it |
 
 ## 6. Measurement bugs found along the way (disclosed, not hidden)
 
@@ -1172,10 +1253,18 @@ battery count** — applied throughout §5.1/§5.2/the comparison table above.
 Flagged for Fase 5, unchanged: any real supervisor built on this ADR's
 signal (§9, `child.on('exit', code)`) should not additionally depend on
 literal stderr text from a forked `utilityProcess` being reliably captured.
-**Round-4 addendum:** this round's own fresh battery captured the text in
+**Round-4 addendum:** that round's own fresh battery captured the text in
 3 of 6 A-arm crash reps (§5.1) — a *third* distinct count, reinforcing
 rather than contradicting the "intermittent race, no stable fraction"
 finding; the Fase-5 guidance above is unchanged by it.
+
+**Round-8 addendum:** this round's own fresh, committed battery
+(`raw-results-round8.json`) captured the text in 6 of 6 A-arm crash reps
+(§5.1) — a *fourth* distinct count, landing back on round-3's exact
+fraction by coincidence of the race, not because the race was fixed;
+still unfixed in code, still affecting no number §8's decision uses, and
+still consistent with "intermittent race, no stable fraction" across all
+four counts now on record (2/7, 6/6, 3/6, 6/6).
 
 **Round-3 bug — CLI argument validation (minor finding #5).** `run.mjs`'s
 flag parser did `Number(args[i+1])` with no validation: `node run.mjs --reps
@@ -1567,13 +1656,13 @@ second, structurally unrelated hosting mode to keep working forever.
 ## 8. Decision
 
 **Ship `utilityProcess.fork` (Approach A).** Unchanged from round-1 — the
-round-2, round-3 and round-4 corrections change *why* and *how precisely*,
-not *which*. The measured ~59 MB saving from hosting in-process (§4: 58.8 MB
-median this round, from a battery verified free of the process-tree
-contamination that invalidated round-3's own 56.3 MB figure — see §6,
-blocker finding #1; 57.3 MB round-2, uncontaminated but from an earlier
-round-2 pid-reuse-guard-free codebase — all real measurements of their own
-live-machine runs, not a discrepancy to resolve) does not justify:
+round-2 through round-8 corrections change *why* and *how precisely*, not
+*which*. The measured ~58 MB saving from hosting in-process (§4: 57.7 MB
+median this round [round-8], from a battery verified free of the
+process-tree contamination that invalidated round-3's own 56.3 MB figure —
+see §6, blocker finding #1; 58.8 MB round-4 and 57.3 MB round-2, both
+uncontaminated — all real measurements of their own live-machine runs, not
+a discrepancy to resolve) does not justify:
 
 1. **A crash-isolation guarantee that is structural in A and only
    discipline-dependent in B — the round-2-corrected version of this
@@ -1607,8 +1696,9 @@ live-machine runs, not a discrepancy to resolve) does not justify:
    over a shared warm cache; the order-alternated remeasurement puts the
    median delta consistently *inside* arm A's own within-apparatus spread
    every round it has been checked — round-3: 183 ms inside 526 ms;
-   round-2: 196 ms inside 476 ms/304 ms; **this round: 75 ms inside 197 ms**
-   — not a reproducible directional claim at n=8 in any of the three, on
+   round-2: 196 ms inside 476 ms/304 ms; round-4: 75 ms inside 197 ms;
+   **this round (round-8): 55 ms inside 152 ms**
+   — not a reproducible directional claim at n=8 in any of the four, on
    freshly re-measured numbers each time. Cold start plays **no role** in
    this decision; reasons (1) and (2) carry it on their own, which they
    already did in round-1 (round-1's own text called reason (1) alone
@@ -1619,12 +1709,12 @@ No — stated plainly, not left implicit.** §4.1 disclosed that Approach A's
 idle cell additionally attempts a UDP bind on port 3001 (machine-state
 dependent whether it succeeds) that Approach B's idle cell never attempts.
 This does not change the decision for two independent reasons: **(a)** the
-58.8 MB delta this ADR's decision rests on is driven by the forked server
+57.7 MB delta this ADR's decision rests on is driven by the forked server
 process existing as a fifth OS process at all — its own ~70 MB working set
 — not by whether that process's UDP socket happened to bind; a failed
 `dgram.bind()` costs bytes to low-KB, invisible at this measurement's
 resolution, so even a maximally unfavorable reading (A's socket always
-fails, always costing nothing; B never attempts one) leaves the 58.8 MB
+fails, always costing nothing; B never attempts one) leaves the 57.7 MB
 figure unchanged. **(b)** the crash comparison in §5, which reasons (1) and
 (2) above actually rest the decision on, is unaffected by this asymmetry at
 all — Approach A's crash sub-test forks `server-entry-crash.mjs`, which
@@ -1650,7 +1740,8 @@ D15 is resolved: `utilityProcess.fork`, pointing at the real, unmodified
   uncaught exception in a GUI-owning process is a blocking dialog, not an
   exit, so a future in-process or hybrid design would need its own explicit
   `process.on('uncaughtException')` to get an exit signal at all — and even
-  with one installed, that exit takes the window down with it (§5.2, §8.1).
+  with one installed, that exit takes the window down with it (§5.2, §8
+  reason (1)).
 - Do not reuse `execArgv` on `utilityProcess.fork` as a debugging/injection
   channel without verifying it lands — §5 showed it silently does not for
   `--import`.
@@ -1701,12 +1792,15 @@ D15 is resolved: `utilityProcess.fork`, pointing at the real, unmodified
   needs both checks, not just the name check round-3 added.
 - **Round-3 addition:** `startDiscovery(3001)`'s UDP bind is machine-state
   dependent — on this development machine an unrelated ambient process
-  (pid 45020) held the port across every rep of this round's battery. Fase
-  5's real shell will run on end-user machines where this is far less
-  likely, but the discovery-socket bind failure path (`sock.on("error", ...)`,
+  (pid 45020) held the port across every rep of round-3's battery, and a
+  process matching the same pid and `CreationDate` held it again across
+  every rep of round-4's and round-8's batteries too (§4.1). Fase 5's real
+  shell will run on end-user machines where this is far less likely, but
+  the discovery-socket bind failure path (`sock.on("error", ...)`,
   `server.js:212`) should be treated as a live, expected failure mode to
   handle gracefully (log and continue, which it already does), not an edge
-  case — this ADR's own measurement machine hit it 8/8 times.
+  case — this ADR's own measurement machine hit it 8/8 times, every round
+  it has been checked.
 - **Round-3 addition:** a positive-evidence check (e.g. `Get-NetUDPEndpoint`'s
   `OwningProcess` for a socket bind, or `EnumWindows` for a GUI dialog) is
   worth the extra PowerShell round-trip over inferring state from log text
@@ -1718,7 +1812,7 @@ D15 is resolved: `utilityProcess.fork`, pointing at the real, unmodified
 
 ```sh
 pnpm install   # electron@44.4.1 already committed as a devDependency in package.json
-node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3   # full battery this ADR's §4/§5 numbers come from
+node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3 --out-tag round8   # full battery this ADR's §4/§4.1/§4.2/§5.1/§5.2/§6/§8 numbers come from (round-8); writes measure/windows/proof-08/results/raw-results-round8.json, the committed evidence
 node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1   # quick smoke run
 node measure/windows/proof-08/crash-timeline.mjs utility                    # timeline, A, default handler
 node measure/windows/proof-08/crash-timeline.mjs inprocess                  # timeline, B, default handler — §5's window/dialog box
@@ -1743,6 +1837,10 @@ node measure/windows/proof-08/decode-windows.mjs   # post-CharSet-fix verificati
 
 # Round-7 additions:
 node measure/windows/proof-08/crash-timeline.mjs inprocess 2>&1 | tee measure/windows/proof-08/crash-timeline-inprocess-run4.txt   # same capture method as run1-3; landed the dialog in iteration 2 on the first attempt (round-7 major finding #2 — closes the round-6 gap where an iteration-2-aligned run was only ever cited in prose, never archived), added to §5's cross-alignment table as run4
+
+# Round-8 additions:
+node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3 --out-tag round8 2>&1 | tee measure/windows/proof-08/results/round8-run-output.txt   # closes round-8 blocker finding #1: `run.mjs` previously wrote its aggregate JSON only into a per-run mkdtemp scratch dir, never committed, structurally unrecoverable once the process exited. Now also writes measure/windows/proof-08/results/raw-results-<tag>.json (default tag "round8") after EVERY phase (idle/crashDefault/crashMatched), not only at the end, and this console output is separately captured with `| tee` the same way round-6 captured crash-timeline's — both are committed. Every "this round" figure in §4/§4.1/§4.2/§5.1/§5.2/§6/§8 is re-derived from these two committed files.
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag <tag>   # --out-tag lets a future round pick its own tag instead of silently overwriting round-8's committed evidence at raw-results-round8.json
 ```
 
 `crash-timeline.mjs`'s per-iteration cadence is now printed inline (`iter

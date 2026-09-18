@@ -1,0 +1,361 @@
+Electron: v44.4.1
+Node (this driver): v25.5.0
+server.js: C:\Users\MaxVision\Desktop\cursor-oficial\decktech\server.js
+repetitions: idle=8 crash(default)=3 crash(matched-handler)=3
+concurrent OS processes at run start (Get-CimInstance Win32_Process | Measure-Object): 795
+arm order: ALTERNATING per rep index — rep 0 runs (utility, inprocess), rep 1 runs
+(inprocess, utility), etc. This reduces, but as a fixed inner-loop-per-rep
+alternation rather than a full randomization, does not perfectly randomize,
+the round-2 finding that one arm always ran second and inherited the other's
+just-finished teardown. Each rep's realized order is recorded (armPosition)
+and reported as a measured split in the summaries below. Each rep also gets
+its own isolated Electron userData dir (app.setPath), so no rep inherits a
+warm GPU/shader cache from a previous rep or a previous arm regardless of
+position.
+
+[run] utility idle rep 1/8 (position: first) ...
+[run] utility idle rep 1: coldStart=410 ms healthError=null
+
+[run] inprocess idle rep 1/8 (position: second) ...
+[run] inprocess idle rep 1: coldStart=298 ms healthError=null
+
+[run] inprocess idle rep 2/8 (position: first) ...
+[run] inprocess idle rep 2: coldStart=333 ms healthError=null
+
+[run] utility idle rep 2/8 (position: second) ...
+[run] utility idle rep 2: coldStart=489 ms healthError=null
+
+[run] utility idle rep 3/8 (position: first) ...
+[run] utility idle rep 3: coldStart=375 ms healthError=null
+
+[run] inprocess idle rep 3/8 (position: second) ...
+[run] inprocess idle rep 3: coldStart=340 ms healthError=null
+
+[run] inprocess idle rep 4/8 (position: first) ...
+[run] inprocess idle rep 4: coldStart=295 ms healthError=null
+
+[run] utility idle rep 4/8 (position: second) ...
+[run] utility idle rep 4: coldStart=337 ms healthError=null
+
+[run] utility idle rep 5/8 (position: first) ...
+[run] utility idle rep 5: coldStart=369 ms healthError=null
+
+[run] inprocess idle rep 5/8 (position: second) ...
+[run] inprocess idle rep 5: coldStart=383 ms healthError=null
+
+[run] inprocess idle rep 6/8 (position: first) ...
+[run] inprocess idle rep 6: coldStart=299 ms healthError=null
+
+[run] utility idle rep 6/8 (position: second) ...
+[run] utility idle rep 6: coldStart=386 ms healthError=null
+
+[run] utility idle rep 7/8 (position: first) ...
+[run] utility idle rep 7: coldStart=394 ms healthError=null
+
+[run] inprocess idle rep 7/8 (position: second) ...
+[run] inprocess idle rep 7: coldStart=341 ms healthError=null
+
+[run] inprocess idle rep 8/8 (position: first) ...
+[run] inprocess idle rep 8: coldStart=338 ms healthError=null
+
+[run] utility idle rep 8/8 (position: second) ...
+[run] utility idle rep 8: coldStart=394 ms healthError=null
+[checkpoint] wrote C:\Users\MaxVision\Desktop\cursor-oficial\decktech\measure\windows\proof-08\results\raw-results-round8.json after phase "idle"
+
+[run] utility crash(default) rep 1/3 (position: first) ...
+[run] utility crash(default) rep 1: mainAliveAfterCrash=true exitCode=0 signal=null
+
+[run] inprocess crash(default) rep 1/3 (position: second) ...
+[run] inprocess crash(default) rep 1: mainAliveAfterCrash=true exitCode=null signal=SIGTERM
+
+[run] inprocess crash(default) rep 2/3 (position: first) ...
+[run] inprocess crash(default) rep 2: mainAliveAfterCrash=true exitCode=null signal=SIGTERM
+
+[run] utility crash(default) rep 2/3 (position: second) ...
+[run] utility crash(default) rep 2: mainAliveAfterCrash=true exitCode=0 signal=null
+
+[run] utility crash(default) rep 3/3 (position: first) ...
+[run] utility crash(default) rep 3: mainAliveAfterCrash=true exitCode=0 signal=null
+
+[run] inprocess crash(default) rep 3/3 (position: second) ...
+[run] inprocess crash(default) rep 3: mainAliveAfterCrash=true exitCode=null signal=SIGTERM
+[checkpoint] wrote C:\Users\MaxVision\Desktop\cursor-oficial\decktech\measure\windows\proof-08\results\raw-results-round8.json after phase "crashDefault"
+
+[run] utility crash(matched-handler) rep 1/3 (position: first) ...
+[run] utility crash(matched-handler) rep 1: mainAliveAfterCrash=true exitCode=0 signal=null
+
+[run] inprocess crash(matched-handler) rep 1/3 (position: second) ...
+[run] inprocess crash(matched-handler) rep 1: mainAliveAfterCrash=false exitCode=1 signal=null
+
+[run] inprocess crash(matched-handler) rep 2/3 (position: first) ...
+[run] inprocess crash(matched-handler) rep 2: mainAliveAfterCrash=false exitCode=1 signal=null
+
+[run] utility crash(matched-handler) rep 2/3 (position: second) ...
+[run] utility crash(matched-handler) rep 2: mainAliveAfterCrash=true exitCode=0 signal=null
+
+[run] utility crash(matched-handler) rep 3/3 (position: first) ...
+[run] utility crash(matched-handler) rep 3: mainAliveAfterCrash=true exitCode=0 signal=null
+
+[run] inprocess crash(matched-handler) rep 3/3 (position: second) ...
+[run] inprocess crash(matched-handler) rep 3: mainAliveAfterCrash=false exitCode=1 signal=null
+[checkpoint] wrote C:\Users\MaxVision\Desktop\cursor-oficial\decktech\measure\windows\proof-08\results\raw-results-round8.json after phase "crashMatched"
+
+=== A) utilityProcess.fork ===
+cold start (launch -> first /health 200), n=8:
+  rep 1 [ran first this rep]: 410 ms
+  rep 2 [ran second this rep]: 489 ms
+  rep 3 [ran first this rep]: 375 ms
+  rep 4 [ran second this rep]: 337 ms
+  rep 5 [ran first this rep]: 369 ms
+  rep 6 [ran second this rep]: 386 ms
+  rep 7 [ran first this rep]: 394 ms
+  rep 8 [ran second this rep]: 394 ms
+  min=337 ms median=390 ms max=489 ms spread=152 ms
+  cold start split by arm position: ran FIRST n=4 median=385 ms | ran SECOND n=4 median=390 ms
+idle RSS (whole process tree, nominal t+8000ms after ready — see actual elapsed below), n=8:
+  rep 1: 336.0 MB (actual elapsed: 8947 ms)
+  rep 2: 331.2 MB (actual elapsed: 8984 ms)
+  rep 3: 336.5 MB (actual elapsed: 8813 ms)
+  rep 4: 336.3 MB (actual elapsed: 8822 ms)
+  rep 5: 336.3 MB (actual elapsed: 9002 ms)
+  rep 6: 333.8 MB (actual elapsed: 9047 ms)
+  rep 7: 333.3 MB (actual elapsed: 8913 ms)
+  rep 8: 333.4 MB (actual elapsed: 8801 ms)
+  min=331.2 MB median=334.9 MB max=336.5 MB spread=5.3 MB
+server stdout/stderr, verbatim, per rep:
+  rep 1 [server-stdout]: Dokke ouvindo em http://127.0.0.1:15900
+  rep 1 [server-stdout]: [discover] erro: bind EADDRINUSE 0.0.0.0:3001
+  rep 2 [server-stdout]: Dokke ouvindo em http://127.0.0.1:15903
+  rep 2 [server-stdout]: [discover] erro: bind EADDRINUSE 0.0.0.0:3001
+  rep 3 [server-stdout]: Dokke ouvindo em http://127.0.0.1:15904
+  rep 3 [server-stdout]: [discover] erro: bind EADDRINUSE 0.0.0.0:3001
+  rep 4 [server-stdout]: Dokke ouvindo em http://127.0.0.1:15907
+  rep 4 [server-stdout]: [discover] erro: bind EADDRINUSE 0.0.0.0:3001
+  rep 5 [server-stdout]: Dokke ouvindo em http://127.0.0.1:15908
+  rep 5 [server-stdout]: [discover] erro: bind EADDRINUSE 0.0.0.0:3001
+  rep 6 [server-stdout]: Dokke ouvindo em http://127.0.0.1:15911
+  rep 6 [server-stdout]: [discover] erro: bind EADDRINUSE 0.0.0.0:3001
+  rep 7 [server-stdout]: Dokke ouvindo em http://127.0.0.1:15912
+  rep 7 [server-stdout]: [discover] erro: bind EADDRINUSE 0.0.0.0:3001
+  rep 8 [server-stdout]: Dokke ouvindo em http://127.0.0.1:15915
+  rep 8 [server-stdout]: [discover] erro: bind EADDRINUSE 0.0.0.0:3001
+discovery-socket (UDP 3001) bind outcome per rep:
+  rep 1: attempted=true expectedPid(our forked server child)=27732 actualOwnerPid=45020 boundToUs=false
+  rep 2: attempted=true expectedPid(our forked server child)=3020 actualOwnerPid=45020 boundToUs=false
+  rep 3: attempted=true expectedPid(our forked server child)=20044 actualOwnerPid=45020 boundToUs=false
+  rep 4: attempted=true expectedPid(our forked server child)=50792 actualOwnerPid=45020 boundToUs=false
+  rep 5: attempted=true expectedPid(our forked server child)=13836 actualOwnerPid=45020 boundToUs=false
+  rep 6: attempted=true expectedPid(our forked server child)=50352 actualOwnerPid=45020 boundToUs=false
+  rep 7: attempted=true expectedPid(our forked server child)=32756 actualOwnerPid=45020 boundToUs=false
+  rep 8: attempted=true expectedPid(our forked server child)=42904 actualOwnerPid=45020 boundToUs=false
+
+full process tree, last idle rep, nominal t+8000ms:
+electron.exe [browser (main)] (pid 984) — 81.9 MB WS
+  electron.exe [gpu-process] (pid 43668) — 81.5 MB WS
+  electron.exe [utility (network.mojom.NetworkService)] (pid 50608) — 39.8 MB WS
+  electron.exe [renderer] (pid 16908) — 60.9 MB WS
+  electron.exe [utility (Node — our forked server.js)] (pid 42904) — 69.2 MB WS
+
+=== B) in-process (imported into main) ===
+cold start (launch -> first /health 200), n=8:
+  rep 1 [ran second this rep]: 298 ms
+  rep 2 [ran first this rep]: 333 ms
+  rep 3 [ran second this rep]: 340 ms
+  rep 4 [ran first this rep]: 295 ms
+  rep 5 [ran second this rep]: 383 ms
+  rep 6 [ran first this rep]: 299 ms
+  rep 7 [ran second this rep]: 341 ms
+  rep 8 [ran first this rep]: 338 ms
+  min=295 ms median=336 ms max=383 ms spread=88 ms
+  cold start split by arm position: ran FIRST n=4 median=316 ms | ran SECOND n=4 median=341 ms
+idle RSS (whole process tree, nominal t+8000ms after ready — see actual elapsed below), n=8:
+  rep 1: 277.0 MB (actual elapsed: 8814 ms)
+  rep 2: 277.3 MB (actual elapsed: 8804 ms)
+  rep 3: 276.9 MB (actual elapsed: 8847 ms)
+  rep 4: 277.6 MB (actual elapsed: 8797 ms)
+  rep 5: 276.5 MB (actual elapsed: 8940 ms)
+  rep 6: 277.4 MB (actual elapsed: 8814 ms)
+  rep 7: 276.5 MB (actual elapsed: 8897 ms)
+  rep 8: 277.4 MB (actual elapsed: 8845 ms)
+  min=276.5 MB median=277.1 MB max=277.6 MB spread=1.1 MB
+server stdout/stderr, verbatim, per rep:
+  rep 1: (no server-stdout/server-stderr events captured)
+  rep 2: (no server-stdout/server-stderr events captured)
+  rep 3: (no server-stdout/server-stderr events captured)
+  rep 4: (no server-stdout/server-stderr events captured)
+  rep 5: (no server-stdout/server-stderr events captured)
+  rep 6: (no server-stdout/server-stderr events captured)
+  rep 7: (no server-stdout/server-stderr events captured)
+  rep 8: (no server-stdout/server-stderr events captured)
+discovery-socket (UDP 3001) bind outcome per rep:
+  rep 1: attempted=false
+  rep 2: attempted=false
+  rep 3: attempted=false
+  rep 4: attempted=false
+  rep 5: attempted=false
+  rep 6: attempted=false
+  rep 7: attempted=false
+  rep 8: attempted=false
+
+full process tree, last idle rep, nominal t+8000ms:
+electron.exe [browser (main)] (pid 51032) — 94.5 MB WS
+  electron.exe [gpu-process] (pid 2532) — 81.7 MB WS
+  electron.exe [utility (network.mojom.NetworkService)] (pid 30396) — 39.9 MB WS
+  electron.exe [renderer] (pid 17168) — 61.4 MB WS
+
+=== A) utilityProcess.fork — DEFAULT handler policy — crash behavior ===
+rep 1 [ran first this rep]:
+  handler policy: default (no handler installed by this probe)
+  main process (pid 25752) alive after injected crash: true
+  heartbeat (LAST-KNOWN-GOOD, not necessarily current — age 198 ms at snapshot time): {"t":1789711670871,"approach":"utility-process","mainPid":25752,"windowExists":true,"windowVisible":true,"serverAlive":false}
+  discovery-socket bind (UDP 3001): attempted=false
+  process tree after crash (264.5 MB total, actual elapsed 8839 ms since ready):
+    electron.exe [browser (main)] (pid 25752) — 81.9 MB WS
+      electron.exe [gpu-process] (pid 49408) — 81.3 MB WS
+      electron.exe [utility (network.mojom.NetworkService)] (pid 50860) — 40.1 MB WS
+      electron.exe [renderer] (pid 42112) — 61.3 MB WS
+  electron exit: code=0 signal=null
+  all log events: [{"t":1789711661037,"event":"main-module-start","mainPid":25752,"serverPath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"},{"t":1789711661063,"event":"app-ready"},{"t":1789711661148,"event":"window-created","windowId":1},{"t":1789711661149,"event":"server-start-begin","port":15916,"modulePath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"},{"t":1789711661152,"event":"server-forked","modulePath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"},{"t":1789711661153,"event":"crash-scheduled","afterMs":3000,"target":"utility-child"},{"t":1789711661175,"event":"server-spawn-confirmed","serverPid":50484},{"t":1789711661332,"event":"server-stdout","line":"[server-entry-crash] Dokke ouvindo em http://127.0.0.1:15916"},{"t":1789711664338,"event":"server-stderr","line":"file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/server-entry-crash.mjs:50\r\n    throw new Error(\"PROOF-08 injected crash: simulated unhandled error in server process (utility, via entry wrapper)\");\r\n    ^\r\n\r\nError: PROOF-08 injected crash: simulated unhandled error in server process (utility, via entry wrapper)\r\n    at Timeout._onTimeout (file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/server-entry-crash.mjs:50:11)\r\n    at listOnTimeout (node:internal/timers:685:17)\r\n    at process.processTimers (node:internal/timers:618:7)\r\n\r\nNode.js v24.21.0"},{"t":1789711664339,"event":"server-exit","code":1,"mainStillAlive":true,"windowStillExists":true},{"t":1789711673165,"event":"quitting","windowStillExists":true,"serverAlive":false}]
+rep 2 [ran second this rep]:
+  handler policy: default (no handler installed by this probe)
+  main process (pid 6900) alive after injected crash: true
+  heartbeat (LAST-KNOWN-GOOD, not necessarily current — age 92 ms at snapshot time): {"t":1789711743370,"approach":"utility-process","mainPid":6900,"windowExists":true,"windowVisible":true,"serverAlive":false}
+  discovery-socket bind (UDP 3001): attempted=false
+  process tree after crash (264.6 MB total, actual elapsed 8805 ms since ready):
+    electron.exe [browser (main)] (pid 6900) — 82.0 MB WS
+      electron.exe [gpu-process] (pid 35036) — 81.6 MB WS
+      electron.exe [utility (network.mojom.NetworkService)] (pid 39176) — 39.9 MB WS
+      electron.exe [renderer] (pid 49892) — 61.1 MB WS
+  electron exit: code=0 signal=null
+  all log events: [{"t":1789711733520,"event":"main-module-start","mainPid":6900,"serverPath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"},{"t":1789711733564,"event":"app-ready"},{"t":1789711733657,"event":"window-created","windowId":1},{"t":1789711733658,"event":"server-start-begin","port":15919,"modulePath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"},{"t":1789711733661,"event":"server-forked","modulePath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"},{"t":1789711733662,"event":"crash-scheduled","afterMs":3000,"target":"utility-child"},{"t":1789711733687,"event":"server-spawn-confirmed","serverPid":50392},{"t":1789711733854,"event":"server-stdout","line":"[server-entry-crash] Dokke ouvindo em http://127.0.0.1:15919"},{"t":1789711736860,"event":"server-stderr","line":"file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/server-entry-crash.mjs:50\r\n    throw new Error(\"PROOF-08 injected crash: simulated unhandled error in server process (utility, via entry wrapper)\");\r\n    ^\r\n\r\nError: PROOF-08 injected crash: simulated unhandled error in server process (utility, via entry wrapper)\r\n    at Timeout._onTimeout (file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/server-entry-crash.mjs:50:11)\r\n    at listOnTimeout (node:internal/timers:685:17)\r\n    at process.processTimers (node:internal/timers:618:7)\r\n\r\nNode.js v24.21.0"},{"t":1789711736862,"event":"server-exit","code":1,"mainStillAlive":true,"windowStillExists":true},{"t":1789711745666,"event":"quitting","windowStillExists":true,"serverAlive":false}]
+rep 3 [ran first this rep]:
+  handler policy: default (no handler installed by this probe)
+  main process (pid 35248) alive after injected crash: true
+  heartbeat (LAST-KNOWN-GOOD, not necessarily current — age 24 ms at snapshot time): {"t":1789711756111,"approach":"utility-process","mainPid":35248,"windowExists":true,"windowVisible":true,"serverAlive":false}
+  discovery-socket bind (UDP 3001): attempted=false
+  process tree after crash (264.8 MB total, actual elapsed 9024 ms since ready):
+    electron.exe [browser (main)] (pid 35248) — 82.0 MB WS
+      electron.exe [gpu-process] (pid 9980) — 81.7 MB WS
+      electron.exe [utility (network.mojom.NetworkService)] (pid 1460) — 39.9 MB WS
+      electron.exe [renderer] (pid 50760) — 61.2 MB WS
+  electron exit: code=0 signal=null
+  all log events: [{"t":1789711745847,"event":"main-module-start","mainPid":35248,"serverPath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"},{"t":1789711745881,"event":"app-ready"},{"t":1789711745965,"event":"window-created","windowId":1},{"t":1789711745966,"event":"server-start-begin","port":15920,"modulePath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"},{"t":1789711745969,"event":"server-forked","modulePath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"},{"t":1789711745970,"event":"crash-scheduled","afterMs":3000,"target":"utility-child"},{"t":1789711745992,"event":"server-spawn-confirmed","serverPid":26360},{"t":1789711746103,"event":"server-stdout","line":"[server-entry-crash] Dokke ouvindo em http://127.0.0.1:15920"},{"t":1789711749112,"event":"server-stderr","line":"file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/server-entry-crash.mjs:50\r\n    throw new Error(\"PROOF-08 injected crash: simulated unhandled error in server process (utility, via entry wrapper)\");\r\n    ^\r\n\r\nError: PROOF-08 injected crash: simulated unhandled error in server process (utility, via entry wrapper)\r\n    at Timeout._onTimeout (file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/server-entry-crash.mjs:50:11)\r\n    at listOnTimeout (node:internal/timers:685:17)\r\n    at process.processTimers (node:internal/timers:618:7)\r\n\r\nNode.js v24.21.0"},{"t":1789711749113,"event":"server-exit","code":1,"mainStillAlive":true,"windowStillExists":true},{"t":1789711757971,"event":"quitting","windowStillExists":true,"serverAlive":false}]
+
+=== B) in-process — DEFAULT handler policy — crash behavior ===
+rep 1 [ran second this rep]:
+  handler policy: default (no handler installed by this probe)
+  main process (pid 45492) alive after injected crash: true
+  heartbeat (LAST-KNOWN-GOOD, not necessarily current — age 6923 ms at snapshot time): {"t":1789711676421,"approach":"in-process","mainPid":45492,"windowExists":true,"windowVisible":true,"serverPid":45492,"serverAlive":true}
+  discovery-socket bind (UDP 3001): attempted=false
+  process tree after crash (279.1 MB total, actual elapsed 8877 ms since ready):
+    electron.exe [browser (main)] (pid 45492) — 96.8 MB WS
+      electron.exe [gpu-process] (pid 27068) — 81.4 MB WS
+      electron.exe [utility (network.mojom.NetworkService)] (pid 50600) — 39.7 MB WS
+      electron.exe [renderer] (pid 24328) — 61.2 MB WS
+  electron exit: code=null signal=SIGTERM
+  all log events: [{"t":1789711673368,"event":"main-module-start","mainPid":45492,"serverPath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"},{"t":1789711673399,"event":"app-ready"},{"t":1789711673477,"event":"window-created","windowId":1},{"t":1789711673478,"event":"server-start-begin","port":15917},{"t":1789711673561,"event":"server-ready","port":15917},{"t":1789711673562,"event":"crash-scheduled","afterMs":3000,"target":"main-process-itself","handlerInstalled":false}]
+rep 2 [ran first this rep]:
+  handler policy: default (no handler installed by this probe)
+  main process (pid 46056) alive after injected crash: true
+  heartbeat (LAST-KNOWN-GOOD, not necessarily current — age 6838 ms at snapshot time): {"t":1789711706530,"approach":"in-process","mainPid":46056,"windowExists":true,"windowVisible":true,"serverPid":46056,"serverAlive":true}
+  discovery-socket bind (UDP 3001): attempted=false
+  process tree after crash (303.9 MB total, actual elapsed 8897 ms since ready):
+    electron.exe [browser (main)] (pid 46056) — 103.7 MB WS
+      electron.exe [gpu-process] (pid 48548) — 81.6 MB WS
+      electron.exe [utility (network.mojom.NetworkService)] (pid 48100) — 48.3 MB WS
+      electron.exe [renderer] (pid 41772) — 70.3 MB WS
+  electron exit: code=null signal=SIGTERM
+  all log events: [{"t":1789711703472,"event":"main-module-start","mainPid":46056,"serverPath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"},{"t":1789711703497,"event":"app-ready"},{"t":1789711703576,"event":"window-created","windowId":1},{"t":1789711703577,"event":"server-start-begin","port":15918},{"t":1789711703665,"event":"server-ready","port":15918},{"t":1789711703666,"event":"crash-scheduled","afterMs":3000,"target":"main-process-itself","handlerInstalled":false}]
+rep 3 [ran second this rep]:
+  handler policy: default (no handler installed by this probe)
+  main process (pid 40048) alive after injected crash: true
+  heartbeat (LAST-KNOWN-GOOD, not necessarily current — age 6852 ms at snapshot time): {"t":1789711761248,"approach":"in-process","mainPid":40048,"windowExists":true,"windowVisible":true,"serverPid":40048,"serverAlive":true}
+  discovery-socket bind (UDP 3001): attempted=false
+  process tree after crash (282.0 MB total, actual elapsed 8840 ms since ready):
+    electron.exe [browser (main)] (pid 40048) — 96.8 MB WS
+      electron.exe [gpu-process] (pid 13484) — 81.3 MB WS
+      electron.exe [utility (network.mojom.NetworkService)] (pid 24372) — 39.9 MB WS
+      electron.exe [renderer] (pid 38228) — 64.0 MB WS
+  electron exit: code=null signal=SIGTERM
+  all log events: [{"t":1789711758165,"event":"main-module-start","mainPid":40048,"serverPath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"},{"t":1789711758194,"event":"app-ready"},{"t":1789711758290,"event":"window-created","windowId":1},{"t":1789711758292,"event":"server-start-begin","port":15921},{"t":1789711758394,"event":"server-ready","port":15921},{"t":1789711758395,"event":"crash-scheduled","afterMs":3000,"target":"main-process-itself","handlerInstalled":false}]
+
+=== A) utilityProcess.fork — MATCHED handler policy — crash behavior ===
+rep 1 [ran first this rep]:
+  handler policy: matched (explicit process.on('uncaughtException') installed)
+  main process (pid 6296) alive after injected crash: true
+  heartbeat (LAST-KNOWN-GOOD, not necessarily current — age 73 ms at snapshot time): {"t":1789711798275,"approach":"utility-process","mainPid":6296,"windowExists":true,"windowVisible":true,"serverAlive":false}
+  discovery-socket bind (UDP 3001): attempted=false
+  process tree after crash (264.3 MB total, actual elapsed 8818 ms since ready):
+    electron.exe [browser (main)] (pid 6296) — 82.0 MB WS
+      electron.exe [gpu-process] (pid 5544) — 81.4 MB WS
+      electron.exe [utility (network.mojom.NetworkService)] (pid 29456) — 39.9 MB WS
+      electron.exe [renderer] (pid 22316) — 61.0 MB WS
+  electron exit: code=0 signal=null
+  all log events: [{"t":1789711788246,"event":"main-module-start","mainPid":6296,"serverPath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"},{"t":1789711788274,"event":"app-ready"},{"t":1789711788358,"event":"window-created","windowId":1},{"t":1789711788361,"event":"server-start-begin","port":15922,"modulePath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"},{"t":1789711788367,"event":"server-forked","modulePath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"},{"t":1789711788368,"event":"crash-scheduled","afterMs":3000,"target":"utility-child"},{"t":1789711788394,"event":"server-spawn-confirmed","serverPid":39652},{"t":1789711788515,"event":"server-stdout","line":"[server-entry-crash] Dokke ouvindo em http://127.0.0.1:15922"},{"t":1789711791522,"event":"server-stderr","line":"Error: PROOF-08 injected crash: simulated unhandled error in server process (utility, via entry wrapper)\n    at Timeout._onTimeout (file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/server-entry-crash.mjs:50:11)\n    at listOnTimeout (node:internal/timers:685:17)\n    at process.processTimers (node:internal/timers:618:7)"},{"t":1789711791523,"event":"server-exit","code":1,"mainStillAlive":true,"windowStillExists":true},{"t":1789711800373,"event":"quitting","windowStillExists":true,"serverAlive":false}]
+rep 2 [ran second this rep]:
+  handler policy: matched (explicit process.on('uncaughtException') installed)
+  main process (pid 29492) alive after injected crash: true
+  heartbeat (LAST-KNOWN-GOOD, not necessarily current — age 187 ms at snapshot time): {"t":1789711837416,"approach":"utility-process","mainPid":29492,"windowExists":true,"windowVisible":true,"serverAlive":false}
+  discovery-socket bind (UDP 3001): attempted=false
+  process tree after crash (264.8 MB total, actual elapsed 8838 ms since ready):
+    electron.exe [browser (main)] (pid 29492) — 82.0 MB WS
+      electron.exe [gpu-process] (pid 8984) — 81.8 MB WS
+      electron.exe [utility (network.mojom.NetworkService)] (pid 43148) — 39.8 MB WS
+      electron.exe [renderer] (pid 41300) — 61.2 MB WS
+  electron exit: code=0 signal=null
+  all log events: [{"t":1789711827397,"event":"main-module-start","mainPid":29492,"serverPath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"},{"t":1789711827422,"event":"app-ready"},{"t":1789711827502,"event":"window-created","windowId":1},{"t":1789711827503,"event":"server-start-begin","port":15925,"modulePath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"},{"t":1789711827505,"event":"server-forked","modulePath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"},{"t":1789711827506,"event":"crash-scheduled","afterMs":3000,"target":"utility-child"},{"t":1789711827537,"event":"server-spawn-confirmed","serverPid":48384},{"t":1789711827646,"event":"server-stdout","line":"[server-entry-crash] Dokke ouvindo em http://127.0.0.1:15925"},{"t":1789711830656,"event":"server-stderr","line":"Error: PROOF-08 injected crash: simulated unhandled error in server process (utility, via entry wrapper)\n    at Timeout._onTimeout (file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/server-entry-crash.mjs:50:11)\n    at listOnTimeout (node:internal/timers:685:17)\n    at process.processTimers (node:internal/timers:618:7)"},{"t":1789711830657,"event":"server-exit","code":1,"mainStillAlive":true,"windowStillExists":true},{"t":1789711839516,"event":"quitting","windowStillExists":true,"serverAlive":false}]
+rep 3 [ran first this rep]:
+  handler policy: matched (explicit process.on('uncaughtException') installed)
+  main process (pid 20104) alive after injected crash: true
+  heartbeat (LAST-KNOWN-GOOD, not necessarily current — age 20 ms at snapshot time): {"t":1789711849723,"approach":"utility-process","mainPid":20104,"windowExists":true,"windowVisible":true,"serverAlive":false}
+  discovery-socket bind (UDP 3001): attempted=false
+  process tree after crash (264.8 MB total, actual elapsed 8850 ms since ready):
+    electron.exe [browser (main)] (pid 20104) — 82.1 MB WS
+      electron.exe [gpu-process] (pid 33168) — 81.6 MB WS
+      electron.exe [utility (network.mojom.NetworkService)] (pid 24628) — 39.9 MB WS
+      electron.exe [renderer] (pid 51576) — 61.2 MB WS
+  electron exit: code=0 signal=null
+  all log events: [{"t":1789711839691,"event":"main-module-start","mainPid":20104,"serverPath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"},{"t":1789711839718,"event":"app-ready"},{"t":1789711839804,"event":"window-created","windowId":1},{"t":1789711839805,"event":"server-start-begin","port":15926,"modulePath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"},{"t":1789711839808,"event":"server-forked","modulePath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"},{"t":1789711839809,"event":"crash-scheduled","afterMs":3000,"target":"utility-child"},{"t":1789711839831,"event":"server-spawn-confirmed","serverPid":18228},{"t":1789711839956,"event":"server-stdout","line":"[server-entry-crash] Dokke ouvindo em http://127.0.0.1:15926"},{"t":1789711842960,"event":"server-stderr","line":"Error: PROOF-08 injected crash: simulated unhandled error in server process (utility, via entry wrapper)\n    at Timeout._onTimeout (file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/server-entry-crash.mjs:50:11)\n    at listOnTimeout (node:internal/timers:685:17)\n    at process.processTimers (node:internal/timers:618:7)"},{"t":1789711842961,"event":"server-exit","code":1,"mainStillAlive":true,"windowStillExists":true},{"t":1789711851819,"event":"quitting","windowStillExists":true,"serverAlive":false}]
+
+=== B) in-process — MATCHED handler policy — crash behavior ===
+rep 1 [ran second this rep]:
+  handler policy: matched (explicit process.on('uncaughtException') installed)
+  main process (pid 47900) alive after injected crash: false
+  heartbeat (LAST-KNOWN-GOOD, not necessarily current — age 10165 ms at snapshot time): {"t":1789711803606,"approach":"in-process","mainPid":47900,"windowExists":true,"windowVisible":true,"serverPid":47900,"serverAlive":true}
+  discovery-socket bind (UDP 3001): attempted=false
+  process tree after crash (0.0 MB total, actual elapsed 12133 ms since ready):
+    (empty — root process gone)
+  electron exit: code=1 signal=null
+  all log events: [{"t":1789711800548,"event":"main-module-start","mainPid":47900,"serverPath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"},{"t":1789711800574,"event":"app-ready"},{"t":1789711800649,"event":"window-created","windowId":1},{"t":1789711800650,"event":"server-start-begin","port":15923},{"t":1789711800740,"event":"server-ready","port":15923},{"t":1789711800741,"event":"crash-scheduled","afterMs":3000,"target":"main-process-itself","handlerInstalled":true},{"t":1789711803757,"event":"main-uncaught-exception-handled","message":"PROOF-08 injected crash: simulated unhandled error in-process (shares process with the window)","stack":"Error: PROOF-08 injected crash: simulated unhandled error in-process (shares process with the window)\n    at Timeout._onTimeout (file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/main-inprocess.mjs:137:13)\n    at listOnTimeout (node:internal/timers:685:17)\n    at process.processTimers (node:internal/timers:618:7)"}]
+rep 2 [ran first this rep]:
+  handler policy: matched (explicit process.on('uncaughtException') installed)
+  main process (pid 46072) alive after injected crash: false
+  heartbeat (LAST-KNOWN-GOOD, not necessarily current — age 10174 ms at snapshot time): {"t":1789711817143,"approach":"in-process","mainPid":46072,"windowExists":false,"windowVisible":false,"serverPid":46072,"serverAlive":true}
+  discovery-socket bind (UDP 3001): attempted=false
+  process tree after crash (0.0 MB total, actual elapsed 12380 ms since ready):
+    (empty — root process gone)
+  electron exit: code=1 signal=null
+  all log events: [{"t":1789711813854,"event":"main-module-start","mainPid":46072,"serverPath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"},{"t":1789711813888,"event":"app-ready"},{"t":1789711813977,"event":"window-created","windowId":1},{"t":1789711813980,"event":"server-start-begin","port":15924},{"t":1789711814102,"event":"server-ready","port":15924},{"t":1789711814103,"event":"crash-scheduled","afterMs":3000,"target":"main-process-itself","handlerInstalled":true},{"t":1789711817115,"event":"main-uncaught-exception-handled","message":"PROOF-08 injected crash: simulated unhandled error in-process (shares process with the window)","stack":"Error: PROOF-08 injected crash: simulated unhandled error in-process (shares process with the window)\n    at Timeout._onTimeout (file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/main-inprocess.mjs:137:13)\n    at listOnTimeout (node:internal/timers:685:17)\n    at process.processTimers (node:internal/timers:618:7)"}]
+rep 3 [ran second this rep]:
+  handler policy: matched (explicit process.on('uncaughtException') installed)
+  main process (pid 30712) alive after injected crash: false
+  heartbeat (LAST-KNOWN-GOOD, not necessarily current — age 10488 ms at snapshot time): {"t":1789711855077,"approach":"in-process","mainPid":30712,"windowExists":true,"windowVisible":true,"serverPid":30712,"serverAlive":true}
+  discovery-socket bind (UDP 3001): attempted=false
+  process tree after crash (0.0 MB total, actual elapsed 12401 ms since ready):
+    (empty — root process gone)
+  electron exit: code=1 signal=null
+  all log events: [{"t":1789711852018,"event":"main-module-start","mainPid":30712,"serverPath":"C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"},{"t":1789711852047,"event":"app-ready"},{"t":1789711852123,"event":"window-created","windowId":1},{"t":1789711852124,"event":"server-start-begin","port":15927},{"t":1789711852203,"event":"server-ready","port":15927},{"t":1789711852204,"event":"crash-scheduled","afterMs":3000,"target":"main-process-itself","handlerInstalled":true},{"t":1789711855215,"event":"main-uncaught-exception-handled","message":"PROOF-08 injected crash: simulated unhandled error in-process (shares process with the window)","stack":"Error: PROOF-08 injected crash: simulated unhandled error in-process (shares process with the window)\n    at Timeout._onTimeout (file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/main-inprocess.mjs:137:13)\n    at listOnTimeout (node:internal/timers:685:17)\n    at process.processTimers (node:internal/timers:618:7)"}]
+
+=== cold start: delta vs. within-arm spread ===
+median delta A vs B: 55 ms
+A spread: 152 ms | B spread: 88 ms
+FLAG: median delta (55 ms) is SMALLER than at least one arm's own spread (152 ms) — not a reproducible directional claim at this n.
+
+=== idle RSS (whole process tree): delta vs. within-arm spread ===
+median delta A vs B: 57.7 MB
+A spread: 5.3 MB | B spread: 1.1 MB
+Median delta exceeds both arms' spread — directionally supported at this n.
+[checkpoint] wrote C:\Users\MaxVision\Desktop\cursor-oficial\decktech\measure\windows\proof-08\results\raw-results-round8.json after phase "complete"
+
+raw JSON results (scratch, ephemeral): C:\Users\MaxVision\AppData\Local\Temp\decktech-proof08-run-0aHADb\raw-results.json
+raw JSON results (COMMITTED): C:\Users\MaxVision\Desktop\cursor-oficial\decktech\measure\windows\proof-08\results\raw-results-round8.json
