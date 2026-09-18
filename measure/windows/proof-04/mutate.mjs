@@ -66,31 +66,116 @@ function runSuite() {
     return (err.stdout || "") + (err.stderr || "");
   }
 }
+// node --test prints each failing test's `✖ <name> (<duration>ms)` line
+// TWICE — once in the streaming list, once again in the trailing "failing
+// tests:" summary — and both copies are followed by an indented stack trace
+// whose own lines can themselves contain "(" (e.g. "at Test.run
+// (node:...)"). Anchoring on the FIRST "(" (the round-6/round-7 harness's
+// original `/^✖ (.+?) \(/gm`) truncates any name that itself contains a
+// "(" before its trailing duration — which is exactly every round-6
+// ANCORAGEM fixture name, since they all read "... (finding N, X#): ...".
+// Anchoring on the trailing "(<number>ms)" instead captures the full name
+// even when it contains parentheses, and `new Set(...)` collapses the
+// streaming/summary duplicate so the printed line count matches `fail`.
 function counts(out) {
   const g = (k) => {
     const m = out.match(new RegExp("^ℹ " + k + " (\\d+)$", "m"));
     return m ? Number(m[1]) : null;
   };
-  const failing = [...out.matchAll(/^✖ (.+?) \(/gm)].map((m) => m[1]);
+  const failingRaw = [...out.matchAll(/^✖ (.+) \(\d+(?:\.\d+)?ms\)$/gm)].map((m) => m[1]);
+  const failing = [...new Set(failingRaw)];
   return { tests: g("tests"), pass: g("pass"), fail: g("fail"), failing };
 }
 
 const originals = new Map();
 for (const f of [RULE, DEDUPE, RESOLVE]) originals.set(f, readFileSync(f, "utf8"));
 
+// If a Ctrl-C, OOM or machine sleep lands while a mutant is written to disk,
+// the process must restore every original file before it goes away — a
+// mutated copy of the module this whole proof defends must never be left
+// behind silently. Registered before the first mutation is written.
+let restoring = false;
+function restoreAllAndExit(signalName, code) {
+  if (restoring) return;
+  restoring = true;
+  console.error(`\n!! INTERRUPTED (${signalName}) — restoring ${originals.size} file(s) before exit.`);
+  for (const [f, content] of originals) {
+    try {
+      writeFileSync(f, content, "utf8");
+      console.error(`   restored: ${f}`);
+    } catch (err) {
+      console.error(`!! FAILED TO RESTORE ${f} during interrupt: ${err.message}`);
+    }
+  }
+  process.exit(code);
+}
+process.on("SIGINT", () => restoreAllAndExit("SIGINT", 130));
+process.on("SIGTERM", () => restoreAllAndExit("SIGTERM", 143));
+
 const base = counts(runSuite());
 console.log(`BASELINE: tests=${base.tests} pass=${base.pass} fail=${base.fail}`);
 console.log("");
 
+// A red or unparseable baseline invalidates every subsequent row: with the
+// pre-fix `r.fail > 0` check, `fail` staying above 0 for a reason unrelated
+// to the mutation would mark every single mutant KILLED and print the false
+// all-clear "SURVIVORS: (none)" — the harness's one product, from an
+// instrument whose own baseline was never actually green. Refuse to proceed.
+if (base.tests === null || base.pass === null || base.fail === null) {
+  console.error("BASELINE UNPARSEABLE — the `ℹ tests/pass/fail` summary lines were not found in `node --test`'s output. Refusing to mutate against an instrument that cannot read its own baseline.");
+  process.exitCode = 1;
+  process.exit(1);
+}
+if (base.fail !== 0) {
+  console.error(`BASELINE NOT GREEN (fail=${base.fail}) — fix test/windows-uninstaller-rule.test.mjs, test/windows-dedupe-order.test.mjs and test/windows-dedupe-target.test.mjs first. Refusing to mutate against a red baseline: every mutant run would report fail>0 regardless of the mutation and the harness would print a false "SURVIVORS: (none)".`);
+  process.exitCode = 1;
+  process.exit(1);
+}
+
 const survivors = [];
+const errors = [];
 for (const m of MUTANTS) {
   const orig = originals.get(m.file);
   const idx = orig.indexOf(m.from);
   if (idx === -1) { console.log(`${m.id}: !! PATTERN NOT FOUND`); continue; }
   if (orig.indexOf(m.from, idx + 1) !== -1) { console.log(`${m.id}: !! PATTERN NOT UNIQUE`); continue; }
   writeFileSync(m.file, orig.slice(0, idx) + m.to + orig.slice(idx + m.from.length), "utf8");
-  const r = counts(runSuite());
-  writeFileSync(m.file, orig, "utf8");
+  let out;
+  try {
+    out = runSuite();
+  } finally {
+    // This does NOT shrink the on-disk-mutated window below one
+    // `runSuite()` call — that was already true before this round: the
+    // restore always ran immediately after `runSuite()` returned. What it
+    // adds is that the restore now also runs if `runSuite()` itself throws
+    // (or, before this refactor, if the now-relocated `counts(...)` call
+    // that used to run before the restore had thrown) — previously any
+    // such exception skipped the restore entirely and left the mutated
+    // file on disk for the rest of the process's life. `counts(out)` is
+    // now called AFTER this block, once the file is already back to
+    // original, so a bug in output parsing can no longer leave a mutant on
+    // disk either. The reviewer's round-7 probe (sampling `git diff
+    // --shortstat` while the harness ran and catching it dirty on 7 of 7
+    // samples) is still expected behavior with this fix — the file IS
+    // legitimately mutated for the duration of each `runSuite()` call by
+    // design; only a same-process crash mid-mutant, or SIGINT/SIGTERM
+    // (handled below), is what this hardens against.
+    writeFileSync(m.file, orig, "utf8");
+  }
+  const r = counts(out);
+  if (r.fail === null) {
+    // A mutant that made the file fail to parse (or otherwise produced
+    // output without a `ℹ fail N` line) is neither killed nor survived —
+    // `null > 0` is false, so the old code silently filed it as SURVIVED.
+    // That is over-reporting in the conservative direction, but still a
+    // silent misclassification of an instrument whose only job is this
+    // classification. Report it as its own category instead.
+    errors.push(m.id);
+    console.log(`${m.id}: !! UNPARSEABLE OUTPUT (no "ℹ fail N" line — mutant likely broke parsing, not just behavior)`);
+    console.log("      raw output tail:");
+    for (const line of out.trim().split("\n").slice(-15)) console.log(`      | ${line}`);
+    continue;
+  }
   const killed = r.fail > 0;
   if (!killed) survivors.push(m.id);
   console.log(`${m.id}: tests=${r.tests} pass=${r.pass} fail=${r.fail}  ${killed ? "KILLED" : "*** SURVIVED ***"}`);
@@ -103,6 +188,8 @@ for (const f of [RULE, DEDUPE, RESOLVE]) {
 }
 console.log("");
 console.log("SURVIVORS: " + (survivors.length ? survivors.join(", ") : "(none)"));
+console.log("UNPARSEABLE (neither killed nor survived): " + (errors.length ? errors.join(", ") : "(none)"));
 console.log("restore byte-identical: " + clean);
 const after = counts(runSuite());
 console.log(`POST-RUN BASELINE: tests=${after.tests} pass=${after.pass} fail=${after.fail}`);
+if (errors.length || !clean || after.fail !== 0) process.exitCode = 1;
