@@ -6,6 +6,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { deflateSync, inflateSync } from "node:zlib";
+import { log as defaultLog } from "./log.js";
 
 const ex = promisify(execFile);
 const LSAPPINFO = "/usr/bin/lsappinfo";
@@ -527,7 +528,7 @@ export function normalizePngIcon(buf, maxPx = ICON_MAX_PX) {
   ]);
 }
 
-async function monogramPng(name, execFn, cacheDir, maxPx) {
+async function monogramPng(name, execFn, cacheDir, maxPx, log = defaultLog) {
   const key = createHash("sha1").update(name).digest("hex");
   const cacheFile = join(cacheDir, `mono-${key}-z${maxPx}.png`);
   try { return await readFile(cacheFile); } catch {}
@@ -552,7 +553,13 @@ async function monogramPng(name, execFn, cacheDir, maxPx) {
     await execFn("sips", ["-s", "format", "png", "-z", String(maxPx), String(maxPx), tmpSvg, "--out", cacheFile]);
     const buf = await readFile(cacheFile);
     return buf;
-  } catch {
+  } catch (err) {
+    // W1: este era o fim silencioso da cadeia inteira de ícone — quando
+    // chega aqui, `sips` (ou o rasterizador que a substitua no Windows)
+    // falhou e o app fica sem ícone nenhum, real ou monograma. Por isso
+    // warn mesmo com o nível padrão (quieto): 121 outros apps não passam
+    // por aqui num scan normal, então não é ruído de volume.
+    log.warn("icon.monogram.failed", { name, stage: "monogram-raster", code: err?.code ?? null, message: err?.message ?? String(err) });
     return null;
   } finally {
     try { await unlink(tmpSvg); } catch {}
@@ -573,6 +580,7 @@ export function realIconService(deps = {}) {
     maxPx = ICON_MAX_PX,
     iconHelper = process.platform === "darwin" && existsSync(MAC_ICON_HELPER) ? MAC_ICON_HELPER : null,
     appearanceToken = null,
+    log = defaultLog,
   } = deps;
   let appsByName = null;
   let appsAt = 0;
@@ -630,8 +638,10 @@ export function realIconService(deps = {}) {
 
     const apps = await resolveApps();
     const app = apps.get(resolveIconAppName(name, apps));
+    log.debug("icon.load.start", { name, found: !!app });
 
     let buf = null;
+    let source = null;
     // O bundle empacotado traz um helper AppKit que usa NSWorkspace, a mesma
     // fonte dos ícones exibidos pelo Finder. O caminho manual continua como
     // fallback para desenvolvimento e para apps em que o helper falhar.
@@ -644,7 +654,14 @@ export function realIconService(deps = {}) {
           await convertToPng(app.path, out, exec, maxPx, iconHelper);
           buf = await readFile(out);
         }
-      } catch { buf = null; }
+        if (buf) source = "helper";
+      } catch (err) {
+        // W1: antes um erro aqui (helper travado, LaunchServices não
+        // registrou o bundle ainda, disco cheio) caía direto pro fallback
+        // manual sem deixar rastro — indistinguível de "não tinha helper".
+        log.debug("icon.helper.failed", { name, stage: "icon-helper", code: err?.code ?? null, message: err?.message ?? String(err) });
+        buf = null;
+      }
     }
 
     if (!buf && app) {
@@ -666,19 +683,31 @@ export function realIconService(deps = {}) {
               buf = await readFile(out);
             }
           }
-        } catch { buf = null; }
+          if (buf) source = "manual";
+        } catch (err) {
+          log.debug("icon.manual.failed", { name, stage: "icon-manual", code: err?.code ?? null, message: err?.message ?? String(err) });
+          buf = null;
+        }
       }
     }
 
     if (buf) buf = normalizePngIcon(buf, maxPx);
     if (buf && pngIsEmpty(buf)) {
+      log.debug("icon.empty_alpha", { name, stage: "normalize" });
       buf = null;
+      source = null;
       iconPathByApp.delete(name);
     }
 
     if (!buf) {
-      buf = await monogramPng(name, exec, cacheDir, maxPx);
+      buf = await monogramPng(name, exec, cacheDir, maxPx, log);
+      source = buf ? "monogram" : "none";
     }
+
+    // Saída da cadeia inteira: qual estágio produziu o ícone, ou "none" se
+    // nenhum produziu — esse "none" é exatamente o app sem ícone nenhum
+    // que W1 descreve, agora visível em vez de silencioso.
+    log[buf ? "debug" : "warn"]("icon.load.done", { name, source: source ?? "none" });
 
     if (buf) {
       lruSet(memPng, cacheKey, buf, memMax);

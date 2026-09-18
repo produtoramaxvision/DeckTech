@@ -6,6 +6,8 @@ import { mkdirSync, existsSync, copyFileSync, readFileSync, statSync, writeFileS
 import { readFile } from "node:fs/promises";
 import { join, extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { randomUUID } from "node:crypto";
+import { log as defaultLog } from "./log.js";
 
 function tryReadCert(envPath) {
   try { return readFileSync(envPath); } catch { return null; }
@@ -226,6 +228,27 @@ function uiVersion(root) {
 }
 
 /**
+ * Cria o diretório de dados do usuário sem nunca lançar (OBS-01, Q30). Antes
+ * este `mkdirSync` engolia o erro em silêncio (`catch (e) {}`); com
+ * `%LOCALAPPDATA%` redirecionado por política de grupo, toda escrita
+ * seguinte falhava sem diagnóstico algum. Continuar sem lançar é decisão
+ * deliberada desta tarefa — trocar isso por uma falha alta é FIX-03 (Fase
+ * 4), fora do escopo de OBS-01. Extraída como função própria (em vez de
+ * inline em `startServer`) pra ser testável sem subir o servidor inteiro.
+ */
+export function ensureUserDataDir(dir, { mkdirFn = mkdirSync, log = defaultLog } = {}) {
+  log.debug("userdata.mkdir.attempt", { path: dir });
+  try {
+    mkdirFn(dir, { recursive: true });
+    log.debug("userdata.mkdir.ok", { path: dir });
+    return true;
+  } catch (e) {
+    log.error("userdata.mkdir.failed", { path: dir, code: e?.code ?? null, message: e?.message ?? String(e) });
+    return false;
+  }
+}
+
+/**
  * Feed de status via WebSocket: um único tracker no servidor empurra
  * { type:"apps", pinned, running } pra todos os clients quando muda.
  * Elimina o polling HTTP do device (menos rádio/CPU/bateria no J5).
@@ -298,6 +321,7 @@ export function makeApp(deps = {}) {
     iconService = realIconService(),
     onStatusChange = null,
     getDeviceCount = null,
+    log = defaultLog,
   } = deps;
   const configFile = deps.configFile ?? (deps.config === undefined ? join(import.meta.dirname, "config.json") : null);
   const readConfig = async () => {
@@ -321,6 +345,9 @@ export function makeApp(deps = {}) {
   };
   const handler = (req, res) => {
     const url = new URL(req.url, "http://x");
+    // correlaciona entrada/saída/ramos do mesmo request nos registros de log
+    // (OBS-01) — nunca sai na resposta HTTP, é só rótulo interno de log.
+    const requestId = randomUUID();
     const ok = body => { res.writeHead(200, JSON_HEADERS); res.end(JSON.stringify(body)); };
     if (STATE_CHANGING_METHODS.has(req.method) && !sameOrigin(req)) {
       res.writeHead(403, JSON_HEADERS);
@@ -400,24 +427,37 @@ export function makeApp(deps = {}) {
       (!!auth && typeof auth.checkSession === "function" && auth.checkSession(tokenFromCookie(req.headers.cookie)));
     if (auth && url.pathname === "/api/auth" && req.method === "POST") {
       readBody(req, res).then(body => {
+        // Registro de entrada: corpo (carrega o PIN) e o header Cookie
+        // passam inteiros pro logger de propósito — é o redator (log.js,
+        // por NOME de chave) que garante que "pin"/"cookie" nunca chegam
+        // ao sink, não a disciplina de quem loga. body vira null quando é
+        // o símbolo BODY_TOO_BIG/BODY_INVALID: nesse caso não há PIN a
+        // registrar mesmo, e JSON.stringify de um Symbol seria descartado
+        // em silêncio de qualquer forma.
+        const bodyForLog = (body === BODY_TOO_BIG || body === BODY_INVALID) ? null : body;
+        log.debug("auth.attempt", { requestId, ip: ipOf, body: bodyForLog, cookie: req.headers.cookie });
         if (body === BODY_TOO_BIG || body === BODY_INVALID) {
+          log.debug("auth.invalid_body", { requestId, ip: ipOf });
           res.writeHead(400, JSON_HEADERS);
           res.end(JSON.stringify({ ok: false, error: "corpo inválido" }));
           return;
         }
         const given = typeof body?.pin === "string" ? body.pin.trim() : "";
         if (given === "") {
+          log.debug("auth.empty_pin", { requestId, ip: ipOf });
           res.writeHead(400, JSON_HEADERS);
           res.end(JSON.stringify({ ok: false, error: "código vazio" }));
           return;
         }
         if (pinLocks.isLocked(ipOf)) {
+          log.warn("auth.locked", { requestId, ip: ipOf });
           res.writeHead(429, JSON_HEADERS);
           res.end(JSON.stringify({ ok: false, error: "muitas tentativas — aguarde" }));
           return;
         }
         if (safeEqual(given, auth.getPin())) {
           pinLocks.reset(ipOf);
+          log.info("auth.success", { requestId, ip: ipOf });
           Promise.resolve()
             .then(() => auth.issueSession())
             .then(token => {
@@ -432,10 +472,14 @@ export function makeApp(deps = {}) {
               });
               res.end(JSON.stringify({ ok: true }));
             })
-            .catch(err => fail(res, err));
+            .catch(err => {
+              log.error("auth.session_issue_failed", { requestId, ip: ipOf, message: err?.message ?? String(err) });
+              fail(res, err);
+            });
           return;
         }
         pinLocks.register(ipOf);
+        log.warn("auth.invalid_pin", { requestId, ip: ipOf });
         res.writeHead(401, JSON_HEADERS);
         res.end(JSON.stringify({ ok: false, error: "código inválido" }));
       });
@@ -814,10 +858,24 @@ export function makeApp(deps = {}) {
           }
           let pid = body?.pid;
           if (!(Number.isInteger(pid) && pid > 0)) pid = undefined;
+          // W3: antes uma falha de foco (ex.: SetForegroundWindow restrito)
+          // virava só um 500 genérico sem rastro nenhum no servidor. Agora
+          // o registro carrega o código tipado (quando `actions.js` lança
+          // ActionError) ou a mensagem crua (quando não), sempre com nome/
+          // pid/requestId — "o que foi tentado, com que argumentos, pra
+          // qual request".
+          log.debug("action.activate.attempt", { requestId, name, pid: pid ?? null });
           actions.activateApp({ name, pid })
-            .then(() => ok({ ok: true }))
+            .then(() => { log.debug("action.activate.ok", { requestId, name, pid: pid ?? null }); ok({ ok: true }); })
             .then(() => { if (onStatusChange) onStatusChange(); })
-            .catch(err => fail(res, err));
+            .catch(err => {
+              log.warn("action.activate.failed", {
+                requestId, name, pid: pid ?? null,
+                code: typeof err?.code === "string" ? err.code : null,
+                message: err?.message ?? String(err),
+              });
+              fail(res, err);
+            });
         });
         return;
       }
@@ -911,6 +969,10 @@ export function makeApp(deps = {}) {
 
 export async function startServer(arg = {}) {
   const opts = typeof arg === "number" ? { port: arg } : (arg ?? {});
+  // logger único do processo: startup (mkdir) e o handler HTTP (makeApp)
+  // compartilham a mesma instância, injetável via opts.log como obs/actions.
+  const log = opts.log ?? defaultLog;
+  opts.log = log;
   const port = opts.port ?? (process.env.PORT ? Number(process.env.PORT) : 3000);
   const requestedHeartbeat = Number(opts.wsHeartbeatMs);
   const wsHeartbeatMs = Number.isFinite(requestedHeartbeat) && requestedHeartbeat >= 10
@@ -932,7 +994,7 @@ export async function startServer(arg = {}) {
     return join(process.env.XDG_CONFIG_HOME || join(home, ".config"), "dokke");
   }
   const dataDir = userDataDir();
-  try { mkdirSync(dataDir, { recursive: true }); } catch (e) {}
+  ensureUserDataDir(dataDir, { log });
   const userConfig = join(dataDir, "config.json");
   // migração: versões antigas guardavam config dentro do bundle — se o destino
   // não existe mas o bundle tem dados, copia antes de começar (nunca sobrescreve)
@@ -996,8 +1058,8 @@ export async function startServer(arg = {}) {
   });
   // Mantém os dois EventEmitters protegidos também depois do startup. Sem estes
   // listeners, um erro encaminhado pelo ws pode terminar o processo Node.
-  server.on("error", error => console.error("[dokke] HTTP error:", error?.message ?? error));
-  wss.on("error", error => console.error("[dokke] WebSocket error:", error?.message ?? error));
+  server.on("error", error => log.error("http.server_error", { message: error?.message ?? String(error) }));
+  wss.on("error", error => log.error("ws.server_error", { message: error?.message ?? String(error) }));
   wss.on("connection", (ws) => {
     ws.isAlive = true;
     ws.on("pong", () => { ws.isAlive = true; });
@@ -1085,5 +1147,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       // responder descoberta UDP pra devices Android acharem o IP sozinhos
       startDiscovery(DISCOVERY_PORT, { portHint: port }).unref();
     })
-    .catch(err => { console.error(err); process.exitCode = 1; });
+    .catch(err => { defaultLog.error("bootstrap.failed", { message: err?.message ?? String(err) }); process.exitCode = 1; });
 }
