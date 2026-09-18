@@ -269,26 +269,36 @@ would ("every future reviewer breaks it").
 
 **Ratio evidence — canonical statement (this is the ONE place this
 document states it; "Decision" and the round-6 history entry below point
-here instead of restating it):** across seventeen n=5 warm runs measured
+here instead of restating it):** across TWENTY n=5 warm runs measured
 for this ADR through round 7 (four committed + four uncommitted
 first-party round 5, two second-hand round 3, two second-hand round 6,
-two first-party round 6, three first-party round 7 — this section's table
-above plus the three round-7 runs just described), the binary reader has
-been faster than COM in every single one of roughly 85 individual warm
-iterations measured to date, by a factor that has ranged from
-**as low as ~6x to as high as ~18x** at the individual-iteration level,
-with run-medians observed **roughly 7.8x–17x**. These figures are
-reported as **a sample range
-observed to date, not a bound**: a pooled percentile over the full
+two first-party round 6, three second-hand round 7 — the reviewer's own
+re-runs that rejected round 6's ADR, quoted in the "Round-7 revision"
+entry above — and three first-party round 7, this round's own worker,
+this section's table above plus the three round-7 worker runs just
+described), the binary reader has been faster than COM in every
+individual warm iteration FOR WHICH per-iteration data is recoverable
+(roughly 35 of the roughly 100 total iterations across all twenty runs —
+see below for why the rest are not recoverable), and faster at the
+run-median level in all twenty runs without exception (every reported
+median exceeds 1.0x). Among the iterations with recoverable data, the
+factor has ranged from **as low as ~5.7x to as high as ~18x** at the
+individual-iteration level (5.7x from this round's own reviewer's third
+re-run of the round-6-committed benchmark, reported in the finding that
+rejected round 6's ADR — see the "Round-7 revision" entry above for the
+full quote; 18.5x from `1fa06ae`'s committed max), with run-medians
+observed **roughly 7.8x–17x**. These figures are reported as **a sample
+range observed to date, not a bound**: a pooled percentile over the full
 iteration set was considered and rejected for this document, because
-most of the second-hand rows (the round-3 and round-6 reviewer runs)
-report only a median and a min/max, not the per-iteration raw values a
-defensible percentile needs — only the four committed JSONs plus this
-round's three fresh runs (~35 of the ~85 iterations) have recoverable raw
-per-iteration data, and computing a percentile over 35-of-85 and
-presenting it as "the" pooled floor would be a new, narrower-sounding
-overclaim of the same shape this finding exists to stop. The honest
-statement is the one above: an observed range, expected to widen
+most of the second-hand rows (the round-3, round-6, and round-7 reviewer
+runs) report only a median and a min/max, not the per-iteration raw
+values a defensible percentile needs — only the four committed JSONs
+plus this round's three worker-run fresh runs (~35 of the ~100
+iterations) have recoverable raw per-iteration data, and computing a
+percentile over 35-of-100 and presenting it as "the" pooled floor would
+be a new, narrower-sounding overclaim of the same shape this finding
+exists to stop. The honest statement is the one above: an observed
+range, expected to widen
 (specifically downward) as more runs accumulate, with **no** "lowest
 ever", "no lower than", or "floor" language attached to any specific
 number, because the very next run — on this machine or anyone else's —
@@ -684,11 +694,14 @@ parser produced somewhere in a candidate list:
    with, specifically because — unlike the ratio in item 3 below — it has
    not required revision in three consecutive rounds.
 3. **The ratio (ancillary context, not a planning floor — round-7 blocker
-   finding 1):** the binary reader has been faster than COM in every
-   measured iteration to date (roughly 85 of them, across seventeen n=5
-   runs, seven review rounds), by a factor observed so far to span
-   roughly 6x–18x at the single-iteration level and roughly 7.8x–17x at
-   the run-median level. **This document does not, and after this round
+   finding 1):** across twenty n=5 runs measured for this ADR over seven
+   review rounds, the binary reader has been faster than COM in every
+   iteration for which raw per-iteration data survives and faster at the
+   run-median level in all twenty runs without exception, by a factor
+   observed so far to span roughly 5.7x–18x at the single-iteration level
+   and roughly 7.8x–17x at the run-median level (full accounting,
+   including which rows lack recoverable data and why, in "Measured
+   result" below). **This document does not, and after this round
    will not again, publish a minimum from this distribution as a design
    floor:** rounds 5 and 6 each did exactly that (11.6x, then 6.2x/8.3x),
    and both were falsified by the next round's fresh measurement —
@@ -814,7 +827,7 @@ findings.
    date, explicitly not a bound, and explains why a pooled percentile
    over the full iteration set was considered and rejected (most
    second-hand rows report only a median and min/max, not per-iteration
-   raw values, so a percentile over the ~35-of-~85 iterations with
+   raw values, so a percentile over the ~35-of-~100 iterations with
    recoverable raw data would be a new, narrower-sounding overclaim of
    the same shape). This round's own worker independently re-ran the
    committed benchmark three times (not transcribing the reviewer's
@@ -883,6 +896,19 @@ findings.
    this fixture edit, account for the increase) to keep it accurate.
 
 ### Round-6 revision
+
+**Superseded by the Round-7 revision above.** This entry records what
+round 6 did and why round 7 found it insufficient; its statements about
+what "Decision," "Measured result," and the Status line currently say
+describe the round-6 document, not this one (in particular: "Decision" no
+longer tells PLAT-10 to plan against a full-distribution floor, the
+Status line no longer reads "through round 6", and "the new floor is...
+min 6.2x" below was itself falsified by this round's own fresh
+measurement — see the Round-7 entry above). The floor figures this entry
+quotes (6.2x, 8.3x, "roughly 6x/8x") are retained verbatim as the
+historical record of the defect round 7 corrected, not as current
+guidance — see "Measured result" → "Ratio evidence — canonical
+statement" for what currently applies.
 
 A rigorous reviewer rejected the round-5 version of this ADR on three
 findings.
