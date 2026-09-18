@@ -6,7 +6,66 @@
 **Requirement:** `PROOF-04` (`.maxvision/REQUIREMENTS.md`), Phase 0 success criterion 4
 (`.maxvision/ROADMAP.md`)
 
-**Round 3 (this revision).** A rigorous review rejected round 2 on four
+**Round 4 (this revision).** A rigorous review rejected round 3 on three
+findings, all addressed here:
+
+1. **[major] Anchoring (`^`/`$`) and case-insensitivity (`/i`) — the two
+   mechanisms `UNINSTALLER_BASENAME_PATTERNS`'s own header and
+   `isUninstallerEntry`'s own JSDoc name as load-bearing — were untested on
+   every single regex in the module.** Dropping `^` and `$` from all four
+   basename patterns individually, and dropping `/i` from those same four
+   patterns plus `MSIEXEC_BASENAME`, all left the round-3, 14-test suite
+   green (11 surviving mutants, measured by the reviewer). Worse, the
+   ADR's headline false-positive fixture (CrystalIdea's "Uninstall
+   Tool.exe") does not discriminate anchored from unanchored matching at
+   all, because the substring `"uninstall.exe"` never appears contiguously
+   in it — the central precision/recall argument in §3 was defended by a
+   fixture that would also pass under the unanchored design §3 argues
+   against. **Fixed:** 4 new fixtures in
+   `test/windows-uninstaller-rule.test.mjs` (18 tests total, up from 14) —
+   see §9.1's corrected sentence and the new §9.1b for the full,
+   scripted re-run of every anchor/case mutation the finding named, plus
+   two more (`^`-only and `$`-only, not just the combined `^`+`$` drop the
+   reviewer tested) and two `/i` sites the reviewer's own required-fix list
+   did not name (`EXACT_UNINSTALL_NAME`, the `.exe` guard clause) — all 18
+   mutations killed, verified below, not claimed.
+2. **[major] `resolveAppList`/`dedupeByTarget` threw a bare `TypeError` on
+   a null/empty `target`** — an input shape `isUninstallerEntry`'s own
+   JSDoc documents as valid and a green test already pinned at the
+   predicate level (`isUninstallerEntry({target: null}) === false`), but
+   which `partitionUninstallers` then hands straight to `dedupeByTarget`,
+   which called `entry.target.toLowerCase()` unconditionally. Not
+   reachable through `scan-apps.mjs` today (it pre-filters non-string
+   targets before calling `resolveAppList`), but a live crash risk in the
+   exact module this ADR's own §2 names as the one Phase 3's win32
+   `apps.js` provider will import directly — which will not necessarily
+   have that same pre-filter. **Fixed:** `dedupeByTarget` now passes an
+   unkeyable `target` (null, undefined, missing field, or `""`) through
+   untouched — one row per such entry, never collapsed against another
+   unkeyable entry or a keyed one — documented in `dedupe-target.mjs`'s
+   header and pinned by five new tests in the new
+   `test/windows-dedupe-target.test.mjs` (also closing a second,
+   independent gap the same finding measured: removing `.toLowerCase()`
+   from the case-insensitive-NTFS-key logic left the round-3 suite green
+   too — see §9.6). `resolve-app-list.mjs`'s and `uninstaller-rule.mjs`'s
+   JSDoc were cross-checked and updated to state the same contract for
+   this input shape, so the three modules cannot drift apart silently
+   again.
+3. **[minor] Three source-line citations, in files edited by round 3
+   itself, pointed at the wrong lines** — `measure/windows/scan-apps.mjs`
+   cited `uninstaller-rule.mjs:36,107` (twice) for the win32 `basename()`
+   call, actually at line 110 at the time; `test/windows-uninstaller-rule.test.mjs`
+   cited a win32 import at "(line 19)", actually at line 36; and cited
+   `uninstaller-rule.mjs:95` for a conjunction, actually at line 115. A
+   comment edit anywhere above any of these shifts every line number below
+   it, which is exactly what produced the drift. **Fixed:** all three
+   citations now name the symbol (`isUninstallerEntry`'s `basename()`
+   call, the module's own top-of-file win32 import, the `.exe`-guard
+   conjunction inside `isUninstallerEntry`) instead of a line number, per
+   the reviewer's own suggested alternative — a citation that does not rot
+   as these heavily-commented files keep growing.
+
+**Round 3.** A rigorous review rejected round 2 on four
 findings, all addressed here:
 
 1. **[blocker] `basename` was imported from host-dispatched `node:path`,
@@ -361,7 +420,16 @@ translation. Fixed to `/^unins.*\.exe$/i` before commit.
 
 Command: `node measure/windows/scan-apps.mjs` (Windows 11 Pro 22631, this
 machine). Full verbatim output (round-3 version of the probe — see §4c and
-§5 for the pipeline-order and path-semantics fixes since round 2's run):
+§5 for the pipeline-order and path-semantics fixes since round 2's run).
+
+**Re-run fresh for round 4** (not carried forward from round 3's run):
+round 4 did not change scan-apps.mjs's scan logic (only two source-line
+citations in its comments, finding 3) or `isUninstallerEntry`'s matching
+behavior (only test coverage, finding 1) or `resolveAppList`'s composition
+(only `dedupeByTarget`'s handling of a `target` shape scan-apps.mjs itself
+never produces, since its own line-141 filter already excludes non-string
+targets before calling `resolveAppList` — finding 2), so the same 138/10
+counts were expected and confirmed, not assumed:
 
 ```
 === PROOF-04 — real scan on this machine ===
@@ -588,6 +656,19 @@ was re-run against the current files, not hand-adjusted from round 2's
 numbers** — see the exact script and raw output this table transcribes at
 the end of this section.
 
+**Round-4 trap, avoided the same way.** Round 4 added 4 fixtures to
+`test/windows-uninstaller-rule.test.mjs` (14 → 18 tests, §9.1b) and a whole
+new file, `test/windows-dedupe-target.test.mjs` (5 tests, §9.5), which
+again invalidate every row's baseline test-count if hand-carried forward
+instead of re-measured. §9.1's original round-3 table (14-test baseline) is
+left as-is below as a historical record of what it actually proved at that
+point — it is not re-run against 18 tests, because doing so would not
+change any of its own pass/fail splits (none of the round-4 fixtures touch
+the clauses rows 1–11 mutate) and would only obscure which round produced
+which number. §9.1b, §9.5 and the combined 28-test run at the end of §9.5
+are the round-4-current numbers; §9.1's `14`/`14`/`0` baseline references
+below describe round 3's file as it stood then, not this file today.
+
 ### 9.1 `isUninstallerEntry` clauses (`test/windows-uninstaller-rule.test.mjs`)
 
 Baseline: `node --test test/windows-uninstaller-rule.test.mjs` against the
@@ -634,6 +715,112 @@ result was recorded, and the baseline (`14`/`14`/`0`) was re-confirmed
 after every single revert; no neutered version was ever committed (see
 `git status` / `git diff` after the run — clean, and confirmed again with a
 fresh `node --test` pass at the very end of the script).
+
+**Round-4 correction, stated precisely because the original phrasing was
+overclaiming exactly the way round 1's "every exclusion path" claim was
+(§9's own opening paragraph):** "that clause alone is neutered" above means
+one specific, whole-clause deletion or negation per row — it does **not**
+mean every way that clause could be individually weakened. Concretely, row
+1 neuters `UNINSTALLER_BASENAME_PATTERNS[0]` by making it never match
+anything; it says nothing about a *narrower* mutation of the same clause,
+such as dropping only its `^`/`$` anchors or only its `/i` flag while
+leaving the rest of the pattern intact. Round-4 review measured directly
+that those narrower mutations were **not** covered by this table: dropping
+`^`/`$` from all four basename patterns, and dropping `/i` from those same
+four patterns plus `MSIEXEC_BASENAME`, all left this exact 14-test file
+green. §9.1b below is the corrected, finer-grained coverage for those two
+specific mechanisms (anchoring, case-insensitivity) on every regex in the
+module that has them — it does not replace this table, which still
+correctly proves each clause's *existence* matters; §9.1b proves each
+clause's *anchoring and casing*, specifically, also matters.
+
+### 9.1b Anchoring (`^`/`$`) and case-insensitivity (`/i`) — round-4 finding 1
+
+Baseline: `node --test test/windows-uninstaller-rule.test.mjs` against the
+unmodified rule, current 18-test file (14 round-3 tests + 4 new fixtures
+added this round) — `ℹ tests 18`, `ℹ pass 18`, `ℹ fail 0`.
+
+Every fixture below was checked with `node -e` against both the real
+(anchored, case-insensitive) pattern and its specific mutant before being
+committed, confirming each one is a clean, single-pattern discriminator
+(matches its own target pattern's mutant and no other pattern, anchored or
+not) — not asserted from the pattern shape, run directly. All 18
+mutations below were applied one at a time with a scripted, literal-string
+replace (not hand-edited — `MSYS_NO_PATHCONV=1 node
+<scratchpad>/mutate.mjs "<old>" "<new>"`, restoring the clean file first
+and after every mutation), re-run against the identical, unmodified
+18-test file, then reverted and the baseline re-confirmed green before the
+next mutation — raw `node --test` output for every row, not summarized:
+
+**Group 1 — drop BOTH `^` and `$` (reproduces the reviewer's own A-unins /
+A-uninst / A-uninstall / A-uninstaller mutations, all 4 of which SURVIVED
+the round-3 suite):**
+
+| Pattern | Mutation | Result | Failing test(s) |
+|---|---|---|---|
+| `UNINSTALLER_BASENAME_PATTERNS[0]` (`unins`) | `/^unins\d*\.exe$/i` → `/unins\d*\.exe/i` | 16 pass / 2 fail | ANCORAGEM (prefixo), ANCORAGEM (sufixo) |
+| `[1]` (`uninst`) | `/^uninst\d*\.exe$/i` → `/uninst\d*\.exe/i` | 16 pass / 2 fail | ANCORAGEM (prefixo), ANCORAGEM (sufixo) |
+| `[2]` (`uninstall`) | `/^uninstall\.exe$/i` → `/uninstall\.exe/i` | 16 pass / 2 fail | ANCORAGEM (prefixo), ANCORAGEM (sufixo) |
+| `[3]` (`uninstaller`) | `/^uninstaller\.exe$/i` → `/uninstaller\.exe/i` | 16 pass / 2 fail | ANCORAGEM (prefixo), ANCORAGEM (sufixo) |
+
+All 4/4 now caught (round 3: 4/4 survived, per the reviewer's own
+measurement).
+
+**Group 2 — drop `$` only (`^` kept). Self-caught gap: the reviewer's own
+three named fixtures (`AppUninstall.exe`, `SmartUninstaller.exe`,
+`MyUninst.exe`) do NOT discriminate this mutation on their own — checked
+directly with `node -e` before writing the suffix fixtures, not assumed —
+because they are all still anchored at the start on a prefix that isn't
+the pattern's own word, so a `$`-only-dropped pattern never matches them
+either:**
+
+| Pattern | Mutation | Result | Failing test(s) |
+|---|---|---|---|
+| `[0]` | `/^unins\d*\.exe$/i` → `/^unins\d*\.exe/i` | 17 pass / 1 fail | ANCORAGEM (sufixo) |
+| `[1]` | `/^uninst\d*\.exe$/i` → `/^uninst\d*\.exe/i` | 17 pass / 1 fail | ANCORAGEM (sufixo) |
+| `[2]` | `/^uninstall\.exe$/i` → `/^uninstall\.exe/i` | 17 pass / 1 fail | ANCORAGEM (sufixo) |
+| `[3]` | `/^uninstaller\.exe$/i` → `/^uninstaller\.exe/i` | 17 pass / 1 fail | ANCORAGEM (sufixo) |
+
+**Group 3 — drop `^` only (`$` kept), for completeness (not explicitly
+named in the reviewer's required-fix list, but the same clause-granularity
+gap the round-4 self-correction above warns against leaving half-closed):**
+
+| Pattern | Mutation | Result | Failing test(s) |
+|---|---|---|---|
+| `[0]` | `/^unins\d*\.exe$/i` → `/unins\d*\.exe$/i` | 17 pass / 1 fail | ANCORAGEM (prefixo) |
+| `[1]` | `/^uninst\d*\.exe$/i` → `/uninst\d*\.exe$/i` | 17 pass / 1 fail | ANCORAGEM (prefixo) |
+| `[2]` | `/^uninstall\.exe$/i` → `/uninstall\.exe$/i` | 17 pass / 1 fail | ANCORAGEM (prefixo) |
+| `[3]` | `/^uninstaller\.exe$/i` → `/uninstaller\.exe$/i` | 17 pass / 1 fail | ANCORAGEM (prefixo) |
+
+**Group 4 — drop `/i` (the reviewer's required-fix list: all four
+basename patterns plus `MSIEXEC_BASENAME`, 5/5 of which SURVIVED round
+3):**
+
+| Pattern | Mutation | Result | Failing test(s) |
+|---|---|---|---|
+| `[0]` | `/^unins\d*\.exe$/i` → `/^unins\d*\.exe$/` | 17 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
+| `[1]` | `/^uninst\d*\.exe$/i` → `/^uninst\d*\.exe$/` | 17 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
+| `[2]` | `/^uninstall\.exe$/i` → `/^uninstall\.exe$/` | 17 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
+| `[3]` | `/^uninstaller\.exe$/i` → `/^uninstaller\.exe$/` | 17 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
+| `MSIEXEC_BASENAME` | `/^msiexec\.exe$/i` → `/^msiexec\.exe$/` | 17 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
+
+All 5/5 now caught (round 3: 5/5 survived).
+
+**Group 5 — drop `/i`, the two sites NOT in the reviewer's required-fix
+list, closed anyway (round-4 self-review — leaving them would be the exact
+"closed one instance, declared the table complete" pattern this same
+finding calls out one level up):**
+
+| Site | Mutation | Result | Failing test(s) |
+|---|---|---|---|
+| `EXACT_UNINSTALL_NAME` | `/^uninstall$/i` → `/^uninstall$/` | 15 pass / 3 fail | "exclui achado real de máquina: shortcut nomeado exatamente 'Uninstall'...", "o match exato de nome 'Uninstall' não vira substring...", CASE-INSENSITIVITY (os dois /i não cobertos) |
+| `.exe` guard (`/\.exe$/i.test(base)` inside `isUninstallerEntry`) | → `/\.exe$/.test(base)` | 17 pass / 1 fail | CASE-INSENSITIVITY (os dois /i não cobertos) |
+| `MSI_UNINSTALL_ARG` | `/(^|\s)\/(x\|uninstall)\b/i` → without `/i` | 17 pass / 1 fail | CASE-INSENSITIVITY (os dois /i não cobertos) |
+
+**18/18 mutations killed, 0 survivors, across both required and
+self-discovered rows.** Baseline (`18`/`18`/`0`) re-confirmed after every
+single mutation was reverted, and once more at the end of the scripted
+run — no neutered version was ever committed.
 
 ### 9.2 Reproducing round-3 finding 1's exact defect (the import, not a clause)
 
@@ -686,6 +873,29 @@ vacuously if a future edit accidentally picks an input both semantics agree
 on. Only then does it assert `isUninstallerEntry(...)` — closing exactly
 the gap §9.2 measured.
 
+**Round-4 honesty note (folded into finding 1's evidence, not itself a
+required fix):** the reviewer additionally measured that swapping
+`node:path/win32` back to plain `node:path` (mutation "M13") on THIS
+machine — win32 itself — leaves the suite green, because `node:path`
+already dispatches to `node:path/win32` semantics on a win32 host. That is
+not a gap in the test; it is a gap in what can be observed on any host
+this ADR's work has actually run on. §9.2 above already discloses this
+honestly (the "cannot be subjected to this same simulate-by-swapping...
+technique" paragraph) and does not claim otherwise. What round-4 adds,
+stated precisely rather than left implicit: `.github/workflows/test.yml`
+targets `ubuntu-latest`, the one host where this mutation genuinely would
+be observable — but its trigger is `on: workflow_dispatch` only (checked
+directly, `.github/workflows/test.yml:3-4`), not `push`/`pull_request`, so
+it never runs automatically and was not run as part of this round either.
+The accurate statement is: **this regression guard exists, is killable
+only on a POSIX host, and the one CI job that could exercise it
+automatically is configured to require a manual trigger it has not
+received.** No code or workflow change is made here for this — outside
+PROOF-04's scope, and speculatively adding automatic triggers to a shared
+CI file is exactly the kind of unrequested change rule 3 warns against —
+but the gap is named plainly rather than left to be inferred from §9.2's
+more oblique phrasing.
+
 ### 9.4 Pipeline-order clauses (`test/windows-dedupe-order.test.mjs`, §4c)
 
 This is a separate module (`measure/windows/lib/resolve-app-list.mjs`), not
@@ -730,11 +940,74 @@ their own full coverage — `partitionUninstallers` via §9.1,
 `dedupeByTarget` via its own module header and the "regression guard" test
 that exercises it directly). The regression-guard and not-deduped/
 distinct-targets tests in the same file are not separately mutated because
-they call `dedupeByTarget` directly, already covered by §9.1's `kept`
-behavior and dedupe-target.mjs's single, five-line implementation. The
-mutation was reverted immediately after this measurement and the baseline
-(`5`/`5`/`0`) re-confirmed, together with `test/windows-uninstaller-rule.test.mjs`'s
-own baseline, in a single combined run (`19`/`19`/`0`).
+they call `dedupeByTarget` directly — **round-4 correction:** at the time
+this paragraph was written (round 3), that coverage claim rested on
+§9.1's `kept` behavior plus `dedupeByTarget`'s own five-line
+implementation being simple enough to read correctly by inspection. Round
+4 measured that inspection wrong: the case-insensitive-key mutation (M27,
+§9.5 below) survived this exact suite. `dedupeByTarget` now has its own
+dedicated suite (`test/windows-dedupe-target.test.mjs`, §9.5) instead of
+relying on indirect coverage through this file. The mutation in this
+section was reverted immediately after its own measurement and the
+baseline (`5`/`5`/`0`) re-confirmed.
+
+### 9.5 `dedupeByTarget`'s own suite (`test/windows-dedupe-target.test.mjs`) — round-4 findings 1 (M27) and 2
+
+Previously exercised only indirectly (this file's own fixtures, plus the
+live probe run) — round-3 review measured that indirect coverage missed a
+real mutant (M27: removing `.toLowerCase()` from the case-insensitive key
+left the round-3 suite at `19`/`19` green) and round-4's finding 2 added a
+real crash (`entry.target.toLowerCase()` on a null/undefined/missing
+`target`, an input shape two sibling modules' own JSDoc document as
+valid). Both are now covered directly, by a dedicated 5-test file.
+
+Baseline: `node --test test/windows-dedupe-target.test.mjs` — `ℹ tests 5`,
+`ℹ pass 5`, `ℹ fail 0`.
+
+**M27, re-run against the current, dedicated suite (not the indirect one
+that let it survive in round 3):**
+
+```
+$ node -e '<mutate: const key = entry.target.toLowerCase(); -> const key = entry.target;>'
+$ node --test test/windows-dedupe-target.test.mjs test/windows-dedupe-order.test.mjs
+✖ duas entradas cujo target difere só em CAIXA colapsam em 1 (NTFS é case-insensitive) — pina .toLowerCase()
+✖ entradas sem target e entradas com target se misturam corretamente, mantendo a ordem original
+ℹ tests 10
+ℹ pass 8
+ℹ fail 2
+```
+
+M27 killed (round 3: survived, 19/19 green with the pre-round-4 suite).
+
+**Finding 2's crash guard, mutated by removing the unkeyable-target branch
+entirely (reverting to the round-3 implementation that threw):**
+
+```
+$ node -e '<mutate: remove the `if (typeof entry.target !== "string" || entry.target === "") { result.push(entry); continue; }` branch>'
+$ node --test test/windows-dedupe-target.test.mjs
+✖ target: null — não pode ser chaveado, passa intocado (não lança, não é deduplicado contra nada)
+✖ target: '' (string vazia) — mesmo tratamento de null, não colapsa duas entradas distintas
+✖ campo target ausente — mesmo tratamento, não lança
+✖ entradas sem target e entradas com target se misturam corretamente, mantendo a ordem original
+ℹ tests 5
+ℹ pass 1
+ℹ fail 4
+```
+
+4/5 tests fail (the fifth, the case-only-differs test, does not touch an
+unkeyable target and is unaffected by this specific mutation, as
+expected). Both mutations reverted immediately after measurement and the
+baseline (`5`/`5`/`0` for this file) re-confirmed, together with
+`test/windows-uninstaller-rule.test.mjs`'s own 18-test baseline and
+`test/windows-dedupe-order.test.mjs`'s 5-test baseline, in a single
+combined run across all three PROOF-04 test files:
+
+```
+$ node --test test/windows-uninstaller-rule.test.mjs test/windows-dedupe-order.test.mjs test/windows-dedupe-target.test.mjs
+ℹ tests 28
+ℹ pass 28
+ℹ fail 0
+```
 
 ## 10. Alternatives considered
 

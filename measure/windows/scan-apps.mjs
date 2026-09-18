@@ -33,9 +33,14 @@
 // resolve to the exact same paths the previous hardcoded Join-Path used
 // (123/59 .lnk, matching exactly) before being adopted here. Every basename
 // check on this file uses node:path/win32's `basename`/`extname` — same
-// explicit win32 import the rule module holds
-// (measure/windows/lib/uninstaller-rule.mjs:36,107), not a hand-rolled
-// backslash regex. `join` (used only for this script's own temp-file path,
+// explicit win32 import the rule module holds (its own top-of-file
+// `import { basename } from "node:path/win32"`, consumed by the
+// basename() call inside isUninstallerEntry —
+// measure/windows/lib/uninstaller-rule.mjs; cited by symbol name, not line
+// number, per round-4 review finding 3: two numeric citations to this same
+// module drifted out of date across earlier rounds as comment blocks grew
+// around them), not a hand-rolled backslash regex. `join` (used only for
+// this script's own temp-file path,
 // never for a scanned shortcut) is deliberately left on plain `node:path`:
 // this script only ever runs on win32 itself (guarded below), so it
 // behaves identically either way, and importing only the two functions
@@ -142,8 +147,9 @@ const resolved = entries.filter((e) => typeof e.target === "string" && e.target 
 const unresolvedEntries = entries.filter((e) => !(typeof e.target === "string" && e.target !== ""));
 
 // node:path/win32's basename() — same explicit import the rule module
-// holds (uninstaller-rule.mjs:36,107) — never a hand-rolled backslash
-// split (round-2 finding 4).
+// holds, consumed by the basename() call inside isUninstallerEntry (cited
+// by symbol, not line number — round-4 review finding 3) — never a
+// hand-rolled backslash split (round-2 finding 4).
 const isExeTarget = (target) => extname(basename(target)).toLowerCase() === ".exe";
 const resolvedExe = resolved.filter((e) => isExeTarget(e.target));
 

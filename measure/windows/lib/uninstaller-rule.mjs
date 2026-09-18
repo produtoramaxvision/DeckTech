@@ -97,7 +97,13 @@ const MSI_UNINSTALL_ARG = /(^|\s)\/(x|uninstall)\b/i;
  *     "C:\\Program Files (x86)\\DJI Assistant 2\\unins000.exe"). May be
  *     null/empty for a shortcut the resolver could not resolve (URL
  *     shortcuts, broken links) — such entries are never excluded by this
- *     rule; that is a different problem than uninstaller exclusion.
+ *     rule; that is a different problem than uninstaller exclusion. A
+ *     null/empty-target entry that survives partitionUninstallers() this
+ *     way is, in turn, never deduped by measure/windows/lib/dedupe-target.mjs's
+ *     dedupeByTarget() either (round-4 review finding 2) — it has nothing
+ *     to key on, so it passes through untouched. All three modules'
+ *     contracts for this input shape are meant to read consistently; see
+ *     dedupe-target.mjs's header if that ever needs re-checking.
  *   arguments: the shortcut's argument string, if any (e.g. "/x {GUID}").
  *     Only consulted for the msiexec.exe case, see MSI_UNINSTALL_ARG above.
  * @returns {boolean} true if this entry is an uninstaller and should be

@@ -35,10 +35,27 @@ import { partitionUninstallers } from "./uninstaller-rule.mjs";
 import { dedupeByTarget } from "./dedupe-target.mjs";
 
 /**
+ * Round-4 review finding 2: `target` here is documented as `string | null`
+ * (a shortcut the resolver couldn't resolve — URL shortcuts, broken links —
+ * per isUninstallerEntry's own `target` parameter doc in uninstaller-rule.mjs,
+ * cited by symbol rather than line number so this reference does not rot —
+ * which this function's `partitionUninstallers` call keeps such entries
+ * through, never excludes)
+ * and dedupe-target.mjs's `dedupeByTarget` — what `kept` is handed to next
+ * — now matches that same contract explicitly (previously it assumed
+ * `target` was always a non-empty string and threw a bare TypeError on
+ * this exact, documented-valid input shape). See dedupe-target.mjs's
+ * header for the passed-through-untouched behavior a null/empty/missing
+ * `target` now gets.
+ *
  * @param {Array<{name?: string, target?: string|null, arguments?: string|null}>} resolved
  *   Every individually-walked shortcut entry, NOT yet deduped by target.
  * @returns {{ kept: Array, excluded: Array }}
- *   kept: legitimate apps, deduped by target path (first-walked wins).
+ *   kept: legitimate apps, deduped by target path (first-walked wins) for
+ *     every entry with a usable (non-empty string) target; an entry with a
+ *     null/empty/missing target is never excluded (see
+ *     uninstaller-rule.mjs) and passes through here untouched, one row
+ *     each, never deduped against anything (see dedupe-target.mjs).
  *   excluded: every individual shortcut the rule identified as an
  *     uninstaller, one row per shortcut (not deduped).
  */
