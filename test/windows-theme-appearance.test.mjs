@@ -177,9 +177,12 @@ test("createWindowsAppearanceTracker: onChange chegando NO MEIO de uma leitura e
 });
 
 // Contra-discriminador: se a guarda fosse invertida (`generation !== startedAt`),
-// TODA escrita de cache ficaria bloqueada, inclusive a normal — o teste "token()
-// é preguiçoso" (linha ~68 acima) já cobre isso e falharia, provando que a
-// guarda não é um no-op na direção oposta.
+// TODA escrita de cache ficaria bloqueada, inclusive a normal (nenhuma leitura
+// jamais popularia `cached`, então toda chamada subsequente de token() releria
+// do zero). Verificado manualmente invertendo a guarda e rodando esta suite: o
+// teste "evento onChange do watcher invalida o cache" acima falha nesse cenário
+// (2ª chamada de token() sem invalidação nenhuma relê — reads=2 em vez de 1),
+// provando que a guarda não é um no-op na direção oposta.
 
 test("createWindowsAppearanceTracker: onExit inesperado do watcher NÃO reinicia sozinho (sem crash-loop) — token() continua funcionando via leitura avulsa", async () => {
   let reads = 0;
