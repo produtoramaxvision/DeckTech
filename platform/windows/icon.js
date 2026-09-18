@@ -301,40 +301,47 @@ export function makeWindowsIconService(deps = {}) {
   const loadInflight = new Map();
 
   /**
-   * Round-2 finding 5: o `signal` de UM chamador (o request HTTP que
-   * disparou este `getIconPng`) é repassado direto pro `scan()` recebido
-   * via deps — fecha o gap literal que o review apontou (PLAT-02 já
-   * suporta execFile-abort e a plumbing existia sem uso aqui).
+   * Round-3 finding 1 (code review, REJECTED): round-2's fix here — passing
+   * THIS caller's HTTP signal straight into `scan({ signal })` — was
+   * reverted. It looked safe (the 30-line JSDoc it replaced argued exactly
+   * that) but was proven wrong by decisive isolation: `scan` is the SAME
+   * singleton instance as `win32ListInstalledApps` (platform/index.js
+   * `win32Platform`: `listInstalledApps: win32ListInstalledApps` AND
+   * `iconService: makeIconService({ scan: win32ListInstalledApps })`), and
+   * that singleton (platform/windows/apps.js#listInstalledApps) shares ONE
+   * `cache.promise` across every caller regardless of whose signal drove
+   * it (`if (cache.promise) return cache.promise;` — first caller in wins,
+   * everyone else just joins). So one icon request's navigate-away while
+   * the shared scan is cold/in-flight aborted the PowerShell collect
+   * (`WindowsAppScanError("ABORTED")`) and that rejection propagated to
+   * every OTHER caller joined on the same `cache.promise` — a concurrent,
+   * never-aborted icon request (the round-2 `getIconPng` catch back then
+   * swallowed it into a misleading 404) AND `GET /api/apps/installed`
+   * (collapsed into the generic, untyped 500 from `fail()` — apps.js has
+   * no `ABORTED` entry in `ACTION_ERROR_MESSAGES`). Reproduced end to end
+   * with the real modules, a real `startServer`, and the real
+   * `platform/index.js` wiring; see test/windows-icon-service.test.mjs's
+   * round-3 finding 1 regression test.
    *
-   * Deliberadamente NÃO existe aqui um segundo AbortController/refcount de
-   * "todos os waiters desistiram" (como o dedupe de `getIconPng` abaixo
-   * tem) controlando esse scan. Investigado antes de decidir: em produção
-   * `scan` é literalmente a MESMA instância singleton exportada por
-   * platform/windows/apps.js (`win32ListInstalledApps`, ver
-   * platform/index.js#win32Platform, `iconService: makeIconService({scan:
-   * win32ListInstalledApps})`) — a mesma que listInstalledApps()/`/api/
-   * apps` e `/api/apps/installed` (server.js) usam pro SEU PRÓPRIO
-   * `cache.promise` interno. Hoje NENHUMA rota HTTP passa signal pra
-   * `listInstalledApps` (grep em server.js: `/api/apps` e `/api/apps/
-   * installed` chamam sem opts) — então adicionar aqui um mecanismo que
-   * chama `.abort()` ativamente com base só nos waiters DESTE módulo
-   * derrubaria, via `WindowsAppScanError("ABORTED")` propagando pelo
-   * `cache.promise` compartilhado de apps.js, uma requisição `/api/apps`
-   * concorrente que não tem nada a ver com o ícone cancelado — uma
-   * regressão nova e pior do que a ausência de sinal que este finding
-   * descreve (que o próprio review classifica como não-crítica: o
-   * PowerShell filho é autoterminável e TTL-cacheado, nada fica órfão
-   * indefinidamente). Repassar o signal do chamador tal como ele é —
-   * sem um segundo controller construído aqui — é exatamente o mesmo
-   * padrão que uma chamada real a `/api/apps` com abort wiring própria já
-   * teria (PLAT-02), não um mecanismo novo.
+   * KNOWN GAP, not closed: `scan()` is called here with no signal at all,
+   * same as before round-2 finding 5. A genuinely abandoned page load can
+   * still leave the underlying PowerShell scan running to completion
+   * instead of being killed early — round-2 already classified that as
+   * non-critical (the child is self-terminating and TTL-cached, nothing
+   * stays orphaned indefinitely; PLAT-03's cancellation guarantee for
+   * icon EXTRACTION, the 122-icon queue, is unaffected and still enforced
+   * below via `queue`/`loadInflight`). Fixing the scan-level cancellation
+   * properly needs `listInstalledApps`'s own `cache.promise` to track
+   * per-caller signals/refcounts (the same shape as `loadInflight`'s
+   * finding-2 fix a few lines down) — that lives in apps.js, is PLAT-02
+   * territory, and is out of scope for this ticket (PLAT-03+09).
    */
-  async function resolveApps(signal) {
+  async function resolveApps() {
     const nowMs = now();
     if (appsByName && nowMs - appsAt < ttlMs) return appsByName;
     if (scanInflight) return scanInflight;
     scanInflight = Promise.resolve()
-      .then(() => scan({ signal }))
+      .then(() => scan())
       .then(apps => {
         const m = new Map();
         for (const a of apps) m.set(a.name, a);
@@ -433,19 +440,16 @@ export function makeWindowsIconService(deps = {}) {
     async getIconPng(name, opts = {}) {
       const { signal } = opts;
 
-      let apps;
-      try {
-        apps = await resolveApps(signal);
-      } catch (err) {
-        // Round-2 finding 5: se o scan que ESTE chamador acabou disparando
-        // (ou se juntou a) foi cancelado pelo signal DELE mesmo, isso é
-        // "desisti", não uma falha de verdade — devolve null quieto em vez
-        // de propagar pro fail(res, err) genérico do server.js. Qualquer
-        // outro código de erro (falha real de scan) continua propagando,
-        // igual já propagava antes desta mudança.
-        if (err?.code === "ABORTED") return null;
-        throw err;
-      }
+      // Round-3 finding 1: `resolveApps()` no longer takes a signal (see
+      // its JSDoc above) — this call can never fail because THIS caller
+      // gave up, so there is no self-inflicted "ABORTED" left to swallow
+      // here. Any error it does throw (a genuine scan failure, or —
+      // KNOWN GAP — an ABORTED that leaked in from some unrelated future
+      // caller sharing apps.js's `cache.promise`) is not this caller's to
+      // silently interpret as "not found": it propagates to the generic
+      // `fail(res, err)` 500 in server.js, same as any other real error,
+      // instead of a swallowed, misleading 404.
+      const apps = await resolveApps();
       const app = apps.get(name);
       if (!app) return null;
 

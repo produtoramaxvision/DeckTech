@@ -20,6 +20,7 @@ import {
   prepareIconSourcePath,
   WIN_ICON_MAX_PX,
 } from "../platform/windows/icon.js";
+import { makeListInstalledApps, WindowsAppScanError } from "../platform/windows/apps.js";
 
 const win32Only = process.platform === "win32" ? {} : { skip: "requer Windows real (addon N-API compilado)" };
 
@@ -359,6 +360,73 @@ test("PLAT-03 round2 finding2: dedupe em voo — o abort de UM chamador não der
   assert.ok(b && b.length > 0, `B (nunca abortou) tem que receber o PNG real, não null — recebeu ${b}`);
   assert.equal(b.readUInt32BE(0), 0x89504e47, "assinatura PNG");
   assert.equal(callsA, 1, "extração de A rodou exatamente 1 vez, compartilhada entre A e B, apesar de A ter desistido");
+});
+
+test("round-3 finding 1: uma requisição de ícone que navega pra longe durante um scan de apps FRIO/em voo não pode envenenar um chamador concorrente e não-relacionado de listInstalledApps() (ex.: GET /api/apps/installed) nem um 2º request de ícone que nunca abortou", async () => {
+  // Reproduz a MESMA instância singleton que platform/index.js#win32Platform
+  // conecta de verdade: `listInstalledApps` (real, de apps.js — só o
+  // `collect` é injetado pra não depender de PowerShell) alimenta tanto o
+  // `scan` do iconService QUANTO o `appTools.listInstalledApps()` que
+  // server.js chama sem signal nenhum em /api/apps/installed — exatamente
+  // como platform/index.js:80+88 faz.
+  let releaseCollect;
+  const collect = ({ signal } = {}) => new Promise((resolve, reject) => {
+    // Só ouve abort se ALGUÉM de fato passou um signal pra este collect —
+    // é isso que discrimina o código com bug (icon.js repassava o signal
+    // do request HTTP de ícone pro scan compartilhado) do código corrigido
+    // (icon.js não repassa signal nenhum pro scan compartilhado).
+    const onAbort = () => reject(new WindowsAppScanError("ABORTED", "aborted for test"));
+    signal?.addEventListener("abort", onAbort, { once: true });
+    releaseCollect = () => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve({
+        dirErrorCount: 0,
+        lnkFiles: ["C:\\Start Menu\\Sample App.lnk"],
+        startApps: [],
+        appxPackages: [],
+      });
+    };
+  });
+  const listInstalledApps = makeListInstalledApps({
+    collect,
+    readFile: () => Buffer.from(""),
+    parseLnk: () => ({ resolvedTargetPath: "C:\\Apps\\Sample App.exe", strings: {} }),
+  });
+
+  const svc = makeWindowsIconService({
+    scan: listInstalledApps, // a MESMA instância, exatamente como platform/index.js liga
+    fs: fakeFs(),
+    extract: (p, size) => new Uint8Array(size * size * 4),
+  });
+
+  const controllerA = new AbortController();
+  const iconA = svc.getIconPng("Sample App", { signal: controllerA.signal }); // vai navegar pra longe
+  await new Promise(resolve => setImmediate(resolve)); // deixa a cadeia de iconA de fato chamar collect() primeiro
+  assert.equal(typeof releaseCollect, "function", "sanity: iconA precisa ter disparado o scan (chamado collect()) antes de A e o 2º chamador se juntarem a ele");
+
+  const iconC = svc.getIconPng("Sample App"); // SEM signal — nunca abortado, junta o MESMO scan em voo
+  const appsInstalled = listInstalledApps(); // simula GET /api/apps/installed — SEM signal, junta o MESMO cache.promise de apps.js
+
+  controllerA.abort(); // iconA "navegou pra longe" enquanto o scan compartilhado ainda está em voo
+  releaseCollect(); // deixa o PowerShell (fake) collect terminar agora que o abort já foi observado
+
+  const [iconAResult, iconCResult, appsInstalledResult] = await Promise.allSettled([iconA, iconC, appsInstalled]);
+
+  assert.equal(iconAResult.status, "fulfilled", `iconA (navegou pra longe) não deveria propagar exceção — ${iconAResult.reason}`);
+  assert.equal(iconAResult.value, null, "iconA (navegou pra longe) resolve null quieto");
+
+  assert.equal(
+    iconCResult.status, "fulfilled",
+    `REGRESSÃO: um 2º request de ícone que NUNCA abortou foi envenenado pelo abort de iconA — ${iconCResult.reason}`,
+  );
+  assert.ok(iconCResult.value && iconCResult.value.length > 0, `iconC (nunca abortou) precisa de um PNG real, não null — recebeu ${iconCResult.value}`);
+
+  assert.equal(
+    appsInstalledResult.status, "fulfilled",
+    `REGRESSÃO: GET /api/apps/installed (sem signal, nunca abortado) foi envenenado pelo abort de um request de ícone não relacionado — ${appsInstalledResult.reason}`,
+  );
+  assert.equal(appsInstalledResult.value?.length, 1, "GET /api/apps/installed ainda precisa devolver a lista real de apps");
+  assert.equal(appsInstalledResult.value?.[0]?.name, "Sample App");
 });
 
 test("PLAT-03+09 round2 finding3: addon nativo não compilado -> getIconPng REJEITA com ICON_ADDON_MISSING, nunca vira 404 genérico de 'app não encontrado'", async () => {
