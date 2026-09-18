@@ -318,13 +318,29 @@ test("realIconService faz um único scan no TTL (N getIconPng)", async () => {
 
 test("realIconService sem app correspondente cai no monograma e cacheia com um único scan", async () => {
   // Assunto deste teste é o fallback pra monograma quando o scan não acha o
-  // app (não a rasterização em si) e o cache em memória do resultado —
-  // roda em qualquer plataforma com um exec mockado, igual ao teste de poda
-  // de cache logo acima.
+  // app (não a rasterização em si) e o CACHE EM MEMÓRIA (memPng) do
+  // resultado — roda em qualquer plataforma com um exec mockado, igual ao
+  // teste de poda de cache logo acima.
+  //
+  // scans e deepEqual sozinhos não provam "cacheia": com ttlMs alto,
+  // resolveApps já cacheia o scan (apps.js:597-599). E monogramPng tem o
+  // PRÓPRIO cache em disco (apps.js:530, readFile(cacheFile) antes de
+  // chamar exec de novo) — então mesmo SEM o hit em memPng, a 2ª chamada
+  // reentraria em monogramPng e ainda assim acharia o PNG no disco (escrito
+  // pela 1ª chamada) sem chamar exec de novo. Verificado num probe manual
+  // (scratch, apps.js real intocado): removendo o hit de memPng em getIconPng
+  // numa cópia, execCalls continuou 1 nas duas chamadas — o cache de disco
+  // mascara a ausência do cache em memória.
+  //
+  // Pra isolar de fato o memPng, apaga-se o cacheFile de disco entre as duas
+  // chamadas: só o memPng pode entregar buf2 sem chamar exec de novo, porque
+  // o fallback em disco deixou de existir.
   const dir = await mkdtemp(join(tmpdir(), "j5-miss-cache-"));
   try {
     let scans = 0;
+    let execCalls = 0;
     const exec = async (cmd, args) => {
+      execCalls++;
       const out = args[args.indexOf("--out") + 1] ?? args[args.length - 1];
       await writeFile(out, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
     };
@@ -334,15 +350,24 @@ test("realIconService sem app correspondente cai no monograma e cacheia com um �
         return [];
       },
       exec,
+      iconHelper: null,
       cacheDir: dir,
       ttlMs: 60_000,
     });
     const buf1 = await svc.getIconPng("Fantasma");
-    const buf2 = await svc.getIconPng("Fantasma");
     assert.ok(Buffer.isBuffer(buf1), "primeira chamada retorna monograma");
+    assert.equal(execCalls, 1, "1ª chamada rasteriza via exec");
+
+    const { readdir, unlink } = await import("node:fs/promises");
+    for (const f of await readdir(dir)) {
+      if (f.endsWith(".png")) await unlink(join(dir, f));
+    }
+
+    const buf2 = await svc.getIconPng("Fantasma");
     assert.ok(Buffer.isBuffer(buf2), "segunda chamada retorna monograma cached");
     assert.deepEqual([...buf1], [...buf2], "deve retornar o mesmo monograma cached");
     assert.equal(scans, 1, "scan deve rodar apenas uma vez");
+    assert.equal(execCalls, 1, "2ª chamada deve vir do cache em memória (memPng): com o cache de disco apagado, um novo monogramPng chamaria exec de novo");
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
