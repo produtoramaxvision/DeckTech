@@ -237,11 +237,32 @@ test("GET / inclui PWA manifest link, apple-mobile-web-app e service worker", as
 });
 
 test("toque no app não revela um segundo glass durante a animação", async () => {
-  const { port, close } = await startServer(0);
+  // O dock só renderiza um tile de app quando a peça fixada resolve contra a lista
+  // de apps instalados. Sem injetar o provider, este teste depende do host ser macOS:
+  // no Windows listInstalledApps ainda não existe (PLAT-02), todo tile sai .empty, e
+  // .atile.first() seria um slot vazio — que não tem a animação appPress sob teste.
+  const { port, close } = await startServer({
+    port: 0,
+    obs: null,
+    config: {
+      schemaVersion: 2,
+      revision: 0,
+      pieces: [{ id: "app:Probe", type: "app", name: "Probe", position: 0 }],
+      pinned: ["Probe"],
+    },
+    appTools: {
+      listInstalledApps: async () => [{ name: "Probe", path: "Probe", icon: false }],
+      listAppProcesses: async () => [],
+    },
+  });
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-    await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "networkidle" });
+    // waitUntil "networkidle" e DISCOURAGED pela doc oficial do Playwright
+    // ("Don't use this method for testing, rely on web assertions to assess
+    // readiness instead"). Com um tile de app real o dock faz polling de status,
+    // entao a rede nunca fica ociosa 500ms e o goto estourava o timeout.
+    await page.goto(`http://127.0.0.1:${port}/`);
     await page.waitForSelector(".atile");
 
     const state = await page.locator(".atile").first().evaluate(tile => {
@@ -283,6 +304,15 @@ test("PWA exibe cinco páginas completas e preserva slots vazios", async () => {
       ],
       pinned: ["App Store", "Claude"],
     },
+    // Mesmo motivo do teste de appPress acima: sem o provider injetado as duas peças
+    // não resolvem fora do macOS e o dock renderiza 40 slots vazios em vez de 38.
+    appTools: {
+      listInstalledApps: async () => [
+        { name: "App Store", path: "App Store", icon: false },
+        { name: "Claude", path: "Claude", icon: false },
+      ],
+      listAppProcesses: async () => [],
+    },
   });
   const browser = await chromium.launch({ headless: true });
   try {
@@ -291,7 +321,11 @@ test("PWA exibe cinco páginas completas e preserva slots vazios", async () => {
       isMobile: true,
       hasTouch: true,
     });
-    await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "networkidle" });
+    // waitUntil "networkidle" e DISCOURAGED pela doc oficial do Playwright
+    // ("Don't use this method for testing, rely on web assertions to assess
+    // readiness instead"). Com um tile de app real o dock faz polling de status,
+    // entao a rede nunca fica ociosa 500ms e o goto estourava o timeout.
+    await page.goto(`http://127.0.0.1:${port}/`);
     await page.waitForFunction(() => document.querySelectorAll(".atile.empty").length === 38);
     const empty = page.locator(".atile.empty .aglass").first();
     const style = await empty.evaluate((el) => {
