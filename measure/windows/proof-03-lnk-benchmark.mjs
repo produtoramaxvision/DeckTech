@@ -325,7 +325,8 @@ async function main() {
   console.log(`--- Timing: warm (n=${TIMED_ITERATIONS}, after ${WARMUP_ITERATIONS} discarded warmup iteration -- warmup changes the profile, do not compare a cold number against a warm one) ---`);
   console.log(`Node parser: median ${nodeWarmStats.median.toFixed(2)} ms, min ${nodeWarmStats.min.toFixed(2)}, max ${nodeWarmStats.max.toFixed(2)}, stddev ${nodeWarmStats.stddev.toFixed(2)} -- raw: [${nodeWarmMs.map((x) => x.toFixed(2)).join(', ')}]`);
   console.log(`COM loop-only: median ${comWarmStats.median.toFixed(1)} ms, min ${comWarmStats.min.toFixed(1)}, max ${comWarmStats.max.toFixed(1)}, stddev ${comWarmStats.stddev.toFixed(1)} -- raw: [${comLoopWarmMs.map((x) => x.toFixed(1)).join(', ')}]`);
-  console.log(`Speedup (median of per-iteration COM/Node ratios): median ${speedupWarmStats.median.toFixed(1)}x, min ${speedupWarmStats.min.toFixed(1)}x, max ${speedupWarmStats.max.toFixed(1)}x\n`);
+  console.log(`Speedup (median of per-iteration COM/Node ratios): median ${speedupWarmStats.median.toFixed(1)}x, min ${speedupWarmStats.min.toFixed(1)}x, max ${speedupWarmStats.max.toFixed(1)}x`);
+  console.log(`Node parser warm median, per-shortcut: ${(nodeWarmStats.median / files.length).toFixed(4)} ms/shortcut\n`);
 
   // --- Per-shortcut comparison, from the canonical (cold) iteration's
   // output -- deterministic across iterations for the same file set, so
@@ -552,6 +553,7 @@ async function main() {
         n: TIMED_ITERATIONS,
         warmupIterationsDiscarded: WARMUP_ITERATIONS,
         nodeParserMs: nodeWarmStats,
+        nodeParserMsPerItemMedian: nodeWarmStats.median / files.length,
         comLoopOnlyMs: comWarmStats,
         speedupComLoopOverNode: speedupWarmStats,
       },
