@@ -434,7 +434,25 @@ export function makeApp(deps = {}) {
         // o símbolo BODY_TOO_BIG/BODY_INVALID: nesse caso não há PIN a
         // registrar mesmo, e JSON.stringify de um Symbol seria descartado
         // em silêncio de qualquer forma.
-        const bodyForLog = (body === BODY_TOO_BIG || body === BODY_INVALID) ? null : body;
+        //
+        // Round 2, achado 1: `readBody` faz `JSON.parse(body || "{}")` sem
+        // checar a FORMA do resultado — um corpo `"0080"` (escalar puro) ou
+        // `["0080"]` (array de escalar) é JSON válido e vira, respectivamente,
+        // uma string e um array em `body`. O redator (log.js) redige por
+        // NOME DE CHAVE em profundidade; um escalar direto sob a chave
+        // "body", ou um elemento de array sem chave nenhuma, não tem chave
+        // pra casar contra SENSITIVE_KEYS e atravessa intacto — o PIN
+        // vazaria verbatim pro log. Só a FORMA esperada (objeto simples,
+        // ex. `{pin: "..."}`) é segura pra entregar ao redator; qualquer
+        // outra forma vira um marcador fixo que não carrega o corpo cru.
+        // Isso não perde diagnóstico: nenhuma dessas formas tem `.pin`
+        // string, então `given` cai em "" e a request já leva 400 abaixo.
+        const isPlainObjectBody = body !== null && typeof body === "object" && !Array.isArray(body);
+        const bodyForLog = (body === BODY_TOO_BIG || body === BODY_INVALID)
+          ? null
+          : isPlainObjectBody
+            ? body
+            : "[non-object body]";
         log.debug("auth.attempt", { requestId, ip: ipOf, body: bodyForLog, cookie: req.headers.cookie });
         if (body === BODY_TOO_BIG || body === BODY_INVALID) {
           log.debug("auth.invalid_body", { requestId, ip: ipOf });
@@ -1138,6 +1156,17 @@ export async function startServer(arg = {}) {
   return { port: server.address().port, close };
 }
 
+/**
+ * Extraída pra ser testável isoladamente (round 2, achado 3): antes era um
+ * `console.error(err)` inline, que imprimia o stack inteiro; a conversão pra
+ * log estruturado trocou isso por `{ message }` e perdeu o stack — bem no
+ * único caminho (crash de boot) em que a lista de frames é o diagnóstico
+ * inteiro. `stack` entra como campo próprio, não concatenado em `message`.
+ */
+export function logBootstrapFailure(err, log = defaultLog) {
+  log.error("bootstrap.failed", { message: err?.message ?? String(err), stack: err?.stack ?? null });
+}
+
 // bootstrap: só quando executado direto (node server.js), nunca no import
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const proto = (process.env.HTTPS_CERT && process.env.HTTPS_KEY) ? "https" : "http";
@@ -1147,5 +1176,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       // responder descoberta UDP pra devices Android acharem o IP sozinhos
       startDiscovery(DISCOVERY_PORT, { portHint: port }).unref();
     })
-    .catch(err => { defaultLog.error("bootstrap.failed", { message: err?.message ?? String(err) }); process.exitCode = 1; });
+    .catch(err => { logBootstrapFailure(err); process.exitCode = 1; });
 }

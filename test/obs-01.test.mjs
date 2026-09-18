@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { createLogger } from "../log.js";
-import { startServer, ensureUserDataDir } from "../server.js";
+import { startServer, ensureUserDataDir, logBootstrapFailure } from "../server.js";
 import { realIconService } from "../apps.js";
 import { ActionError } from "../actions.js";
 import { readPinFile, SESSION_COOKIE } from "../auth.js";
@@ -294,4 +294,94 @@ test("OBS-01: PIN e cookie de sessão NUNCA aparecem no log capturado durante um
     await close();
     await rm(root, { recursive: true, force: true });
   }
+});
+
+// ---------------------------------------------------------------------
+// Round 2, achado 1 — corpo NÃO-objeto (escalar puro / array de escalar)
+// furava o redator por chave: `JSON.parse('"0080"')` vira uma STRING, sem
+// chave "pin" pra casar; `JSON.parse('["0080"]')` vira um ARRAY cujo
+// elemento também não tem chave. Nos dois casos o PIN real ia pro log
+// verbatim antes da correção em server.js (guarda de forma no bodyForLog).
+// ---------------------------------------------------------------------
+
+test("OBS-01 round 2: corpo do POST /api/auth como escalar puro (string JSON) não vaza o PIN no log", async () => {
+  const root = await mkdtemp(join(tmpdir(), "j5obs-auth-scalar-"));
+  const { logger, lines } = capture({ level: "debug" });
+  const { port, close } = await startServer({
+    port: 0, root, config: { pinned: [] }, trustLoopback: false, log: logger,
+  });
+  try {
+    const realPin = await readPinFile(root);
+
+    const r = await fetch(`http://127.0.0.1:${port}/api/auth`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(realPin), // corpo = `"0080"`, uma STRING, não {pin: "0080"}
+    });
+    assert.equal(r.status, 400, "corpo em forma inesperada não autentica");
+
+    const raw = lines.join("\n");
+    assert.ok(raw.includes("auth.attempt"), "a instrumentação de fato rodou — sem isso o teste seria vácuo");
+    assert.doesNotMatch(raw, new RegExp(realPin), "o PIN real não aparece no log mesmo quando o corpo é um escalar puro");
+  } finally {
+    await close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("OBS-01 round 2: corpo do POST /api/auth como array de escalar não vaza o PIN no log", async () => {
+  const root = await mkdtemp(join(tmpdir(), "j5obs-auth-array-"));
+  const { logger, lines } = capture({ level: "debug" });
+  const { port, close } = await startServer({
+    port: 0, root, config: { pinned: [] }, trustLoopback: false, log: logger,
+  });
+  try {
+    const realPin = await readPinFile(root);
+
+    const r = await fetch(`http://127.0.0.1:${port}/api/auth`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify([realPin]), // corpo = `["0080"]`, array sem chave "pin"
+    });
+    assert.equal(r.status, 400, "corpo em forma inesperada não autentica");
+
+    const raw = lines.join("\n");
+    assert.ok(raw.includes("auth.attempt"), "a instrumentação de fato rodou — sem isso o teste seria vácuo");
+    assert.doesNotMatch(raw, new RegExp(realPin), "o PIN real não aparece no log mesmo quando o corpo é um array de escalar");
+  } finally {
+    await close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// ---------------------------------------------------------------------
+// Round 2, achado 2 — `seen` (WeakSet de redact()) não liberava o nó após
+// descer, então uma referência COMPARTILHADA (DAG, não ciclo) era marcada
+// "[Circular]" por engano na segunda ocorrência, derrubando um campo de
+// diagnóstico legítimo em silêncio.
+// ---------------------------------------------------------------------
+
+test("OBS-01 round 2: referência compartilhada não-circular serializa por completo nas duas ocorrências", () => {
+  const { logger, records } = capture({ level: "debug" });
+  const shared = { ok: 1 };
+  logger.debug("dag", { a: shared, b: shared });
+  const rec = records().find(r => r.event === "dag");
+  assert.deepEqual(rec.a, { ok: 1 }, "primeira ocorrência sempre serializou por completo");
+  assert.deepEqual(rec.b, { ok: 1 }, "segunda ocorrência da MESMA referência não é um ciclo — não pode virar '[Circular]'");
+});
+
+// ---------------------------------------------------------------------
+// Round 2, achado 3 — bootstrap.failed descartava o stack trace, o único
+// diagnóstico disponível num crash de subida do processo.
+// ---------------------------------------------------------------------
+
+test("OBS-01 round 2: bootstrap.failed preserva o stack trace, não só a mensagem", () => {
+  const { logger, records } = capture({ level: "warn" }); // error passa mesmo com nível padrão-quieto
+  const err = new Error("EADDRINUSE simulado");
+  logBootstrapFailure(err, logger);
+  const failed = records().find(r => r.event === "bootstrap.failed");
+  assert.ok(failed, "evento registrado");
+  assert.equal(failed.message, "EADDRINUSE simulado");
+  assert.equal(typeof failed.stack, "string", "stack sobrevive como campo próprio, não descartado");
+  assert.match(failed.stack, /EADDRINUSE simulado/, "o stack capturado é o do erro real, não um texto genérico");
 });

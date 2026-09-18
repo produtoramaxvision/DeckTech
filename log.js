@@ -46,15 +46,29 @@ function levelFromEnv(env = process.env) {
   return Object.prototype.hasOwnProperty.call(LEVELS, raw) ? raw : DEFAULT_LEVEL;
 }
 
+/**
+ * `seen` marca apenas a cadeia de ANCESTRAIS em descida (não "todo objeto já
+ * visitado"): entra no nó antes de descer, sai do nó depois. Isso distingue
+ * um ciclo real (objeto reaparece na própria cadeia de ancestrais) de uma
+ * referência compartilhada não-circular (ex.: `{a: shared, b: shared}`) —
+ * sem o `delete` no fim, a segunda ocorrência de `shared` seria marcada
+ * "[Circular]" por engano e um campo de diagnóstico legítimo desapareceria
+ * do log calado (round 2, achado 2).
+ */
 function redact(value, seen) {
   if (value === null || typeof value !== "object") return value;
   if (seen.has(value)) return "[Circular]";
   seen.add(value);
-  if (Array.isArray(value)) return value.map(v => redact(v, seen));
-  const out = {};
-  for (const [key, v] of Object.entries(value)) {
-    out[key] = SENSITIVE_KEYS.has(String(key).toLowerCase()) ? REDACTED : redact(v, seen);
+  let out;
+  if (Array.isArray(value)) {
+    out = value.map(v => redact(v, seen));
+  } else {
+    out = {};
+    for (const [key, v] of Object.entries(value)) {
+      out[key] = SENSITIVE_KEYS.has(String(key).toLowerCase()) ? REDACTED : redact(v, seen);
+    }
   }
+  seen.delete(value);
   return out;
 }
 
