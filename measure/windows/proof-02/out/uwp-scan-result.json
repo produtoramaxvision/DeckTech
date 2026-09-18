@@ -1,0 +1,220 @@
+{
+  "generatedAtUtc": "2026-09-18T00:27:58.429Z",
+  "outDir": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-02\\out",
+  "timings": {
+    "lnkWalkMs": 8.08,
+    "lnkFilesFound": 182,
+    "powershellCollectMs": 866.25,
+    "totalMs": 874.32
+  },
+  "counts": {
+    "startAppsIndexRows": 188,
+    "packagedApps": 18,
+    "unpackagedRowsFromIndex": 170,
+    "appxPackagesInstalled": 131
+  },
+  "proofTargets": [
+    {
+      "label": "Calculadora (Calculator)",
+      "family": "Microsoft.WindowsCalculator_8wekyb3d8bbwe",
+      "found": true,
+      "name": "Calculadora",
+      "aumid": "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
+      "activationPath": "shell:AppsFolder\\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
+      "absentFromLnkScan": true
+    },
+    {
+      "label": "Fotos (Photos)",
+      "family": "Microsoft.Windows.Photos_8wekyb3d8bbwe",
+      "found": true,
+      "name": "Fotos",
+      "aumid": "Microsoft.Windows.Photos_8wekyb3d8bbwe!App",
+      "activationPath": "shell:AppsFolder\\Microsoft.Windows.Photos_8wekyb3d8bbwe!App",
+      "absentFromLnkScan": true
+    },
+    {
+      "label": "PowerShell (Store) — substitute for Terminal, see note below",
+      "family": "Microsoft.PowerShell_8wekyb3d8bbwe",
+      "found": true,
+      "name": "PowerShell",
+      "aumid": "Microsoft.PowerShell_8wekyb3d8bbwe!App",
+      "activationPath": "shell:AppsFolder\\Microsoft.PowerShell_8wekyb3d8bbwe!App",
+      "absentFromLnkScan": true
+    }
+  ],
+  "terminalInstalled": false,
+  "activationProof": {
+    "app": "Calculadora",
+    "aumid": "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
+    "launchedViaExplorerShellAppsFolder": true,
+    "processObserved": true,
+    "error": null
+  },
+  "duplicateCaseEvidence": {
+    "name": "Claude",
+    "rows": [
+      {
+        "name": "Claude",
+        "aumid": "1bbf47ca-ae3c-4c7c-accd-4ac80b81cc1f",
+        "packaged": false,
+        "family": null,
+        "appIdPart": null,
+        "lnkNameCollision": true
+      },
+      {
+        "name": "Claude",
+        "aumid": "Claude_pzs8sxrjxfjjc!Claude",
+        "packaged": true,
+        "family": "Claude_pzs8sxrjxfjjc",
+        "appIdPart": "Claude",
+        "lnkNameCollision": true
+      }
+    ]
+  },
+  "packagedApps": [
+    {
+      "name": "Backup do Windows",
+      "aumid": "MicrosoftWindows.Client.CBS_cw5n1h2txyewy!WindowsBackup",
+      "packaged": true,
+      "family": "MicrosoftWindows.Client.CBS_cw5n1h2txyewy",
+      "appIdPart": "WindowsBackup",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "Bloco de notas",
+      "aumid": "Microsoft.WindowsNotepad_8wekyb3d8bbwe!App",
+      "packaged": true,
+      "family": "Microsoft.WindowsNotepad_8wekyb3d8bbwe",
+      "appIdPart": "App",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "Calculadora",
+      "aumid": "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
+      "packaged": true,
+      "family": "Microsoft.WindowsCalculator_8wekyb3d8bbwe",
+      "appIdPart": "App",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "Calibragem do HDR do Windows",
+      "aumid": "MicrosoftCorporationII.WindowsHDRCalibration_8wekyb3d8bbwe!App",
+      "packaged": true,
+      "family": "MicrosoftCorporationII.WindowsHDRCalibration_8wekyb3d8bbwe",
+      "appIdPart": "App",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "ChatGPT",
+      "aumid": "OpenAI.Codex_2p2nqsd0c76g0!App",
+      "packaged": true,
+      "family": "OpenAI.Codex_2p2nqsd0c76g0",
+      "appIdPart": "App",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "Claude",
+      "aumid": "Claude_pzs8sxrjxfjjc!Claude",
+      "packaged": true,
+      "family": "Claude_pzs8sxrjxfjjc",
+      "appIdPart": "Claude",
+      "lnkNameCollision": true
+    },
+    {
+      "name": "Começar",
+      "aumid": "MicrosoftWindows.Client.CBS_cw5n1h2txyewy!WebExperienceHost",
+      "packaged": true,
+      "family": "MicrosoftWindows.Client.CBS_cw5n1h2txyewy",
+      "appIdPart": "WebExperienceHost",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "Configurações",
+      "aumid": "windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel",
+      "packaged": true,
+      "family": "windows.immersivecontrolpanel_cw5n1h2txyewy",
+      "appIdPart": "microsoft.windows.immersivecontrolpanel",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "Filmes e TV",
+      "aumid": "Microsoft.ZuneVideo_8wekyb3d8bbwe!Microsoft.ZuneVideo",
+      "packaged": true,
+      "family": "Microsoft.ZuneVideo_8wekyb3d8bbwe",
+      "appIdPart": "Microsoft.ZuneVideo",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "Fotos",
+      "aumid": "Microsoft.Windows.Photos_8wekyb3d8bbwe!App",
+      "packaged": true,
+      "family": "Microsoft.Windows.Photos_8wekyb3d8bbwe",
+      "appIdPart": "App",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "Gravador de Som",
+      "aumid": "Microsoft.WindowsSoundRecorder_8wekyb3d8bbwe!App",
+      "packaged": true,
+      "family": "Microsoft.WindowsSoundRecorder_8wekyb3d8bbwe",
+      "appIdPart": "App",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "Gyroflow",
+      "aumid": "29160AdrianRoss.Gyroflow_q81n4e8pq4bra!Gyroflow",
+      "packaged": true,
+      "family": "29160AdrianRoss.Gyroflow_q81n4e8pq4bra",
+      "appIdPart": "Gyroflow",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "KDE Connect",
+      "aumid": "KDEe.V.KDEConnect_7vt06qxq7ptv8!KDEe.V.KDEConnect",
+      "packaged": true,
+      "family": "KDEe.V.KDEConnect_7vt06qxq7ptv8",
+      "appIdPart": "KDEe.V.KDEConnect",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "Microsoft Store",
+      "aumid": "Microsoft.WindowsStore_8wekyb3d8bbwe!App",
+      "packaged": true,
+      "family": "Microsoft.WindowsStore_8wekyb3d8bbwe",
+      "appIdPart": "App",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "NVIDIA Control Panel",
+      "aumid": "NVIDIACorp.NVIDIAControlPanel_56jybvy8sckqj!NVIDIACorp.NVIDIAControlPanel",
+      "packaged": true,
+      "family": "NVIDIACorp.NVIDIAControlPanel_56jybvy8sckqj",
+      "appIdPart": "NVIDIACorp.NVIDIAControlPanel",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "PowerShell",
+      "aumid": "Microsoft.PowerShell_8wekyb3d8bbwe!App",
+      "packaged": true,
+      "family": "Microsoft.PowerShell_8wekyb3d8bbwe",
+      "appIdPart": "App",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "Segurança do Windows",
+      "aumid": "Microsoft.SecHealthUI_8wekyb3d8bbwe!SecHealthUI",
+      "packaged": true,
+      "family": "Microsoft.SecHealthUI_8wekyb3d8bbwe",
+      "appIdPart": "SecHealthUI",
+      "lnkNameCollision": false
+    },
+    {
+      "name": "Vincular ao Celular",
+      "aumid": "Microsoft.YourPhone_8wekyb3d8bbwe!App",
+      "packaged": true,
+      "family": "Microsoft.YourPhone_8wekyb3d8bbwe",
+      "appIdPart": "App",
+      "lnkNameCollision": false
+    }
+  ]
+}
