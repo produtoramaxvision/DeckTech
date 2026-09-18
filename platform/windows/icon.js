@@ -318,15 +318,20 @@ export function makeWindowsIconService(deps = {}) {
    * never-aborted icon request (the round-2 `getIconPng` catch back then
    * swallowed it into a misleading 404) AND `GET /api/apps/installed`
    * (collapsed into the generic, untyped 500 from `fail()` — apps.js has
-   * no `ABORTED` entry in `ACTION_ERROR_MESSAGES`). Reproduced end to end
-   * with the real modules, a real `startServer`, and the real
-   * `platform/index.js` wiring; see test/windows-icon-service.test.mjs's
-   * round-3 finding 1 regression test.
+   * no `ABORTED` entry in `ACTION_ERROR_MESSAGES`). The round-3 review
+   * reproduced this end to end against a real `startServer`; the in-repo
+   * regression test in test/windows-icon-service.test.mjs (NOT
+   * `startServer` — it wires the real apps.js `listInstalledApps`, with
+   * only `collect` faked, into `makeWindowsIconService` the same way
+   * platform/index.js:80+88 does) reproduces the same failure at module
+   * level: it FAILS against the round-2 code and PASSES here.
    *
    * KNOWN GAP, not closed: `scan()` is called here with no signal at all,
-   * same as before round-2 finding 5. A genuinely abandoned page load can
-   * still leave the underlying PowerShell scan running to completion
-   * instead of being killed early — round-2 already classified that as
+   * same as before round-2 finding 5. Concretely, this means an icon
+   * request's `req.on("close")` abort (server.js:945-946) can no longer
+   * reach the underlying PowerShell `collect` through this path — a
+   * genuinely abandoned page load lets that scan run to completion
+   * instead of being killed early. Round-2 already classified that as
    * non-critical (the child is self-terminating and TTL-cached, nothing
    * stays orphaned indefinitely; PLAT-03's cancellation guarantee for
    * icon EXTRACTION, the 122-icon queue, is unaffected and still enforced
