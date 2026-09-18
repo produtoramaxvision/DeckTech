@@ -392,6 +392,76 @@ test("MSI_UNINSTALL_ARG ANCORAGEM (fim do verbo): um argumento que começa com '
   );
 });
 
+// Round-6 review finding 1 (blocker) + findings 2-4. Round-4/5's own
+// anchoring work (§9.1b Groups 1-3 above) pinned `^`/`$` ONLY on the four
+// `UNINSTALLER_BASENAME_PATTERNS` entries — never on `MSIEXEC_BASENAME`,
+// `EXACT_UNINSTALL_NAME`, or the `.exe` guard's own `$`. Groups 4-5 pinned
+// `/i` (casing) on those three sites, which is a DIFFERENT mutation from
+// anchoring and does not discriminate a dropped `^`/`$`. The round-6
+// reviewer ran an independent mutation harness (scratchpad/rev/mutate.mjs)
+// against these same three test files and found 4 anchoring mutants
+// survived undetected. Each fixture below was checked with `node -e`
+// against both the real (anchored) regex and its specific mutant before
+// being committed — see ADR §9.1b Group 7 for the verified truth table and
+// the harness re-run confirming all four are now killed.
+test("ANCORAGEM round-6 (finding 2, X1): EXACT_UNINSTALL_NAME pina o ^ — nome que TERMINA em 'Uninstall' mas não é exatamente 'Uninstall' permanece kept", () => {
+  // Without the leading `^`, /uninstall$/i would match any name ending in
+  // "uninstall", including a legitimate app's own display name. Reviewer's
+  // exact fixture: node -e confirmed real=false, mutant(/uninstall$/i)=true.
+  assert.equal(
+    isUninstallerEntry({ name: "Adobe Reader Uninstall", target: "C:\\Program Files\\Adobe\\AcroRd32.exe" }),
+    false,
+    "'Adobe Reader Uninstall' termina em 'Uninstall' mas não é o nome exato — não deve ser excluído",
+  );
+});
+
+test("ANCORAGEM round-6 (finding 3, X5): o guard '.exe' final pina o $ — '.exe' no MEIO do basename (não no fim) não deve satisfazer o guard", () => {
+  // Reviewer's exact fixture: name exactly "Uninstall" (satisfies
+  // EXACT_UNINSTALL_NAME alone) with a target whose basename contains
+  // ".exe" as a substring but does not END in ".exe". Without the trailing
+  // `$`, /\.exe/i would match the substring and wrongly exclude this entry.
+  // node -e confirmed real=false, mutant(/\.exe/i)=true.
+  assert.equal(
+    isUninstallerEntry({ name: "Uninstall", target: "C:\\Program Files\\Some App\\release.exe.txt" }),
+    false,
+    "basename 'release.exe.txt' contém '.exe' no meio, não no fim — guard não deve casar",
+  );
+});
+
+test("ANCORAGEM round-6 (finding 4, X3): MSIEXEC_BASENAME pina o ^ — basename que TERMINA em 'msiexec.exe' mas não É 'msiexec.exe' não deve ser tratado como o engine msiexec", () => {
+  // Without the leading `^`, /msiexec\.exe$/i would match any basename
+  // ending in "msiexec.exe" (e.g. a vendor's own wrapper binary), and the
+  // presence of an uninstall-shaped argument would then wrongly exclude a
+  // legitimate shortcut that merely reuses part of the name. node -e
+  // confirmed real=false, mutant(/msiexec\.exe$/i)=true for this basename.
+  assert.equal(
+    isUninstallerEntry({
+      name: "Some Vendor Wrapper",
+      target: "C:\\Windows\\System32\\wrapmsiexec.exe",
+      arguments: "/x {5370C587-5FA3-4F85-8287-6483B693690C}",
+    }),
+    false,
+    "'wrapmsiexec.exe' não é o engine msiexec.exe real — não deve ser tratado como tal mesmo com args de desinstalação",
+  );
+});
+
+test("ANCORAGEM round-6 (finding 4, X4): MSIEXEC_BASENAME pina o $ — basename que COMEÇA com 'msiexec.exe' mas tem lixo depois não deve ser tratado como o engine msiexec", () => {
+  // Without the trailing `$`, /^msiexec\.exe/i would match a basename that
+  // merely starts with "msiexec.exe" (e.g. a stray backup file), and an
+  // uninstall-shaped argument on that entry would then wrongly exclude it.
+  // node -e confirmed real=false, mutant(/^msiexec\.exe/i)=true for this
+  // basename.
+  assert.equal(
+    isUninstallerEntry({
+      name: "Some Vendor Backup",
+      target: "C:\\Windows\\System32\\msiexec.exe.bak",
+      arguments: "/x {5370C587-5FA3-4F85-8287-6483B693690C}",
+    }),
+    false,
+    "'msiexec.exe.bak' não é o engine msiexec.exe real — não deve ser tratado como tal mesmo com args de desinstalação",
+  );
+});
+
 test("partitionUninstallers separa a lista real medida: 1 excluído de 4, nomeado", () => {
   const scanResult = [
     { name: "Notepad++", target: "C:\\Program Files\\Notepad++\\notepad++.exe" },

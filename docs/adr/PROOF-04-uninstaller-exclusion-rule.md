@@ -745,6 +745,28 @@ re-measured fresh against this round's own files — including re-running
 §9.1's 11 rows, which is precisely how this round caught round 4's overclaim
 above instead of repeating it.
 
+**Round-6 finding, a real gap this time (not a stale-count trap).** Round 6
+review found that round 5's Group 6 closing paragraph overclaimed coverage:
+it stated Groups 1–5 "exercise anchoring/casing on the four basename
+patterns, `MSIEXEC_BASENAME`, `EXACT_UNINSTALL_NAME` and the `.exe` guard,"
+but Groups 1–3 (the actual `^`/`$` anchoring mutations) were only ever
+applied to `UNINSTALLER_BASENAME_PATTERNS[0..3]`; Groups 4–5 applied a
+different mutation (dropping `/i`, casing) to the other three sites, not
+anchoring. The reviewer's own independent mutation harness (handed over as
+a file in the reviewer's session scratchpad; checked into this repo at
+`measure/windows/proof-04/mutate.mjs` — see §9.1b Group 7 for why), run
+against the same three PROOF-04 test files, found 4 anchoring mutants the
+round-5 suite never pinned: `EXACT_UNINSTALL_NAME`'s leading `^`,
+`MSIEXEC_BASENAME`'s leading `^` and trailing `$`, and the exact-name
+exception's `.exe` guard's trailing `$`. Fixed here by adding 4
+discriminating fixtures (20 → 24 tests) — see §9.1b Group 7, which also
+corrects the overclaiming sentence itself so this finding cannot recur by
+the same wording. `test/windows-dedupe-order.test.mjs`
+and `test/windows-dedupe-target.test.mjs` are unchanged this round (still 6
+and 5 tests); the combined three-file baseline moves from 31 to 35, and
+every count in §9.1b Group 7 and the harness re-run below reflects that,
+not hand-carried from round 5.
+
 ### 9.1 `isUninstallerEntry` clauses (`test/windows-uninstaller-rule.test.mjs`)
 
 Baseline: `node --test test/windows-uninstaller-rule.test.mjs` against the
@@ -952,12 +974,21 @@ mutation was reverted, and once more at the end of the scripted run — no
 neutered version was ever committed.
 
 **Group 6 — `MSI_UNINSTALL_ARG`'s two boundary sub-expressions, round-5
-finding 1.** Groups 1–5 above exercise anchoring/casing on the four
-basename patterns, `MSIEXEC_BASENAME`, `EXACT_UNINSTALL_NAME` and the
-`.exe` guard — but `MSI_UNINSTALL_ARG` itself has two boundary mechanisms
-of its own (the leading `(^|\s)` and the trailing `\b`) that Group 5's
-"drop `/i`" row does not touch, and round 4's own required-fix list did not
-name them. The round-5 review measured both survived all 28 round-4 tests.
+finding 1.** **Correction (round-6 finding 1 — the original wording below
+was wrong and is kept struck through, not silently rewritten):**
+~~Groups 1–5 above exercise anchoring/casing on the four basename patterns,
+`MSIEXEC_BASENAME`, `EXACT_UNINSTALL_NAME` and the `.exe` guard~~ — in fact
+Groups 1–3 (the `^`/`$` anchoring mutations) were applied ONLY to
+`UNINSTALLER_BASENAME_PATTERNS[0..3]`; Groups 4–5 applied a *different*
+mutation (dropping `/i`, i.e. casing) to `MSIEXEC_BASENAME`,
+`EXACT_UNINSTALL_NAME` and the `.exe` guard, which does not discriminate a
+dropped `^` or `$` on those three sites. That left `EXACT_UNINSTALL_NAME`'s
+`^`, `MSIEXEC_BASENAME`'s `^` and `$`, and the `.exe` guard's `$`
+completely unpinned through round 5 — closed below in Group 7, added this
+round. `MSI_UNINSTALL_ARG` itself has two boundary mechanisms of its own
+(the leading `(^|\s)` and the trailing `\b`) that Group 5's "drop `/i`" row
+does not touch, and round 4's own required-fix list did not name them. The
+round-5 review measured both survived all 28 round-4 tests.
 Each fixture was checked with `node -e` against the real regex and BOTH
 mutants (not just its own target) before being committed, confirming a
 clean single-site discriminator — see the two `node -e` truth tables below,
@@ -987,10 +1018,191 @@ starts with `/x` at the string start (satisfying the leading boundary) but
 continues as "xml", not the bare verb; without the trailing `\b`, "/x"
 alone inside "/xml" would satisfy the pattern.
 
-**Both mutants killed, 0 survivors — 22/22 across all six groups.**
-Baseline (`20`/`20`/`0`) re-confirmed after each mutation was reverted, and
-the full 20-test file re-confirmed green once more at the end of the
-scripted run.
+**Both mutants killed, 0 survivors — 22/22 across Groups 1–6 specifically
+(`MSI_UNINSTALL_ARG`'s two boundaries plus the 20 from Groups 1–5).** This
+tally does NOT include anchoring on `MSIEXEC_BASENAME`, `EXACT_UNINSTALL_NAME`
+or the `.exe` guard — those were never anchoring-tested through round 5, per
+the correction above. Baseline (`20`/`20`/`0`) re-confirmed after each
+mutation was reverted, and the full 20-test file re-confirmed green once
+more at the end of the scripted run.
+
+**Staleness disclosure for Groups 1–6's per-row splits (round-6
+self-check, avoiding the exact defect rounds 3–5's own intro paragraphs
+above warn about).** Every pass/fail split in Groups 1–6 above (the "18
+pass / 2 fail" / "19 pass / 1 fail" / "20/20" / "22/22" numbers) is measured
+against the 20-test file as it stood at the end of round 5, and is **not**
+re-run in this round — round 6's own 4 new fixtures (Group 7 below) target
+`EXACT_UNINSTALL_NAME`'s `^`, `MSIEXEC_BASENAME`'s `^`/`$`, and the `.exe`
+guard's `$`, sites disjoint from every mutation Groups 2, 3 and 4 apply (the
+four `UNINSTALLER_BASENAME_PATTERNS` entries only), so those three groups'
+own numbers are unaffected by the file growing to 24/35 tests and are left
+as historical, not re-measured. What round 6 **does** have live, current
+evidence for, from the Group 7 harness run below (run against the current
+24/35-test files, not carried forward): `K0` (whole-function neuter, the
+Groups-1-6-adjacent control), `G1` (`UNINSTALLER_BASENAME_PATTERNS[0]`
+drop-both-anchors, representative of Group 1), `G5`
+(`EXACT_UNINSTALL_NAME` drop-`/i`, representative of Group 5) and both `G6`
+rows (`MSI_UNINSTALL_ARG`'s two boundaries, Group 6 itself) — all five
+re-ran at `tests=35` and are still `KILLED`, so nothing round 6 touched
+regressed those five representative mutants. Groups 2, 3 and 4 in full have
+no round-6 re-measurement and remain round-5-historical, exactly as §9.1's
+own 14-test table is left historical relative to §9.1b.
+
+**Group 7 — anchoring (`^`/`$`) on `MSIEXEC_BASENAME` and
+`EXACT_UNINSTALL_NAME`, and the `.exe` guard's trailing `$`, round-6
+finding 1/2/3/4.** The four sites Group 6's original wording wrongly
+claimed were already covered. Reviewer evidence: an independent mutation
+harness, run against the combined three-file PROOF-04 suite, reported these
+four mutant IDs as `*** SURVIVED ***` against the round-5, 31-test combined
+baseline (`tests=31 pass=31 fail=0`): `X1-EXACT_NAME-drop-^`,
+`X3-MSIEXEC_BASENAME-drop-^`, `X4-MSIEXEC_BASENAME-drop-$`,
+`X5-exe-guard-drop-$`. That harness was originally handed over as a file in
+the reviewer's own session scratchpad — not a repo path, not re-runnable by
+anyone else, and citing it as-is would repeat this ADR's own rule-1 defect
+pattern. It is checked in here, unmodified in mutation logic, only its repo
+root resolved from its own file location instead of hardcoded, at
+`measure/windows/proof-04/mutate.mjs`, so the command block below is the
+exact command run and reproducible by anyone with this checkout.
+
+Each fixture below was checked with `node -e` against the real (anchored)
+regex and its specific mutant before being committed, confirming a clean
+single-site discriminator (real → `false`/kept, mutant → `true`/excluded) —
+truth table run directly, not asserted from the pattern shape:
+
+```
+X1 target=C:\Program Files\Adobe\AcroRd32.exe base=AcroRd32.exe
+   real=/^uninstall$/i -> false | mutant=/uninstall$/i -> true
+X3 target=C:\Windows\System32\wrapmsiexec.exe base=wrapmsiexec.exe
+   real=/^msiexec\.exe$/i -> false | mutant=/msiexec\.exe$/i -> true
+X4 target=C:\Windows\System32\msiexec.exe.bak base=msiexec.exe.bak
+   real=/^msiexec\.exe$/i -> false | mutant=/^msiexec\.exe/i -> true
+X5 target=C:\Program Files\Some App\release.exe.txt base=release.exe.txt
+   exactName("Uninstall")=true
+   real=/\.exe$/i -> false | mutant=/\.exe/i -> true
+```
+
+Fixture rationale:
+- **X1** (`EXACT_UNINSTALL_NAME` leading `^`): "Adobe Reader Uninstall" ends
+  in the word "Uninstall" but is not the exact name — a real app's display
+  name shaped exactly like the false-positive direction this ADR's task
+  description asks to guard (§3's tradeoff, one level up: a rule keyed on
+  "contains/ends with uninstall" drops a legitimate app).
+- **X3** (`MSIEXEC_BASENAME` leading `^`): `wrapmsiexec.exe` is not the
+  Windows Installer engine, merely a basename that happens to end in
+  `msiexec.exe`; with an uninstall-shaped `/x {GUID}` argument attached
+  (so the args-check clause, if reached, would return `true`), this pins
+  that the leading anchor keeps the engine check from firing at all.
+- **X4** (`MSIEXEC_BASENAME` trailing `$`): `msiexec.exe.bak`, same logic,
+  mirrored — starts with the engine's exact name but is not it.
+- **X5** (`.exe` guard trailing `$`, reviewer's exact fixture): name
+  exactly `"Uninstall"` (satisfies `EXACT_UNINSTALL_NAME` alone) with a
+  target basename `release.exe.txt` that contains `.exe` as a substring but
+  does not end in it.
+
+Adding these 4 fixtures to `test/windows-uninstaller-rule.test.mjs` (20 →
+24 tests; combined three-file baseline 31 → 35) and re-running the harness
+from its checked-in repo path, exactly as follows, no flags or arguments
+omitted:
+
+```
+$ node measure/windows/proof-04/mutate.mjs
+BASELINE: tests=35 pass=35 fail=0
+
+K0-neuter-rule(return false): tests=35 pass=21 fail=14  KILLED
+G1-unins-drop-both-anchors: tests=35 pass=33 fail=2  KILLED
+G6-msi-drop-leading-(^|s): tests=35 pass=34 fail=1  KILLED
+G6-msi-drop-trailing-\b: tests=35 pass=34 fail=1  KILLED
+G5-EXACT_NAME-drop-/i: tests=35 pass=32 fail=3  KILLED
+X1-EXACT_NAME-drop-^: tests=35 pass=34 fail=1  KILLED
+      x ANCORAGEM round-6 (finding 2, X1): EXACT_UNINSTALL_NAME pina o ^ ...
+X2-EXACT_NAME-drop-$: tests=35 pass=31 fail=4  KILLED
+X3-MSIEXEC_BASENAME-drop-^: tests=35 pass=34 fail=1  KILLED
+      x ANCORAGEM round-6 (finding 4, X3): MSIEXEC_BASENAME pina o ^ ...
+X4-MSIEXEC_BASENAME-drop-$: tests=35 pass=34 fail=1  KILLED
+      x ANCORAGEM round-6 (finding 4, X4): MSIEXEC_BASENAME pina o $ ...
+X5-exe-guard-drop-$: tests=35 pass=34 fail=1  KILLED
+      x ANCORAGEM round-6 (finding 3, X5): o guard '.exe' final pina o $ ...
+X6-name-.trim()-removed: tests=35 pass=34 fail=1  KILLED
+X7-unins-\d*-to-\d+: tests=35 pass=34 fail=1  KILLED
+X8-empty-target-guard-removed: tests=35 pass=35 fail=0  *** SURVIVED ***
+X9-msi-verb-'uninstall'-dropped: tests=35 pass=34 fail=1  KILLED
+X10-dedupe-drop-.toLowerCase(): tests=35 pass=33 fail=2  KILLED
+X11-dedupe-''-passthrough-removed: tests=35 pass=34 fail=1  KILLED
+X12-pipeline-order-reversed: tests=35 pass=32 fail=3  KILLED
+X13-excluded-also-deduped: tests=35 pass=34 fail=1  KILLED
+
+SURVIVORS: X8-empty-target-guard-removed
+restore byte-identical: true
+POST-RUN BASELINE: tests=35 pass=35 fail=0
+```
+
+(Per-test failure names omitted above for mutants outside round 6's four —
+full raw output, unedited, is reproducible by running the command shown;
+nothing here was hand-trimmed to change a number, only to shorten
+already-`KILLED` rows whose failure names duplicate this section's earlier
+tables.)
+
+All four required mutants (`X1`, `X3`, `X4`, `X5`) killed, 0 survivors
+among them. This same run is also the live re-confirmation for `K0`, `G1`,
+`G5` and both `G6` rows the staleness disclosure above promised — all five
+`KILLED` at the current 35-test count. The remaining 9 mutants (`X2`, `X6`,
+`X7`, `X9`–`X13`) are outside round 6's findings; they are shown killed
+above for completeness of this specific run's raw output, not re-analyzed,
+since round 6's findings did not touch the sites they mutate.
+
+**`X8-empty-target-guard-removed` is the one surviving mutant, and it is a
+genuinely equivalent mutant, checked directly rather than assumed.** It
+weakens `isUninstallerEntry`'s input guard from
+`typeof entry.target !== "string" || entry.target === ""` to
+`typeof entry.target !== "string"`, i.e. it stops early-returning `false`
+for `entry.target === ""` specifically (non-string targets, including
+`null`, are still caught by the surviving `typeof` check). Removing that
+early return does not change the function's observable output for an empty
+target, because `basename("")` under `node:path/win32` is itself `""`:
+
+```
+$ node -e 'import("node:path/win32").then(({basename}) => console.log(JSON.stringify(basename(""))))'
+""
+```
+
+An empty basename matches none of `UNINSTALLER_BASENAME_PATTERNS`, fails
+the `.exe` guard (`/\.exe$/i.test("")` is `false`), and fails
+`MSIEXEC_BASENAME`, so `isUninstallerEntry` still returns `false` by
+falling through every clause — the same result the removed guard produced
+directly. This is checked, not inferred from the diff: with the mutation
+applied, all 35 tests still pass (`tests=35 pass=35 fail=0` above),
+including the existing "atalho não resolvido (target vazio/null) nunca é
+excluído" fixture that targets `entry.target: ""` directly. No new fixture
+is added for `X8` — a fixture that cannot discriminate real from mutant
+would violate this task's own rule against a test that "passes either way
+[and] proves nothing." This is an **output-equivalent mutant today**,
+specifically because `basename("")` happens to be `""` under
+`node:path/win32` — not a claim that the `entry.target === ""` clause is
+unnecessary or should be removed. The guard is retained deliberately as
+this function's documented input-shape contract (its own JSDoc states
+`target: may be null/empty for an unresolved shortcut — never excluded by
+this rule`): it makes the "never excluded" behavior an explicit, readable
+branch instead of an accident of what an empty basename happens to match,
+and nothing above should be read as an invitation to delete it. Left
+undocumented as a gap in §8 would still be wrong, since it isn't a gap:
+it's a currently-unobservable behavior difference, confirmed by direct
+measurement rather than assumed equivalent from the diff.
+
+**Round-6 total: 4/4 required mutants killed, 0 survivors among them; the
+harness's one remaining survivor (`X8`) is confirmed equivalent by direct
+measurement, not by assumption.** Baseline (`24`/`24`/`0` for
+`test/windows-uninstaller-rule.test.mjs` alone; `35`/`35`/`0` combined)
+re-confirmed after every mutation was reverted (`restore byte-identical:
+true` above), and once more at the end of the scripted run
+(`POST-RUN BASELINE: tests=35 pass=35 fail=0`) — no neutered version was
+ever committed.
+
+Both options round-6 finding 1 offered to close the blocker are satisfied
+by the work above: (a) the missing discriminators were added and the
+measured table is reported (this Group 7), and as a consequence (b) is
+also true — the §9.1b prose no longer claims anchoring coverage it did not
+have, corrected in place in the Group 6 paragraph above with the original
+wrong sentence struck through rather than silently deleted.
 
 ### 9.2 Reproducing round-3 finding 1's exact defect (the import, not a clause)
 
@@ -1206,6 +1418,18 @@ $ node --test test/windows-uninstaller-rule.test.mjs test/windows-dedupe-order.t
 ℹ fail 0
 ```
 
+**Round-6 update to the combined run above.** §9.1b Group 7 added 4
+fixtures to `test/windows-uninstaller-rule.test.mjs` (20 → 24); the other
+two files are unchanged this round (6 and 5 tests respectively). Re-run
+fresh, not hand-carried from the block above:
+
+```
+$ node --test test/windows-uninstaller-rule.test.mjs test/windows-dedupe-order.test.mjs test/windows-dedupe-target.test.mjs
+ℹ tests 35
+ℹ pass 35
+ℹ fail 0
+```
+
 ## 10. Alternatives considered
 
 - **Match on the shortcut's parent-folder name against the target's own
@@ -1341,6 +1565,32 @@ overclaims) did not address this one; it remains uncorrected in git history
 until this branch has no other active writer, at which point it should be
 fixed the same way `1763d51`'s trailer should be — a scoped, targeted
 rewrite of that one commit's message, not a broader history rewrite.
+
+**Round-6 addition: the trailer text itself, and another concurrent-writer
+observation.** Two things, checked directly rather than carried forward:
+
+1. This session's own system-level attribution instruction, checked fresh
+   at the start of this round rather than assumed unchanged, states this
+   session is `Claude Sonnet 5` (not Opus) and gives the trailer
+   `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`, explicitly
+   overriding any earlier attribution guidance including a prior copy of
+   itself — and explicitly scopes the override to the user's own
+   instructions (a `CLAUDE.md`/memory rule), not to a workflow-computed task
+   description. This round's task text repeats the same `Claude Opus 5 (1M
+   context)` line §11 above describes as required, but claiming that
+   trailer here would itself be an unvalidated factual claim about which
+   model authored the commit — this session is measurably Sonnet, not Opus.
+   This round's own commit therefore carries
+   `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`, a deliberate,
+   disclosed deviation from the number in this ADR's own §11 history, not
+   an oversight repeating round-3's finding.
+2. `git status --short` immediately before this round's commit again showed
+   a file outside PROOF-04's scope dirty from another session —
+   `docs/adr/0003-proof-03-lnk-binary-parsing.md` — and `git log -1` showed
+   `HEAD` at `eb260d5` ("fix(measure): address round-7 review rejection of
+   PROOF-03 lnk parsing"), a commit this ADR's own history never produced.
+   Same conclusion as the two notes above: a concurrent writer, not
+   touched, not staged.
 
 ## 12. Comment provenance moved out of the lib modules (round-5 finding 2)
 
