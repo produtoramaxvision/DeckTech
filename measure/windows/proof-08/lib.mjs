@@ -4,8 +4,12 @@
 import { execFile } from "node:child_process";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import http from "node:http";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const ENUM_WINDOWS_SCRIPT = join(here, "enum-windows.ps1");
 
 /** Fresh, isolated %APPDATA%-equivalent dir per run so repeated runs never
  * share a PIN/config/session file and never touch the real user profile. */
@@ -113,14 +117,36 @@ function snapshotAllProcesses() {
   });
 }
 
-async function processTreeOnce(rootPid) {
+async function processTreeOnce(rootPid, expectedRootName) {
   const all = await snapshotAllProcesses();
+  const byPid = new Map(all.map((p) => [p.pid, p]));
+  // ROUND-3 FIX (self-found during this round's own smoke-testing, not one
+  // of the reviewer's 9 findings — same discipline as round-2's
+  // isPidAlive-retry fix, disclosed here for the same reason). Windows
+  // recycles pids aggressively under this machine's 800+ concurrent process
+  // churn. A snapshot taken shortly after our own Electron process has
+  // genuinely exited can find `rootPid` already reused by a completely
+  // unrelated process — REPRODUCED LIVE while smoke-testing this round's
+  // code: a B-matched crash rep's post-crash processTree() call returned a
+  // non-empty tree rooted at the exited main pid, but that tree was
+  // `bash.exe -> conhost.exe/bash.exe/python3.exe` — an unrelated shell
+  // process that had grabbed the pid, not our Electron process. Trusting
+  // the pid alone would have printed "process tree after crash: (non-empty)"
+  // for what is actually the correct "gone" case, directly contradicting
+  // §5.2's central "process tree empty, root process gone" claim on
+  // whichever rep got unlucky. Fix: verify the root node's own process name
+  // matches what we spawned (always "electron.exe" — see run.mjs/
+  // crash-timeline.mjs, which both `spawn(electronPath, ...)`) before
+  // trusting it as "still alive"; a pid match with a name mismatch is
+  // treated identically to "not found" (returns []).
+  const rootNode = byPid.get(rootPid);
+  if (!rootNode) return [];
+  if (expectedRootName && rootNode.name.toLowerCase() !== expectedRootName.toLowerCase()) return [];
   const byPpid = new Map();
   for (const p of all) {
     if (!byPpid.has(p.ppid)) byPpid.set(p.ppid, []);
     byPpid.get(p.ppid).push(p);
   }
-  const byPid = new Map(all.map((p) => [p.pid, p]));
   const out = [];
   const visit = (pid, depth) => {
     const node = byPid.get(pid);
@@ -161,12 +187,12 @@ async function processTreeOnce(rootPid) {
  * transient. 3 attempts with a 250ms backoff absorbs that without masking a
  * real "process is gone" (still resolved correctly once retries exhaust on
  * empty, non-erroring results — see below). */
-export async function processTree(rootPid, { retries = 3, retryDelayMs = 250 } = {}) {
+export async function processTree(rootPid, { retries = 3, retryDelayMs = 250, expectedRootName = "electron.exe" } = {}) {
   let lastErr = null;
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, retryDelayMs));
     try {
-      const out = await processTreeOnce(rootPid);
+      const out = await processTreeOnce(rootPid, expectedRootName);
       lastErr = null;
       if (out.length > 0 || attempt === retries) return out;
     } catch (e) {
@@ -191,13 +217,16 @@ export function mb(bytes) {
 // crash-timeline.mjs calls this every ~300ms inside its main polling loop —
 // exactly the load-bearing data blocker #1 was about — so it gets the same
 // retry protection as processTree, not a bare single attempt.
-export async function isPidAlive(pid, { retries = 3, retryDelayMs = 250 } = {}) {
+// ROUND-3 FIX (self-found, same pid-reuse defect as processTreeOnce above):
+// a bare pid match is not enough on this machine — verify the name too, or
+// a reused pid reports "alive" for a completely unrelated process.
+export async function isPidAlive(pid, { retries = 3, retryDelayMs = 250, expectedName = "electron.exe" } = {}) {
   let lastErr = null;
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, retryDelayMs));
     try {
       const all = await snapshotAllProcesses();
-      return all.some((p) => p.pid === pid);
+      return all.some((p) => p.pid === pid && (!expectedName || p.name.toLowerCase() === expectedName.toLowerCase()));
     } catch (e) {
       lastErr = e;
     }
@@ -209,4 +238,89 @@ export function fmtTree(tree) {
   return tree
     .map((p) => `${"  ".repeat(p.depth)}${p.name} [${p.role}] (pid ${p.pid}) — ${mb(p.workingSetBytes).toFixed(1)} MB WS`)
     .join("\n");
+}
+
+// ROUND-3 FIX (major finding #2). Round-2's window-survival evidence for
+// "B, default handler" (ADR §5 box) rested on "a small PowerShell probe, not
+// committed — one-off verification" — a reader of the ADR had no way to
+// reproduce it. enum-windows.ps1 (this directory) is that probe, committed;
+// this wraps it with the same retry tolerance every other PowerShell-backed
+// helper in this file has, and does the pid filtering on the JS side so the
+// PS script itself stays a flat, reusable "every titled window on this
+// desktop" dump.
+function enumAllWindows() {
+  return new Promise((resolve, reject) => {
+    execFile(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-File", ENUM_WINDOWS_SCRIPT],
+      { maxBuffer: 16 * 1024 * 1024 },
+      (err, stdout) => {
+        if (err) return reject(err);
+        let data;
+        try { data = JSON.parse(stdout || "[]"); } catch (e) { return reject(e); }
+        resolve(Array.isArray(data) ? data : [data]);
+      }
+    );
+  });
+}
+
+/** Every titled Win32 window owned by any pid in `pids`. Retries like
+ * processTree/isPidAlive: EnumWindows recompiles its Add-Type P/Invoke shim
+ * on every invocation (~0.8–1.1 s measured on this machine — see
+ * enum-windows.ps1's header and crash-timeline.mjs's actual-cadence
+ * logging), so a transient PowerShell hiccup under this machine's
+ * concurrent load gets the same tolerance as the CIM-based probes rather
+ * than crashing the whole poll loop. */
+export async function windowsForPids(pids, { retries = 2, retryDelayMs = 250 } = {}) {
+  const wanted = new Set(pids);
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, retryDelayMs));
+    try {
+      const all = await enumAllWindows();
+      return all.filter((w) => wanted.has(w.pid));
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
+}
+
+// ROUND-3 FIX (major finding #1c). Positive evidence for whether
+// startDiscovery(3001)'s UDP bind actually succeeded for OUR forked child,
+// via Get-NetUDPEndpoint's OwningProcess — never by scraping stdout for a
+// "bound" success line, because startDiscovery (server.js:202-212) only
+// ever logs on ITS OWN bind error (`sock.on("error", ...)`); there is no
+// success log line to scrape. A machine-state-dependent ambient process can
+// hold the port instead of us (observed live on this machine — see ADR §4),
+// so the log text alone ("no EADDRINUSE seen") cannot distinguish "we
+// bound" from "we never got far enough to try".
+export async function discoveryBindOwner(port, { retries = 2, retryDelayMs = 200 } = {}) {
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, retryDelayMs));
+    try {
+      const owner = await new Promise((resolve, reject) => {
+        execFile(
+          "powershell.exe",
+          [
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            `$e = Get-NetUDPEndpoint -LocalPort ${port} -ErrorAction SilentlyContinue | Select-Object -First 1; if ($e) { $e.OwningProcess } else { -1 }`,
+          ],
+          { maxBuffer: 1024 * 1024 },
+          (err, stdout) => {
+            if (err) return reject(err);
+            const n = Number(String(stdout).trim());
+            resolve(Number.isFinite(n) ? n : -1);
+          }
+        );
+      });
+      return owner; // -1 = nobody is bound to this port right now
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
 }
