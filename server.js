@@ -132,8 +132,33 @@ const JSON_HEADERS = {
   ...SEC_HEADERS,
 };
 
-/** Detalhe fica no log do servidor; o cliente recebe mensagem genérica. */
+/**
+ * Códigos tipados de falha de ação (PLAT-06). Mensagem é sempre um texto
+ * canônico fixo por código — nunca `err.message`, que pode carregar
+ * argv/paths do processo filho (`open`, `osascript`) que gerou o erro.
+ * `actions.js` (ActionError) é quem lança estes códigos; aqui só mapeamos
+ * pelo `.code`, sem acoplar a uma classe específica — mesmo padrão de
+ * comparação por string já usado nos outros `err?.code === "..."` deste
+ * arquivo (ex.: PINNED_LIMIT_CODE, PIECE_SLOT_OCCUPIED).
+ */
+const ACTION_ERROR_MESSAGES = {
+  FOCUS_RESTRICTED: "Não consegui trazer o app pra frente — abri uma nova instância",
+  APP_NOT_FOUND: "Esse app não está mais instalado",
+  LAUNCH_FAILED: "Não consegui abrir o app",
+};
+
+/** Detalhe fica no log do servidor; o cliente recebe mensagem genérica —
+ *  exceto para códigos de ação conhecidos (PLAT-06), que recebem `code` e
+ *  uma mensagem fixa e segura por código, nunca o detalhe interno do erro. */
 function fail(res, err, extra = {}) {
+  const code = typeof err?.code === "string" ? err.code : null;
+  const typedMessage = code ? ACTION_ERROR_MESSAGES[code] : null;
+  if (typedMessage) {
+    console.error(`[dokke] falha de ação (${code}):`, err?.message ?? err);
+    res.writeHead(500, JSON_HEADERS);
+    res.end(JSON.stringify({ ok: false, code, error: typedMessage, ...extra }));
+    return;
+  }
   console.error("[dokke] erro interno:", err?.message ?? err);
   res.writeHead(500, JSON_HEADERS);
   res.end(JSON.stringify({ ok: false, error: "erro interno", ...extra }));

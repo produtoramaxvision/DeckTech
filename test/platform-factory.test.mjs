@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 
 import { createPlatform, PlatformNotImplementedError } from "../platform/index.js";
-import { realIconService } from "../apps.js";
+import { realIconService, listInstalledApps } from "../apps.js";
 
 const CONTRACT_MEMBERS = ["listInstalledApps", "listAppProcesses", "activateApp", "openWebsite", "iconService"];
 
@@ -25,16 +25,26 @@ test("PLAT-01: win32 devolve os 5 membros do contrato quando chamado explicitame
   assert.equal(typeof platform.iconService.getIconPng, "function");
 });
 
-test("PLAT-01: createPlatform() sem argumento lê process.platform — forçado para win32", (t) => {
+test("PLAT-01: createPlatform() sem argumento lê process.platform — forçado para win32", async (t) => {
   t.mock.property(process, "platform", "win32");
   const platform = createPlatform();
   assert.deepEqual(Object.keys(platform).sort(), [...CONTRACT_MEMBERS].sort());
+  // Discrimina o ramo de verdade: sob win32 forçado, listInstalledApps tem
+  // que ser o stub notImplemented (rejeita tipado), não a implementação real
+  // do macOS. Sem esta asserção, uma fábrica que sempre devolve o bundle
+  // darwin (ou sempre win32) passaria aqui do mesmo jeito — só o conjunto de
+  // chaves é idêntico nos dois SOs.
+  await assert.rejects(platform.listInstalledApps(), PlatformNotImplementedError);
 });
 
 test("PLAT-01: createPlatform() sem argumento lê process.platform — forçado para darwin", (t) => {
   t.mock.property(process, "platform", "darwin");
   const platform = createPlatform();
   assert.deepEqual(Object.keys(platform).sort(), [...CONTRACT_MEMBERS].sort());
+  // Discrimina o ramo de verdade: sob darwin forçado, listInstalledApps tem
+  // que ser a função real importada de apps.js — não um stub win32 que só
+  // por acaso também é `typeof === "function"`.
+  assert.equal(platform.listInstalledApps, listInstalledApps);
 });
 
 test("PLAT-01: createPlatform(nome) ignora process.platform ambiente — darwin explícito sob win32 forçado", (t) => {
