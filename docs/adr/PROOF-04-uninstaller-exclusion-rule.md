@@ -135,13 +135,22 @@ uninstalls — unlike `unins000.exe`, whose name only ever means "uninstall",
 `msiexec.exe`'s name says nothing about intent. Excluding it by basename alone
 would drop legitimate apps launched via `msiexec /i ...` shortcuts. The rule
 therefore inspects `entry.arguments` and only excludes when it carries the MSI
-uninstall verb `/x` or its long form `/uninstall` (`/(^|\s)\/(x|uninstall)(\s|$)/i`)
+uninstall verb `/x` or its long form `/uninstall` (`/(^|\s)\/(x|uninstall)\b/i`)
 — never `/i`, `/package`, `/fa`, `/j`, or a bare/empty argument string, all of
 which are install/repair/advertise verbs and are left alone (tested explicitly
 in "FALSO POSITIVO evitado: msiexec.exe sem verbo de desinstalação").
 
 Both real `msiexec.exe` shortcuts on this machine carry `/x`, are confirmed
 uninstall entries (Go and Node.js's own MSI uninstallers), and are excluded.
+
+**Checked, not assumed:** both real entries happen to write `/x {GUID}` with a
+space before the brace. `msiexec /x{GUID}` (no space) is equally valid MSI
+syntax and was not present on this machine, so it would have been a silent
+gap if left untested. It is not — the regex uses a `\b` word boundary after
+the verb rather than requiring trailing whitespace, and
+`isUninstallerEntry({ target: "...msiexec.exe", arguments: "/x{GUID}" })` is
+asserted `true` in the test suite (§9's re-run below reflects this version of
+the rule).
 
 ## 5. Windows path handling (rule 5)
 
@@ -183,17 +192,30 @@ entries removed by the exclusion rule:       10
 PASS — none
 ```
 
-Note on the `148`/`138` counts vs. the `182`/`122` recorded in
-`WINDOWS-STACK.md`: both numbers come from a real scan of the same machine but
-are **not the same measurement** and should not be treated as a discrepancy.
-`WINDOWS-STACK.md`'s `122` was captured 2026-09-17 earlier the same day, before
-this rule existed, with no exclusion applied, and the machine's installed
-software has changed between the two runs (this scan finds 148 unique targets
-before exclusion vs. the earlier 122 — i.e. this run's raw, pre-exclusion
-count is itself larger, most likely because more software was installed on
-this machine between the two measurements, not because of any change in
-methodology). The `10` entries this rule removes are additional, unrelated to
-that difference.
+**Not validated: why this run's counts (`148`/`138`) differ from
+`WINDOWS-STACK.md`'s (`182`/`122`).** The `.lnk` total matches exactly (182
+both times), but this run resolves 178 of them to a target path, against the
+149 recorded in `WINDOWS-STACK.md` — 29 more, same machine, same day. That
+resolved-count gap, not "more software installed," is almost certainly the
+real source of the downstream 148-vs-122 dedupe difference, since the same
+182 shortcuts can't gain new resolvable targets on their own. The likely
+mechanism is that the two runs resolve shortcuts through different code paths
+— `WINDOWS-STACK.md`'s Apéndice A describes a per-shortcut COM resolution
+loop, timed individually at ~16 ms each (2395 ms / 149), while
+`scan-apps.mjs` resolves inside a single batched PowerShell process and
+`ConvertTo-Json`-serializes every entry including any whose `TargetPath`
+came back empty — so this run's `try/catch` may retain shortcuts (e.g.
+non-`.exe` targets, or ones whose resolution failed differently) that the
+earlier script's error handling dropped. **This is reasoning about a
+plausible mechanism, not a measurement** — the earlier script was not
+preserved in the repo (per its own Apéndice A, its artifacts live in a
+session-scoped scratchpad path this session cannot read), so the exact cause
+cannot be confirmed by re-running it side by side. What is confirmed: this
+run's own pipeline is internally consistent (182 found → 178 resolved → 148
+deduped → 138 after exclusion, all printed together, all reproducible by
+re-running `scan-apps.mjs`), and the `10` entries this rule removes are
+counted within this run's own numbers, independent of how the earlier
+document arrived at 122.
 
 ## 7. Every entry removed, judged individually (self-review, not left for the reviewer)
 
@@ -258,8 +280,9 @@ excluded — exactly the shape rule zero warns about ("a test that passes either
 way proves nothing"), which is why this suite pairs every exclusion assertion
 with a kept-entry assertion rather than relying on the vacuous ones alone. The
 temporary edit was then removed and the suite re-verified green
-(`tests 12 / pass 12 / fail 0`). The edit was never committed — see the
-`git log` for this file; only the real rule was staged.
+(`tests 12 / pass 12 / fail 0`) before anything was staged; the neutered
+version itself was never committed, so there is no artifact for it beyond the
+pasted output above — that output is the evidence, not a pointer to one.
 
 ## 10. Alternatives considered
 

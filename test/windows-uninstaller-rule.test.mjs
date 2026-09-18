@@ -132,6 +132,19 @@ test("exclui achado real de máquina: msiexec.exe /x {GUID} (Uninstall Go, Unins
     isUninstallerEntry({ name: "Repair Foo", target: "C:\\Windows\\System32\\msiexec.exe", arguments: "/uninstall {GUID}" }),
     true,
   );
+  // No space between the verb and the GUID — equally valid MSI syntax
+  // (`msiexec /x{GUID}`), not observed on this machine but not something
+  // the rule should depend on the vendor's shortcut happening to have a
+  // space to catch.
+  assert.equal(
+    isUninstallerEntry({
+      name: "Uninstall Something",
+      target: "C:\\Windows\\System32\\msiexec.exe",
+      arguments: "/x{5370C587-5FA3-4F85-8287-6483B693690C}",
+    }),
+    true,
+    "/x{GUID} sem espaço também deve ser tratado como desinstalação",
+  );
 });
 
 test("FALSO POSITIVO evitado: msiexec.exe sem verbo de desinstalação (install/repair) permanece um app normal", () => {

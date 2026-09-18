@@ -64,7 +64,11 @@ const EXACT_UNINSTALL_NAME = /^uninstall$/i;
 // real entries: "Uninstall Go" -> msiexec.exe /x {GUID}, "Uninstall Node.js"
 // -> msiexec.exe /x {GUID} — see the ADR.
 const MSIEXEC_BASENAME = /^msiexec\.exe$/i;
-const MSI_UNINSTALL_ARG = /(^|\s)\/(x|uninstall)(\s|$)/i;
+// `\b` after the verb (not a trailing `\s|$`) so `/x{GUID}` — no space
+// before the brace, equally valid MSI syntax — still matches; both real
+// entries on this machine happen to use `/x {GUID}` with a space, which
+// would have hidden this gap if the no-space form had not been tested.
+const MSI_UNINSTALL_ARG = /(^|\s)\/(x|uninstall)\b/i;
 
 /**
  * @param {{ name?: string, target?: string | null, arguments?: string | null }} entry
