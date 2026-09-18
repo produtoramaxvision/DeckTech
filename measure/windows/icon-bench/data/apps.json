@@ -1,14 +1,426 @@
 {
-  "source": "Start Menu .lnk enumeration (machine + user roots), resolved via single PowerShell/WScript.Shell process, deduped by normalized target path, uninstaller executables excluded",
+  "source": "Start Menu .lnk enumeration (machine + user roots), resolved via single PowerShell/WScript.Shell process, deduped by normalized target path, uninstaller executables excluded, THEN filtered to .exe-only targets (see extensionHistogramAllResolved / excludedNonExeTargets for the full resolved composition before that filter)",
   "machineRoot": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",
   "userRoot": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs",
   "lnkCount": 182,
-  "enumMs": 14.7,
-  "resolveMs": 655.2,
+  "enumMs": 9.9,
+  "resolveMs": 564.3,
   "resolvedCount": 174,
-  "dedupedAppCount": 136,
+  "unresolvedCount": 8,
+  "unresolvedLnks": [
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Firefox NavegaÃ§Ã£o Privada.lnk",
+      "name": "Firefox NavegaÃ§Ã£o Privada",
+      "reason": "TargetPath resolved to empty string (shortcut targets a URL, a virtual shell folder, or is broken)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MobaXterm\\Visit MobaXterm Website.lnk",
+      "name": "Visit MobaXterm Website",
+      "reason": "TargetPath resolved to empty string (shortcut targets a URL, a virtual shell folder, or is broken)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Mesa Digitalizadora Wacom\\UtilitÃ¡rio de atualizaÃ§Ã£o Wacom.lnk",
+      "name": "UtilitÃ¡rio de atualizaÃ§Ã£o Wacom",
+      "reason": "TargetPath resolved to empty string (shortcut targets a URL, a virtual shell folder, or is broken)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Mesa Digitalizadora Wacom\\UtilitÃ¡rio do Arquivo de PreferÃªncias da Mesa Digitalizadora Wacom.lnk",
+      "name": "UtilitÃ¡rio do Arquivo de PreferÃªncias da Mesa Digitalizadora Wacom",
+      "reason": "TargetPath resolved to empty string (shortcut targets a URL, a virtual shell folder, or is broken)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Ferramentas do Microsoft Office\\PreferÃªncias de Idioma do Office.lnk",
+      "name": "PreferÃªncias de Idioma do Office",
+      "reason": "TargetPath resolved to empty string (shortcut targets a URL, a virtual shell folder, or is broken)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\File Explorer.lnk",
+      "name": "File Explorer",
+      "reason": "TargetPath resolved to empty string (shortcut targets a URL, a virtual shell folder, or is broken)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools\\Control Panel.lnk",
+      "name": "Control Panel",
+      "reason": "TargetPath resolved to empty string (shortcut targets a URL, a virtual shell folder, or is broken)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools\\Run.lnk",
+      "name": "Run",
+      "reason": "TargetPath resolved to empty string (shortcut targets a URL, a virtual shell folder, or is broken)"
+    }
+  ],
+  "excludedResolvedCount": 38,
+  "excludedResolvedTargets": [
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Sticky Notes (new).lnk",
+      "name": "Sticky Notes (new)",
+      "targetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\ONENOTE.EXE",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\Developer PowerShell for VS 2022.lnk",
+      "name": "Developer PowerShell for VS 2022",
+      "targetPath": "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\VC\\x64 Native Tools Command Prompt for VS 2022.lnk",
+      "name": "x64 Native Tools Command Prompt for VS 2022",
+      "targetPath": "C:\\Windows\\System32\\cmd.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\VC\\x64_x86 Cross Tools Command Prompt for VS 2022.lnk",
+      "name": "x64_x86 Cross Tools Command Prompt for VS 2022",
+      "targetPath": "C:\\Windows\\System32\\cmd.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\VC\\x86 Native Tools Command Prompt for VS 2022.lnk",
+      "name": "x86 Native Tools Command Prompt for VS 2022",
+      "targetPath": "C:\\Windows\\System32\\cmd.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\VC\\x86_x64 Cross Tools Command Prompt for VS 2022.lnk",
+      "name": "x86_x64 Cross Tools Command Prompt for VS 2022",
+      "targetPath": "C:\\Windows\\System32\\cmd.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\Tailscale.lnk",
+      "name": "Tailscale",
+      "targetPath": "C:\\Program Files\\Tailscale\\tailscale-ipn.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Riot Games\\Riot Client.lnk",
+      "name": "Riot Client",
+      "targetPath": "D:\\Riot Games\\Riot Client\\RiotClientServices.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\Uninstall REVision Effections.lnk",
+      "name": "Uninstall REVision Effections",
+      "targetPath": "C:\\ProgramData\\REVisionEffects\\AEX\\unins000.exe",
+      "reason": "matches uninstaller pattern (unins000.exe)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Node.js\\Install Additional Tools for Node.js.lnk",
+      "name": "Install Additional Tools for Node.js",
+      "targetPath": "C:\\Windows\\System32\\cmd.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Node.js\\Node.js command prompt.lnk",
+      "name": "Node.js command prompt",
+      "targetPath": "C:\\Windows\\System32\\cmd.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MPC-HC x64\\Desinstalar o MPC-HC.lnk",
+      "name": "Desinstalar o MPC-HC",
+      "targetPath": "C:\\Program Files\\MPC-HC\\unins000.exe",
+      "reason": "matches uninstaller pattern (unins000.exe)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MobaXterm\\MobaTextEditor.lnk",
+      "name": "MobaTextEditor",
+      "targetPath": "C:\\Program Files (x86)\\Mobatek\\MobaXterm\\MobaRTE.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Maxon Cinema 4D 2026.lnk",
+      "name": "Maxon Cinema 4D 2026",
+      "targetPath": "C:\\Program Files\\Maxon Cinema 4D 2026\\Cinema 4D.exe",
+      "reason": "target does not exist on disk"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\IObit Uninstaller\\IObit Uninstaller.lnk",
+      "name": "IObit Uninstaller",
+      "targetPath": "C:\\Program Files (x86)\\IObit\\IObit Uninstaller\\IObitUninstaler.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\IObit Uninstaller\\Uninstall IObit Uninstaller.lnk",
+      "name": "Uninstall IObit Uninstaller",
+      "targetPath": "C:\\Program Files (x86)\\IObit\\IObit Uninstaller\\unins000.exe",
+      "reason": "matches uninstaller pattern (unins000.exe)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\DJI Product\\DJI Assistant 2 (DJI FPV series)\\Uninstall DJI Assistant 2 (DJI FPV series).lnk",
+      "name": "Uninstall DJI Assistant 2 (DJI FPV series)",
+      "targetPath": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (DJI FPV series)\\unins000.exe",
+      "reason": "matches uninstaller pattern (unins000.exe)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\DJI Product\\DJI Assistant 2 (Consumer Drones Series)\\Uninstall DJI Assistant 2 (Consumer Drones Series).lnk",
+      "name": "Uninstall DJI Assistant 2 (Consumer Drones Series)",
+      "targetPath": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (Consumer Drones Series)\\unins000.exe",
+      "reason": "matches uninstaller pattern (unins000.exe)"
+    },
+    {
+      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\atkAudio Plugin\\Uninstall.lnk",
+      "name": "Uninstall",
+      "targetPath": "C:\\ProgramData\\obs-studio\\plugins\\Uninstall atkAudio Plugin.exe",
+      "reason": "matches uninstaller pattern (Uninstall atkAudio Plugin.exe)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Espelhar Galaxy S10e.lnk",
+      "name": "Espelhar Galaxy S10e",
+      "targetPath": "C:\\Windows\\System32\\wscript.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Firefox.lnk",
+      "name": "Firefox",
+      "targetPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Ligar servidor RTMP (Osmo).lnk",
+      "name": "Ligar servidor RTMP (Osmo)",
+      "targetPath": "C:\\Windows\\System32\\wscript.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\Console RAR manual.lnk",
+      "name": "Console RAR manual",
+      "targetPath": "C:\\Program Files\\WinRAR\\Rar.txt",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\What is new in the latest version.lnk",
+      "name": "What is new in the latest version",
+      "targetPath": "C:\\Program Files\\WinRAR\\WhatsNew.txt",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\WinRAR help.lnk",
+      "name": "WinRAR help",
+      "targetPath": "C:\\Program Files\\WinRAR\\WinRAR.chm",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\WinRAR.lnk",
+      "name": "WinRAR",
+      "targetPath": "C:\\Program Files\\WinRAR\\WinRAR.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Windows PowerShell\\Windows PowerShell (x86).lnk",
+      "name": "Windows PowerShell (x86)",
+      "targetPath": "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools\\Command Prompt.lnk",
+      "name": "Command Prompt",
+      "targetPath": "C:\\Windows\\system32\\cmd.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Steam\\Steam.lnk",
+      "name": "Steam",
+      "targetPath": "C:\\Program Files (x86)\\Steam\\steam.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.13\\Python 3.13 Module Docs (64-bit).lnk",
+      "name": "Python 3.13 Module Docs (64-bit)",
+      "targetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.12\\Python 3.12 Module Docs (64-bit).lnk",
+      "name": "Python 3.12 Module Docs (64-bit)",
+      "targetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon App\\Maxon Notifications.lnk",
+      "name": "Maxon Notifications",
+      "targetPath": "C:\\Program Files\\Maxon\\Tools\\MxNotify.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Google Cloud SDK\\Google Cloud SDK Shell.lnk",
+      "name": "Google Cloud SDK Shell",
+      "targetPath": "C:\\Windows\\system32\\cmd.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Cursor\\Cursor.lnk",
+      "name": "Cursor",
+      "targetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\cursor\\Cursor.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Betaflight\\Betaflight Configurator\\Uninstall Betaflight Configurator.lnk",
+      "name": "Uninstall Betaflight Configurator",
+      "targetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Betaflight\\Betaflight-Configurator\\unins000.exe",
+      "reason": "matches uninstaller pattern (unins000.exe)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Aplicativos web do Firefox\\Claude.lnk",
+      "name": "Claude",
+      "targetPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Aplicativos web do Firefox\\Supabase Studio.lnk",
+      "name": "Supabase Studio",
+      "targetPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    },
+    {
+      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Antigravity\\Antigravity.lnk",
+      "name": "Antigravity",
+      "targetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Antigravity\\Antigravity.exe",
+      "reason": "duplicate target (already added via another .lnk)"
+    }
+  ],
+  "resolvedAllExtensionsCount": 136,
+  "extensionHistogramAllResolved": {
+    "exe": 111,
+    "msc": 9,
+    "txt": 2,
+    "pdf": 1,
+    "url": 6,
+    "html": 3,
+    "htm": 3,
+    "chm": 1
+  },
+  "excludedNonExeTargets": [
+    {
+      "name": "Component Services",
+      "targetPath": "C:\\Windows\\system32\\comexp.msc",
+      "extension": ".msc"
+    },
+    {
+      "name": "Computer Management",
+      "targetPath": "C:\\Windows\\system32\\compmgmt.msc",
+      "extension": ".msc"
+    },
+    {
+      "name": "Console RAR manual",
+      "targetPath": "C:\\Program Files\\WinRAR\\Rar.txt",
+      "extension": ".txt"
+    },
+    {
+      "name": "DENoise Manual",
+      "targetPath": "C:\\Program Files\\REVisionEffects\\DENoise3AE\\DENoise3AEManual\\DENoise3Manual.pdf",
+      "extension": ".pdf"
+    },
+    {
+      "name": "Documentation for Desktop Apps",
+      "targetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsDocumentation.url",
+      "extension": ".url"
+    },
+    {
+      "name": "Documentation for UWP Apps",
+      "targetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsDocumentation.url",
+      "extension": ".url"
+    },
+    {
+      "name": "Event Viewer",
+      "targetPath": "C:\\Windows\\system32\\eventvwr.msc",
+      "extension": ".msc"
+    },
+    {
+      "name": "Git Release Notes",
+      "targetPath": "C:\\Program Files\\Git\\ReleaseNotes.html",
+      "extension": ".html"
+    },
+    {
+      "name": "Performance Monitor",
+      "targetPath": "C:\\Windows\\system32\\perfmon.msc",
+      "extension": ".msc"
+    },
+    {
+      "name": "Print Management",
+      "targetPath": "C:\\Windows\\system32\\printmanagement.msc",
+      "extension": ".msc"
+    },
+    {
+      "name": "Python 3.12 Manuals (64-bit)",
+      "targetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\Doc\\html\\index.html",
+      "extension": ".html"
+    },
+    {
+      "name": "Python 3.13 Manuals (64-bit)",
+      "targetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\Doc\\html\\index.html",
+      "extension": ".html"
+    },
+    {
+      "name": "ReelSmart Motion Blur Manual",
+      "targetPath": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBUsersManual.htm",
+      "extension": ".htm"
+    },
+    {
+      "name": "ReelSmart Motion Blur Pro Manual",
+      "targetPath": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBProUsersManual.htm",
+      "extension": ".htm"
+    },
+    {
+      "name": "ReelSmart Motion Blur Vector Manual",
+      "targetPath": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBProVector.htm",
+      "extension": ".htm"
+    },
+    {
+      "name": "Sample Desktop Apps",
+      "targetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsSamples.url",
+      "extension": ".url"
+    },
+    {
+      "name": "Sample UWP Apps",
+      "targetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsSamples.url",
+      "extension": ".url"
+    },
+    {
+      "name": "Security Configuration Management",
+      "targetPath": "C:\\Windows\\system32\\secpol.msc",
+      "extension": ".msc"
+    },
+    {
+      "name": "services",
+      "targetPath": "C:\\Windows\\system32\\services.msc",
+      "extension": ".msc"
+    },
+    {
+      "name": "Task Scheduler",
+      "targetPath": "C:\\Windows\\system32\\taskschd.msc",
+      "extension": ".msc"
+    },
+    {
+      "name": "Tools for Desktop Apps",
+      "targetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsToolsDocumentation.url",
+      "extension": ".url"
+    },
+    {
+      "name": "Tools for UWP Apps",
+      "targetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsToolsDocumentation.url",
+      "extension": ".url"
+    },
+    {
+      "name": "What is new in the latest version",
+      "targetPath": "C:\\Program Files\\WinRAR\\WhatsNew.txt",
+      "extension": ".txt"
+    },
+    {
+      "name": "Windows Defender Firewall with Advanced Security",
+      "targetPath": "C:\\Windows\\system32\\WF.msc",
+      "extension": ".msc"
+    },
+    {
+      "name": "WinRAR help",
+      "targetPath": "C:\\Program Files\\WinRAR\\WinRAR.chm",
+      "extension": ".chm"
+    }
+  ],
+  "dedupedAppCount": 111,
   "hasSpaceInPath": true,
-  "generatedAt": "2026-09-18T00:56:05.741Z",
+  "generatedAt": "2026-09-18T01:15:43.478Z",
   "apps": [
     {
       "name": "Administrative Tools",
@@ -101,21 +513,6 @@
       "targetPath": "C:\\Program Files\\Maxon Cinema 4D 2026\\Commandline.exe"
     },
     {
-      "name": "Component Services",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Component Services.lnk",
-      "targetPath": "C:\\Windows\\system32\\comexp.msc"
-    },
-    {
-      "name": "Computer Management",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Computer Management.lnk",
-      "targetPath": "C:\\Windows\\system32\\compmgmt.msc"
-    },
-    {
-      "name": "Console RAR manual",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\Console RAR manual.lnk",
-      "targetPath": "C:\\Program Files\\WinRAR\\Rar.txt"
-    },
-    {
       "name": "Cursor",
       "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Cursor.lnk",
       "targetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\cursor\\Cursor.exe"
@@ -124,11 +521,6 @@
       "name": "Debuggable Package Manager",
       "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\Debuggable Package Manager.lnk",
       "targetPath": "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe"
-    },
-    {
-      "name": "DENoise Manual",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\DENoise Manual.lnk",
-      "targetPath": "C:\\Program Files\\REVisionEffects\\DENoise3AE\\DENoise3AEManual\\DENoise3Manual.pdf"
     },
     {
       "name": "Desligar servidor RTMP (Osmo)",
@@ -171,21 +563,6 @@
       "targetPath": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (DJI FPV series)\\DJI Assistant 2.exe"
     },
     {
-      "name": "Documentation for Desktop Apps",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Documentation for Desktop Apps.lnk",
-      "targetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsDocumentation.url"
-    },
-    {
-      "name": "Documentation for UWP Apps",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Documentation for UWP Apps.lnk",
-      "targetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsDocumentation.url"
-    },
-    {
-      "name": "Event Viewer",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Event Viewer.lnk",
-      "targetPath": "C:\\Windows\\system32\\eventvwr.msc"
-    },
-    {
       "name": "Excel",
       "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Excel.lnk",
       "targetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE"
@@ -214,11 +591,6 @@
       "name": "Git GUI",
       "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Git\\Git GUI.lnk",
       "targetPath": "C:\\Program Files\\Git\\cmd\\git-gui.exe"
-    },
-    {
-      "name": "Git Release Notes",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Git\\Git Release Notes.lnk",
-      "targetPath": "C:\\Program Files\\Git\\ReleaseNotes.html"
     },
     {
       "name": "GitHub Desktop",
@@ -421,11 +793,6 @@
       "targetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE"
     },
     {
-      "name": "Performance Monitor",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Performance Monitor.lnk",
-      "targetPath": "C:\\Windows\\system32\\perfmon.msc"
-    },
-    {
       "name": "PowerPoint",
       "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\PowerPoint.lnk",
       "targetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\POWERPNT.EXE"
@@ -434,11 +801,6 @@
       "name": "PowerShell 7 (x64)",
       "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\PowerShell\\PowerShell 7 (x64).lnk",
       "targetPath": "C:\\Program Files\\PowerShell\\7\\pwsh.exe"
-    },
-    {
-      "name": "Print Management",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Print Management.lnk",
-      "targetPath": "C:\\Windows\\system32\\printmanagement.msc"
     },
     {
       "name": "Propriedades da mesa digitalizadora Wacom",
@@ -451,39 +813,14 @@
       "targetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\python.exe"
     },
     {
-      "name": "Python 3.12 Manuals (64-bit)",
-      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.12\\Python 3.12 Manuals (64-bit).lnk",
-      "targetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\Doc\\html\\index.html"
-    },
-    {
       "name": "Python 3.13 (64-bit)",
       "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.13\\Python 3.13 (64-bit).lnk",
       "targetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"
     },
     {
-      "name": "Python 3.13 Manuals (64-bit)",
-      "lnk": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.13\\Python 3.13 Manuals (64-bit).lnk",
-      "targetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\Doc\\html\\index.html"
-    },
-    {
       "name": "RecoveryDrive",
       "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\RecoveryDrive.lnk",
       "targetPath": "C:\\Windows\\system32\\RecoveryDrive.exe"
-    },
-    {
-      "name": "ReelSmart Motion Blur Manual",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\ReelSmart Motion Blur Manual.lnk",
-      "targetPath": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBUsersManual.htm"
-    },
-    {
-      "name": "ReelSmart Motion Blur Pro Manual",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\ReelSmart Motion Blur Pro Manual.lnk",
-      "targetPath": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBProUsersManual.htm"
-    },
-    {
-      "name": "ReelSmart Motion Blur Vector Manual",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\ReelSmart Motion Blur Vector Manual.lnk",
-      "targetPath": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBProVector.htm"
     },
     {
       "name": "Registry Editor",
@@ -494,26 +831,6 @@
       "name": "Resource Monitor",
       "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Resource Monitor.lnk",
       "targetPath": "C:\\Windows\\system32\\perfmon.exe"
-    },
-    {
-      "name": "Sample Desktop Apps",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Sample Desktop Apps.lnk",
-      "targetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsSamples.url"
-    },
-    {
-      "name": "Sample UWP Apps",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Sample UWP Apps.lnk",
-      "targetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsSamples.url"
-    },
-    {
-      "name": "Security Configuration Management",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Security Configuration Management.lnk",
-      "targetPath": "C:\\Windows\\system32\\secpol.msc"
-    },
-    {
-      "name": "services",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\services.lnk",
-      "targetPath": "C:\\Windows\\system32\\services.msc"
     },
     {
       "name": "Speech Recognition",
@@ -551,11 +868,6 @@
       "targetPath": "C:\\Windows\\system32\\taskmgr.exe"
     },
     {
-      "name": "Task Scheduler",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Task Scheduler.lnk",
-      "targetPath": "C:\\Windows\\system32\\taskschd.msc"
-    },
-    {
       "name": "Team Render Client 2025",
       "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Team Render Client 2025.lnk",
       "targetPath": "C:\\Program Files\\Maxon Cinema 4D 2025\\Cinema 4D Team Render Client.exe"
@@ -574,16 +886,6 @@
       "name": "Team Render Server 2026",
       "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Team Render Server 2026.lnk",
       "targetPath": "C:\\Program Files\\Maxon Cinema 4D 2026\\Cinema 4D Team Render Server.exe"
-    },
-    {
-      "name": "Tools for Desktop Apps",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Tools for Desktop Apps.lnk",
-      "targetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsToolsDocumentation.url"
-    },
-    {
-      "name": "Tools for UWP Apps",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Tools for UWP Apps.lnk",
-      "targetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsToolsDocumentation.url"
     },
     {
       "name": "Topaz Video AI",
@@ -641,19 +943,9 @@
       "targetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Warp\\warp.exe"
     },
     {
-      "name": "What is new in the latest version",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\What is new in the latest version.lnk",
-      "targetPath": "C:\\Program Files\\WinRAR\\WhatsNew.txt"
-    },
-    {
       "name": "Windows App Cert Kit",
       "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows App Certification Kit\\Windows App Cert Kit.lnk",
       "targetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\App Certification Kit\\appcertui.exe"
-    },
-    {
-      "name": "Windows Defender Firewall with Advanced Security",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Windows Defender Firewall with Advanced Security.lnk",
-      "targetPath": "C:\\Windows\\system32\\WF.msc"
     },
     {
       "name": "Windows PowerShell",
@@ -679,11 +971,6 @@
       "name": "WinRAR",
       "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\WinRAR.lnk",
       "targetPath": "C:\\Program Files\\WinRAR\\WinRAR.exe"
-    },
-    {
-      "name": "WinRAR help",
-      "lnk": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\WinRAR help.lnk",
-      "targetPath": "C:\\Program Files\\WinRAR\\WinRAR.chm"
     },
     {
       "name": "Word",

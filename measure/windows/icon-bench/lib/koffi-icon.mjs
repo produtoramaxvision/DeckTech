@@ -18,7 +18,7 @@
 // interface-specific and does not vary).
 
 import koffi from "koffi";
-import path from "node:path";
+import { normalizeWin32Path } from "./win32-path.mjs";
 
 const ole32 = koffi.load("ole32.dll");
 const shell32 = koffi.load("shell32.dll");
@@ -146,7 +146,12 @@ const IID_IShellItemImageFactory = Buffer.from([
  */
 export function extractIconBgra(targetPath, size = 256) {
   ensureCom();
-  const absPath = path.resolve(targetPath);
+  // Round-2 review finding 3: normalize via the REAL Win32 GetFullPathNameW
+  // API (lib/win32-path.mjs), not Node's path.resolve — the addon now does
+  // the identical OS-level call internally, so both bridges accept/reject
+  // the identical set of inputs. See win32-path.mjs for the documented,
+  // verified path contract (what this DOES and does NOT normalize).
+  const absPath = normalizeWin32Path(targetPath);
 
   const itemOut = [null];
   const hrCreate = SHCreateItemFromParsingName(absPath, null, IID_IShellItemImageFactory, itemOut);

@@ -1,0 +1,165 @@
+{
+  "generatedAt": "2026-09-18T01:27:08.726Z",
+  "appCount": 111,
+  "bridges": [
+    "addon",
+    "koffi",
+    "pwsh"
+  ],
+  "referenceBridge": "addon",
+  "agreementMaxDeltaThreshold": 2,
+  "agreeCount": 111,
+  "disagreeCount": 0,
+  "errorCount": 0,
+  "noContentCount": 0,
+  "lowAlphaVarianceCount": 7,
+  "disagreements": [],
+  "noContentApps": [],
+  "worstDeltas": [
+    {
+      "index": 0,
+      "label": "Administrative Tools",
+      "bridge": "koffi",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 0,
+      "label": "Administrative Tools",
+      "bridge": "pwsh",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 1,
+      "label": "Adobe Acrobat",
+      "bridge": "koffi",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 1,
+      "label": "Adobe Acrobat",
+      "bridge": "pwsh",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 2,
+      "label": "Adobe After Effects 2026",
+      "bridge": "koffi",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 2,
+      "label": "Adobe After Effects 2026",
+      "bridge": "pwsh",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 3,
+      "label": "Adobe Creative Cloud",
+      "bridge": "koffi",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 3,
+      "label": "Adobe Creative Cloud",
+      "bridge": "pwsh",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 4,
+      "label": "Adobe Illustrator 2026",
+      "bridge": "koffi",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 4,
+      "label": "Adobe Illustrator 2026",
+      "bridge": "pwsh",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 5,
+      "label": "Adobe Media Encoder 2026",
+      "bridge": "koffi",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 5,
+      "label": "Adobe Media Encoder 2026",
+      "bridge": "pwsh",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 6,
+      "label": "Adobe Photoshop 2026",
+      "bridge": "koffi",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 6,
+      "label": "Adobe Photoshop 2026",
+      "bridge": "pwsh",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 7,
+      "label": "Adobe Premiere Pro 2026",
+      "bridge": "koffi",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 7,
+      "label": "Adobe Premiere Pro 2026",
+      "bridge": "pwsh",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 8,
+      "label": "Android Studio",
+      "bridge": "koffi",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 8,
+      "label": "Android Studio",
+      "bridge": "pwsh",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 9,
+      "label": "Antigravity",
+      "bridge": "koffi",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    },
+    {
+      "index": 9,
+      "label": "Antigravity",
+      "bridge": "pwsh",
+      "maxAbsDelta": 0,
+      "meanAbsDelta": 0
+    }
+  ],
+  "negativeControls": {
+    "differentAppsCorrectlyDisagree": true,
+    "noiseVsRealCorrectlyDisagrees": true
+  },
+  "whatThisCannotCatch": "If IShellItemImageFactory itself returns the SAME generic/fallback icon for every app, all three bridges call the identical Win32 API and would all agree on that generic icon. Cross-bridge agreement proves bridge equivalence, not per-app icon correctness. That guarantee comes from manual visual inspection of a named subset (see ADR), not from this script."
+}

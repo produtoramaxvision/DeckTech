@@ -92,17 +92,39 @@ const inputFile = path.join(tmpDir, "lnk-input.json");
 const resultFile = path.join(tmpDir, "lnk-resolved.json");
 writeFileSync(inputFile, JSON.stringify(lnkFiles), "utf8");
 
+// Round-2 review fix (finding 6): the previous version set
+// $ErrorActionPreference = 'SilentlyContinue' for the WHOLE script, which
+// makes even TERMINATING errors inside the per-item try/catch below
+// non-terminating — they get swallowed instead of hitting the catch block,
+// so a resolution failure produced neither a target nor a recorded reason.
+// Fixed: 'Stop' so the per-item try/catch (already present) actually fires,
+// and $resolveError distinguishes "threw" from "resolved to an empty
+// TargetPath" (the latter does NOT throw — WScript.Shell returns "" for a
+// .lnk that points at a URL or a virtual shell folder, e.g. "This PC",
+// rather than a file path; confirmed by making the failure mode explicit
+// below instead of silently treating an empty string the same as a real
+// path).
+//
+// Also renamed $input -> $lnkList: $input is a PowerShell AUTOMATIC
+// VARIABLE (the pipeline input enumerator), so assigning it clobbers
+// pipeline machinery in a way that "worked" here only by accident.
 const psScript = `
-$ErrorActionPreference = 'SilentlyContinue'
-$input = Get-Content -Raw -Path '${inputFile.replace(/'/g, "''")}' | ConvertFrom-Json
+$ErrorActionPreference = 'Stop'
+$lnkList = Get-Content -Raw -Path '${inputFile.replace(/'/g, "''")}' | ConvertFrom-Json
 $wsh = New-Object -ComObject WScript.Shell
 $results = @()
-foreach ($lnk in $input) {
+foreach ($lnk in $lnkList) {
+  $name = [System.IO.Path]::GetFileNameWithoutExtension($lnk)
   try {
     $sc = $wsh.CreateShortcut($lnk)
-    $results += [PSCustomObject]@{ lnk = $lnk; target = $sc.TargetPath; name = [System.IO.Path]::GetFileNameWithoutExtension($lnk) }
+    $target = $sc.TargetPath
+    if ([string]::IsNullOrEmpty($target)) {
+      $results += [PSCustomObject]@{ lnk = $lnk; target = $null; name = $name; resolveError = 'TargetPath resolved to empty string (shortcut targets a URL, a virtual shell folder, or is broken)' }
+    } else {
+      $results += [PSCustomObject]@{ lnk = $lnk; target = $target; name = $name; resolveError = $null }
+    }
   } catch {
-    $results += [PSCustomObject]@{ lnk = $lnk; target = $null; name = [System.IO.Path]::GetFileNameWithoutExtension($lnk) }
+    $results += [PSCustomObject]@{ lnk = $lnk; target = $null; name = $name; resolveError = $_.Exception.Message }
   }
 }
 $results | ConvertTo-Json -Depth 3 | Out-File -FilePath '${resultFile.replace(/'/g, "''")}' -Encoding utf8
@@ -128,30 +150,77 @@ if (resultText.charCodeAt(0) === 0xfeff) resultText = resultText.slice(1); // st
 const raw = JSON.parse(resultText);
 const rows = Array.isArray(raw) ? raw : [raw];
 
+// Finding 6 fix: every .lnk that did not produce a usable target (resolution
+// itself failed — WScript.Shell threw, or TargetPath came back empty because
+// the shortcut points at a URL / virtual shell folder rather than a file) is
+// recorded in unresolvedLnks WITH WHY, instead of the previous version's "8
+// vanish with no record of which or why". Kept distinct from
+// excludedResolvedTargets: a .lnk whose resolution SUCCEEDED but whose target
+// was then filtered out downstream (uninstaller pattern, dedup, missing
+// on-disk file) is not "unresolved" — it resolved fine; the harness chose
+// not to benchmark it, for a stated reason.
+const unresolvedLnks = [];
+const excludedResolvedTargets = [];
+
 const UNINSTALLER_RE = /^unins\d*\.exe$|^uninstall/i;
 const seen = new Set();
-const apps = [];
+const resolvedApps = []; // every resolved target, BEFORE the .exe-only filter (finding 7)
 for (const row of rows) {
-  if (!row.target) continue;
+  if (!row.target) {
+    unresolvedLnks.push({ lnk: row.lnk, name: row.name, reason: row.resolveError || "no target and no resolveError reported" });
+    continue;
+  }
   const target = String(row.target).trim();
-  if (!target) continue;
+  if (!target) {
+    unresolvedLnks.push({ lnk: row.lnk, name: row.name, reason: "TargetPath resolved to empty string (shortcut targets a URL, a virtual shell folder, or is broken)" });
+    continue;
+  }
   const base = path.basename(target);
-  if (UNINSTALLER_RE.test(base)) continue;
-  if (!existsSync(target)) continue;
+  if (UNINSTALLER_RE.test(base)) {
+    excludedResolvedTargets.push({ lnk: row.lnk, name: row.name, targetPath: target, reason: `matches uninstaller pattern (${base})` });
+    continue;
+  }
+  if (!existsSync(target)) {
+    excludedResolvedTargets.push({ lnk: row.lnk, name: row.name, targetPath: target, reason: "target does not exist on disk" });
+    continue;
+  }
   let st;
   try {
     st = statSync(target);
-  } catch {
+  } catch (err) {
+    excludedResolvedTargets.push({ lnk: row.lnk, name: row.name, targetPath: target, reason: `statSync failed: ${err.message}` });
     continue;
   }
-  if (!st.isFile()) continue;
+  if (!st.isFile()) {
+    excludedResolvedTargets.push({ lnk: row.lnk, name: row.name, targetPath: target, reason: "target exists but is not a file (directory)" });
+    continue;
+  }
   const norm = path.resolve(target).toUpperCase();
-  if (seen.has(norm)) continue;
+  if (seen.has(norm)) {
+    excludedResolvedTargets.push({ lnk: row.lnk, name: row.name, targetPath: target, reason: `duplicate target (already added via another .lnk)` });
+    continue;
+  }
   seen.add(norm);
-  apps.push({ name: row.name, lnk: row.lnk, targetPath: path.resolve(target) });
+  resolvedApps.push({ name: row.name, lnk: row.lnk, targetPath: path.resolve(target) });
 }
 
-apps.sort((a, b) => a.name.localeCompare(b.name));
+resolvedApps.sort((a, b) => a.name.localeCompare(b.name));
+
+// Finding 7 fix: the ADR previously described the benchmarked set as
+// "resolved to the .exe target", which was false for 25/136 entries
+// (.msc/.url/.html/.htm/.txt/.chm/.pdf route through thumbnail providers,
+// not the app-icon path PLAT-03 uses). Record the FULL composition here
+// (auditable, nothing hidden), then filter the BENCHMARKED set to .exe only
+// so it actually matches what PLAT-03 calls IShellItemImageFactory for.
+const extensionHistogram = {};
+for (const a of resolvedApps) {
+  const ext = path.extname(a.targetPath).toLowerCase().replace(/^\./, "") || "(none)";
+  extensionHistogram[ext] = (extensionHistogram[ext] || 0) + 1;
+}
+const apps = resolvedApps.filter((a) => path.extname(a.targetPath).toLowerCase() === ".exe");
+const excludedNonExe = resolvedApps
+  .filter((a) => path.extname(a.targetPath).toLowerCase() !== ".exe")
+  .map((a) => ({ name: a.name, targetPath: a.targetPath, extension: path.extname(a.targetPath).toLowerCase() }));
 
 const hasSpace = apps.some((a) => a.targetPath.includes(" "));
 if (!hasSpace) {
@@ -164,13 +233,20 @@ writeFileSync(
   outFile,
   JSON.stringify(
     {
-      source: "Start Menu .lnk enumeration (machine + user roots), resolved via single PowerShell/WScript.Shell process, deduped by normalized target path, uninstaller executables excluded",
+      source: "Start Menu .lnk enumeration (machine + user roots), resolved via single PowerShell/WScript.Shell process, deduped by normalized target path, uninstaller executables excluded, THEN filtered to .exe-only targets (see extensionHistogramAllResolved / excludedNonExeTargets for the full resolved composition before that filter)",
       machineRoot,
       userRoot,
       lnkCount: lnkFiles.length,
       enumMs: Number(enumMs.toFixed(1)),
       resolveMs: Number(resolveMs.toFixed(1)),
       resolvedCount: rows.filter((r) => r.target).length,
+      unresolvedCount: unresolvedLnks.length,
+      unresolvedLnks,
+      excludedResolvedCount: excludedResolvedTargets.length,
+      excludedResolvedTargets,
+      resolvedAllExtensionsCount: resolvedApps.length,
+      extensionHistogramAllResolved: extensionHistogram,
+      excludedNonExeTargets: excludedNonExe,
       dedupedAppCount: apps.length,
       hasSpaceInPath: hasSpace,
       generatedAt: new Date().toISOString(),
@@ -182,5 +258,8 @@ writeFileSync(
   "utf8"
 );
 
-console.log(`[list-apps] wrote ${apps.length} deduped apps to ${outFile}`);
+console.log(`[list-apps] resolved ${resolvedApps.length} apps total (all extensions); extension histogram: ${JSON.stringify(extensionHistogram)}`);
+console.log(`[list-apps] unresolved .lnk count (resolution itself failed/empty): ${unresolvedLnks.length} (recorded with reasons in apps.json.unresolvedLnks)`);
+console.log(`[list-apps] resolved-but-excluded count (uninstaller/dedup/missing file): ${excludedResolvedTargets.length} (recorded with reasons in apps.json.excludedResolvedTargets)`);
+console.log(`[list-apps] wrote ${apps.length} .exe-only deduped apps to ${outFile} (${excludedNonExe.length} non-.exe targets excluded from the benchmarked set, recorded in apps.json.excludedNonExeTargets)`);
 console.log(`[list-apps] at least one path contains a space: ${hasSpace}`);

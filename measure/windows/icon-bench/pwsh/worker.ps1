@@ -154,6 +154,20 @@ while ($true) {
     try {
         $req = $line | ConvertFrom-Json
     } catch {
+        # Round-2 review finding 2 (major): this used to be a bare `continue`,
+        # which drops the request id on the floor with NO response at all —
+        # the Node-side caller's Promise for that id then hangs forever
+        # (this is the "same trap from the other side" the review named).
+        # Fixed: answer with an explicit error envelope instead of silence.
+        # There is no $req.id to pair it with (parsing failed before $req
+        # existed), so id is null; the Node side treats a null-id response as
+        # an unpairable diagnostic and relies on ITS OWN per-request timeout
+        # to unblock the specific caller — but this line is what makes the
+        # anomaly visible in the worker's own stdout stream instead of
+        # disappearing without a trace.
+        $errResp = @{ id = $null; ok = $false; error = "malformed request JSON: $($_.Exception.Message)"; rawLine = $line } | ConvertTo-Json -Compress
+        [Console]::Out.WriteLine($errResp)
+        [Console]::Out.Flush()
         continue
     }
 
