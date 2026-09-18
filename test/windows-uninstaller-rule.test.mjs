@@ -111,6 +111,24 @@ test("o match exato de nome 'Uninstall' não vira substring: 'Uninstall Tool' e 
   );
 });
 
+test("o guard '.exe' da exceção de nome exato é uma cláusula própria: nome exatamente 'Uninstall' cujo alvo NÃO é .exe permanece", () => {
+  // Round-2 finding 1: `EXACT_UNINSTALL_NAME.test(name) && /\.exe$/i.test(base)`
+  // is a two-clause conjunction (uninstaller-rule.mjs:95). Every other
+  // fixture for the exact-name path already has a `.exe` target, so it
+  // cannot distinguish "the name-match clause fired" from "the .exe guard
+  // clause also fired" -- deleting the `.exe` guard left the suite green.
+  // This fixture pins the guard on its own: the display name is exactly
+  // "Uninstall" (would satisfy EXACT_UNINSTALL_NAME alone), but the
+  // resolved target is a .txt, not an executable, so the entry must NOT be
+  // treated as an uninstaller. ADR §4a states the .exe requirement is
+  // deliberate; this is that decision, pinned.
+  assert.equal(
+    isUninstallerEntry({ name: "Uninstall", target: "C:\\Program Files\\Some App\\Uninstall.txt" }),
+    false,
+    "nome exato 'Uninstall' com alvo não-.exe não deve ser tratado como desinstalador",
+  );
+});
+
 test("exclui achado real de máquina: msiexec.exe /x {GUID} (Uninstall Go, Uninstall Node.js)", () => {
   assert.equal(
     isUninstallerEntry({

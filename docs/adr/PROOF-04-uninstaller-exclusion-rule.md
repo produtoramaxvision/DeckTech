@@ -6,6 +6,27 @@
 **Requirement:** `PROOF-04` (`.maxvision/REQUIREMENTS.md`), Phase 0 success criterion 4
 (`.maxvision/ROADMAP.md`)
 
+**Round 2 (this revision).** A rigorous review rejected round 1 on four
+findings, all addressed here: (1) the exact-name exception's `.exe` guard
+clause had zero test coverage, fixed with a pinning fixture plus per-clause
+(not whole-function) mutation proof in §9 — extended, on self-review, to two
+more clauses the review didn't name (the input guard, the name-trim) so the
+table covers every clause the function contains, not only the ones the
+reviewer happened to test; (2) §6's reconciliation of this probe's counts
+against `WINDOWS-STACK.md` §6.1 asserted an unmeasured and wrong mechanism,
+misattributed the source section, and gave a false reason for not validating
+further — replaced with the actual measured reconciliation in §6.1 below;
+(3) `scan-apps.mjs` swallowed every shortcut-resolution error and
+enumeration failure silently — fixed, see §6's unresolved-shortcut reasons
+and directory-error count, both verified to actually fire against a forced
+failure, not just present in the code; (4) the probe hardcoded Start Menu
+paths and hand-rolled backslash regexes instead of
+`[Environment]::GetFolderPath` and `path.basename()` — fixed, see §5 and
+§6.1 (including the two wrong `GetFolderPath` enum values tried first and
+rejected on measurement before the correct ones were adopted, and a
+basename-vs-full-path regex narrowing caught and corrected in the same pass,
+see §5).
+
 > Evidence convention: every number below is `[MEASURED]` (produced by running
 > `node measure/windows/scan-apps.mjs` on this machine, full output in
 > §"Real scan — before/after") or `[REASONED]` (a design decision, not a
@@ -13,9 +34,9 @@
 
 ## 1. Problem
 
-The real scan of this machine (`.maxvision/research/WINDOWS-STACK.md` §6.1,
-Apêndice A) produced 122 "unique" apps after deduping `.lnk` shortcuts by
-resolved target path — but one of them was garbage:
+The real scan of this machine (`.maxvision/research/WINDOWS-STACK.md` §6.1)
+produced 122 "unique" apps after deduping `.lnk` shortcuts by resolved target
+path — but one of them was garbage:
 
 ```
 Uninstall DJI Assistant 2  ->  unins000.exe
@@ -33,7 +54,7 @@ rule against this machine's real data. The rule and its test live in:
 
 - `measure/windows/lib/uninstaller-rule.mjs` — the predicate (`isUninstallerEntry`)
   and a small partition helper (`partitionUninstallers`), pure functions, no I/O.
-- `test/windows-uninstaller-rule.test.mjs` — 12 `node:test` cases.
+- `test/windows-uninstaller-rule.test.mjs` — 13 `node:test` cases.
 - `measure/windows/scan-apps.mjs` — the Phase 0 probe that runs the real scan
   and applies the rule, printing before/after counts and every excluded entry.
 
@@ -159,20 +180,53 @@ on `\`, and the test suite includes a fixture with a space in the directory
 name (`C:\Program Files\Some App\unins000.exe`) plus real machine paths that
 contain spaces and parentheses (`DJI Assistant 2 (Consumer Drones Series)`).
 
+**Round-2 fix:** `measure/windows/scan-apps.mjs` itself did not hold this
+standard consistently — its two diagnostic regexes (the msiexec-hit filter
+and the `unins*.exe` sanity check) matched `(^|\\)pattern$` against the full
+target path by hand instead of calling `basename()` first, the exact
+inconsistency this section claims does not exist. Both now call
+`node:path`'s `basename()` before matching, same as the rule module. The
+probe's Start Menu directories were also switched from a hardcoded
+`Join-Path` to `[Environment]::GetFolderPath`, so Group Policy Start Menu
+redirection is honored — see §6 for the two wrong enum values tried first and
+rejected on measurement, and the correct ones verified against this machine.
+
+**Self-caught regression while doing this fix:** the first draft of the
+`unins*.exe` sanity check's basename version used `/^unins[^.]*\.exe$/i` —
+translating the old check's "no backslash" character class to "no dot"
+looked equivalent but narrowed it: `[^.]*` rejects any dot before the final
+`.exe`, so a basename like `unins.v2.exe` (still `unins*.exe` by the
+ROADMAP's own glob, still no backslash) would stop matching, silently
+weakening the very sanity check that proves the ROADMAP success criterion.
+Checked before it shipped: `/(^|\\)unins[^\\]*\.exe$/i` on the full path
+matches `unins.v2.exe`; `/^unins.*\.exe$/i` on the basename matches it too
+(and still rejects `notunins.exe`) — `.*`, not `[^.]*`, is the faithful
+translation. Fixed to `/^unins.*\.exe$/i` before commit.
+
 ## 6. Real scan — before/after (this machine, 2026-09-17)
 
 Command: `node measure/windows/scan-apps.mjs` (Windows 11 Pro 22631, this
-machine). Full verbatim output:
+machine). Full verbatim output (round-2 version of the probe — see §5 and
+§6.1 below for what changed since round 1's run):
 
 ```
 === PROOF-04 — real scan on this machine ===
-.lnk found (Start Menu, machine + user):    182
-resolved to a target path:                  178 (4 unresolved)
-unique after dedupe by target path:          148  [BEFORE exclusion rule]
-unique after uninstaller-exclusion rule:     138  [AFTER exclusion rule]
+.lnk found (Start Menu, machine + user):     182
+Start Menu subdirectories that could not be enumerated: 0
+resolved to a non-empty target path:         178 (4 unresolved)
+  of which, target basename ends in .exe:    150
+unique after dedupe by target path:          148  [BEFORE exclusion rule, all resolved targets]
+unique after dedupe, .exe targets only:      123  [for comparison against WINDOWS-STACK.md §6.1's 149/122, which counted .exe resolutions]
+unique after uninstaller-exclusion rule:     138  [AFTER exclusion rule, applied to the all-targets set above]
 entries removed by the exclusion rule:       10
 
---- entries removed (name -> target) ---
+--- unresolved shortcuts (name -> reason) ---
+  Visit MobaXterm Website  ->  target-empty
+  File Explorer  ->  target-empty
+  Control Panel  ->  target-empty
+  Run  ->  target-empty
+
+--- entries removed by the exclusion rule (name -> target) ---
   Uninstall  ->  C:\ProgramData\obs-studio\plugins\Uninstall atkAudio Plugin.exe
   Uninstall DJI Assistant 2 (Consumer Drones Series)  ->  C:\Program Files (x86)\DJI Product\DJI Assistant 2 (Consumer Drones Series)\unins000.exe
   Uninstall DJI Assistant 2 (DJI FPV series)  ->  C:\Program Files (x86)\DJI Product\DJI Assistant 2 (DJI FPV series)\unins000.exe
@@ -192,30 +246,119 @@ entries removed by the exclusion rule:       10
 PASS — none
 ```
 
-**Not validated: why this run's counts (`148`/`138`) differ from
-`WINDOWS-STACK.md`'s (`182`/`122`).** The `.lnk` total matches exactly (182
-both times), but this run resolves 178 of them to a target path, against the
-149 recorded in `WINDOWS-STACK.md` — 29 more, same machine, same day. That
-resolved-count gap, not "more software installed," is almost certainly the
-real source of the downstream 148-vs-122 dedupe difference, since the same
-182 shortcuts can't gain new resolvable targets on their own. The likely
-mechanism is that the two runs resolve shortcuts through different code paths
-— `WINDOWS-STACK.md`'s Apéndice A describes a per-shortcut COM resolution
-loop, timed individually at ~16 ms each (2395 ms / 149), while
-`scan-apps.mjs` resolves inside a single batched PowerShell process and
-`ConvertTo-Json`-serializes every entry including any whose `TargetPath`
-came back empty — so this run's `try/catch` may retain shortcuts (e.g.
-non-`.exe` targets, or ones whose resolution failed differently) that the
-earlier script's error handling dropped. **This is reasoning about a
-plausible mechanism, not a measurement** — the earlier script was not
-preserved in the repo (per its own Apéndice A, its artifacts live in a
-session-scoped scratchpad path this session cannot read), so the exact cause
-cannot be confirmed by re-running it side by side. What is confirmed: this
-run's own pipeline is internally consistent (182 found → 178 resolved → 148
-deduped → 138 after exclusion, all printed together, all reproducible by
-re-running `scan-apps.mjs`), and the `10` entries this rule removes are
-counted within this run's own numbers, independent of how the earlier
-document arrived at 122.
+The four unresolved shortcuts are now individually named with a reason
+instead of a bare aggregate count (round-2 finding 3): all four say
+`target-empty` (COM resolved successfully but the shortcut's own
+`TargetPath` is legitimately empty — `Visit MobaXterm Website` is a URL
+shortcut, `File Explorer` / `Control Panel` / `Run` are CLSID/system
+shortcuts with no file target). None says `com-threw`, meaning nothing was
+silently swallowed on this run — but the mechanism to report a thrown
+exception distinctly (rather than folding it into the same empty-target
+bucket a `catch {}` used to produce) now exists for the run where one does
+occur. `Start Menu subdirectories that could not be enumerated: 0` confirms
+no ACL-denied directory silently shrank the count either.
+
+**Both new error paths verified to actually fire, not just present in the
+code** — the same defect shape (an untested clause) that got round 1
+rejected, checked here so it isn't repeated in the fix:
+
+- `resolveError`: a standalone `New-Object -ComObject WScript.Shell` /
+  `CreateShortcut(...)` call against a path that is not a `.lnk`/`.url`
+  forces the real exception, `try/catch` around it, `$_.Exception.Message`
+  printed. Observed: `O nome do caminho do atalho deve terminar com .lnk ou
+  .url.` (this machine's PowerShell locale is pt-BR) — a real COM exception
+  message reaches the field, not a placeholder.
+- `dirErrorCount`: a standalone test directory with `icacls.exe /deny
+  "$env:USERNAME:(RX)"` on a subfolder, scanned with the identical
+  `Get-ChildItem -LiteralPath ... -Recurse -File -ErrorAction
+  SilentlyContinue -ErrorVariable +dirErrors` call this probe uses. Observed:
+  `dirErrors.Count = 1`, message `O acesso ao caminho '...\denied' foi
+  negado.` — the counter increments on a real access-denied directory, not
+  only in theory.
+
+### 6.1 Reconciling this run's counts against `WINDOWS-STACK.md`'s 149/122 — measured, not guessed
+
+Round 1 of this ADR asserted a "likely mechanism" for why this probe's
+counts didn't match `WINDOWS-STACK.md` §6.1's recorded `149`
+resolved-shortcuts / `122` deduped-apps. That paragraph was wrong on three
+separate points, caught by round-2 review, and is replaced here with what is
+actually measured.
+
+**What was wrong:**
+
+1. It attributed the `149`, "a per-shortcut COM resolution loop, timed
+   individually at ~16 ms each," to Apêndice A. Apêndice A
+   (`.maxvision/research/WINDOWS-STACK.md:543-591`) contains no `.lnk` scan
+   command at all — checked directly, not assumed
+   (`grep -ni "apendice\|apêndice\|appendix" WINDOWS-STACK.md` matches only
+   the two heading lines, `## Apêndice A — reprodução` and
+   `## Apêndice B — alternativas descartadas`; a full read of lines 543-591
+   confirms Apêndice A's code blocks cover `node.exe` size, WebView2, Mica,
+   the idle-server measurement, icon benchmarks and Playwright — no `.lnk`
+   scan). The `149` figure and its
+   `~16 ms/shortcut` timing are in §6.1
+   (`.maxvision/research/WINDOWS-STACK.md:51,236`), already correctly cited
+   for the `122` figure two paragraphs earlier — the misattribution was
+   internal to that one paragraph. Fixed in §1 and here: every reference in
+   this ADR to the earlier measurement now cites §6.1 only.
+2. It reasoned that `scan-apps.mjs`'s `try/catch` "may retain shortcuts ...
+   that the earlier script's error handling dropped" — implying the earlier
+   script's `149` was itself a resolved-shortcut count that this probe's
+   178 exceeds because this probe retains more failures. That is
+   contradicted by a sibling artifact already committed in this repo:
+   `measure/windows/proof-03-results.json` (`PROOF-03`, the COM-vs-binary-
+   parser validation run on this same machine) records
+   `agreement.comSuccess: 178` and `agreement.tierCounts["com-empty"]: 4`
+   against the identical 182-shortcut Start Menu tree. `178` is independent
+   corroboration that COM resolution on this machine succeeds for 178 of
+   182 shortcuts today, not 149 — so `149` was never a "COM resolved to a
+   target path" count to begin with.
+3. It gave as the reason the earlier script's counts couldn't be
+   reconciled that its artifacts "live in a session-scoped scratchpad path
+   this session cannot read." False, checked directly: that exact path
+   (`.../scratchpad/etest/`) is this session's own scratchpad and was
+   listed successfully (`ls` succeeded, contents include `iconbench.js`,
+   `icon3.js`, `mica.png`, `pwtest.mjs` — the §6.2/§4.1/§7 artifacts, not a
+   `.lnk` scan script). The script that produced `149` genuinely is not
+   preserved anywhere in the repo or the scratchpad — that conclusion
+   survives — but "cannot read the directory" was not the reason, and
+   stating it as the reason was itself an unvalidated claim.
+
+**What is actually measured, on this run:**
+
+`WINDOWS-STACK.md` §6.1's `149`/`122` almost certainly counted **resolved
+`.exe` targets**, not every non-empty `TargetPath` — `scan-apps.mjs` counts
+the latter by default. Testing that hypothesis directly against this run's
+own data (no re-run of the lost script required, because the hypothesis is
+checkable from what this run already measured):
+
+| Metric | This run (all targets) | This run (`.exe` targets only) | `WINDOWS-STACK.md` §6.1 |
+|---|---|---|---|
+| Resolved | 178 | **150** | 149 |
+| Deduped/unique | 148 | **123** | 122 |
+
+Both `.exe`-only numbers are exactly **one more** than the recorded figures
+(`150` vs `149`, `123` vs `122`) — the same delta, on both an absolute count
+and a count downstream of it, under the single hypothesis that the earlier
+script counted `.exe` resolutions and this one (when restricted to `.exe`
+targets, now printed by the probe itself — see the "of which, target
+basename ends in .exe" and "unique after dedupe, .exe targets only" lines
+above) is comparing apples to apples. **The `+1` itself is not confirmed
+further** — one additional `.exe`-resolving shortcut existing today that
+didn't when §6.1 was measured is plausible (this machine has had software
+installed/removed since), but no specific shortcut was identified as "the"
+new one, and the lost script means a byte-for-byte re-run is not possible.
+Stated as what it is: a measured, exact, two-for-two reconciliation of the
+count *shape*, with the residual `1` left honestly unconfirmed rather than
+explained away.
+
+This also resolves the `182 → 178` part on its own terms: `178` is now
+corroborated twice, independently, on this machine — once by this probe's
+own COM loop, once by PROOF-03's separately-written COM baseline
+(`comSuccess: 178`) — so `178` is the number to trust for "how many of these
+182 shortcuts does COM resolve a `TargetPath` for on this machine today,"
+and `149` was answering a narrower question (resolved to an `.exe`
+specifically) that this probe now also answers, and answers consistently.
 
 ## 7. Every entry removed, judged individually (self-review, not left for the reviewer)
 
@@ -251,17 +394,62 @@ the gap, never speculatively.
 
 ## 9. Test discrimination proof
 
-Ran `node --test test/windows-uninstaller-rule.test.mjs` against the real rule
-— `ℹ tests 12`, `ℹ pass 12`, `ℹ fail 0` — then temporarily inserted an early
-`return false;` as the first line of `isUninstallerEntry` (rule effectively
-deleted; the code after it is unreachable) and re-ran the identical, unmodified
-suite:
+**Round-1 defect, fixed here.** Round 1 of this ADR claimed the whole-function
+mutation below covers "every exclusion path the rule implements (basename
+patterns, the exact-name exception, the msiexec exception)." That was false
+at clause granularity: `isUninstallerEntry`'s exact-name exception is a
+two-clause conjunction —
+`EXACT_UNINSTALL_NAME.test(name) && /\.exe$/i.test(base)`
+(`measure/windows/lib/uninstaller-rule.mjs:95`) — and every round-1 fixture
+for that path already had a `.exe` target, so deleting the `.exe` guard
+clause left the suite fully green. A whole-function mutation (`return false`
+as the first line) cannot detect a single clause going missing inside a
+still-partially-working function; it only proves the function isn't a no-op.
+Fixed two ways: (1) a new fixture,
+`isUninstallerEntry({ name: "Uninstall", target: "...\\Uninstall.txt" })`
+expected `false`, pins the `.exe` guard on its own (`test/windows-uninstaller-
+rule.test.mjs`, "o guard '.exe' da exceção de nome exato é uma cláusula
+própria"); (2) coverage below is now reported **per clause**, each one
+mutated and re-run individually, instead of inferred from test names.
+
+Baseline: `node --test test/windows-uninstaller-rule.test.mjs` against the
+unmodified rule — `ℹ tests 13`, `ℹ pass 13`, `ℹ fail 0`.
+
+Each row below is a single clause of `isUninstallerEntry` (or the whole
+function, last row), neutered in isolation, suite re-run against the
+identical, unmodified 13-test file, then reverted (`git checkout --`) and
+the baseline re-confirmed green before moving to the next row. Every
+mutation and its exact result was observed directly, not inferred:
+
+| # | Clause mutated | Mutation | Result | Failing test(s) |
+|---|---|---|---|---|
+| 1 | `UNINSTALLER_BASENAME_PATTERNS[0]` | `/^unins\d*\.exe$/i` → never matches | 10 pass / 3 fail | the DJI real-finding test, the Inno-Setup-variants test, `partitionUninstallers`'s test |
+| 2 | `UNINSTALLER_BASENAME_PATTERNS[1]` | `/^uninst\d*\.exe$/i` → never matches | 12 pass / 1 fail | "exclui outros nomes de binário dedicados a desinstalação" |
+| 3 | `UNINSTALLER_BASENAME_PATTERNS[2]` | `/^uninstall\.exe$/i` → never matches | 12 pass / 1 fail | "exclui outros nomes de binário dedicados a desinstalação" |
+| 4 | `UNINSTALLER_BASENAME_PATTERNS[3]` | `/^uninstaller\.exe$/i` → never matches | 12 pass / 1 fail | "exclui outros nomes de binário dedicados a desinstalação" |
+| 5 | `EXACT_UNINSTALL_NAME` | `/^uninstall$/i` weakened to substring `/uninstall/i` | 9 pass / 4 fail | both false-positive-avoided tests, the exact-match-not-substring test, `partitionUninstallers`'s test |
+| 6 | `.exe` guard on the exact-name exception | `EXACT_UNINSTALL_NAME.test(name) && /\.exe$/i.test(base)` → `EXACT_UNINSTALL_NAME.test(name)` (the exact round-2-review mutation, reproduced: `git diff -U0` shows the identical one-line change the reviewer pasted) | 12 pass / 1 fail | the new "o guard '.exe' da exceção de nome exato é uma cláusula própria" test — **this is the gap round 2 found; it is closed** |
+| 7 | `MSIEXEC_BASENAME` | `/^msiexec\.exe$/i` → never matches | 12 pass / 1 fail | "exclui achado real de máquina: msiexec.exe /x {GUID} ..." |
+| 8 | `MSI_UNINSTALL_ARG` | `/(^|\s)\/(x|uninstall)\b/i` → never matches | 12 pass / 1 fail | "exclui achado real de máquina: msiexec.exe /x {GUID} ..." |
+| 9 | input guard | `if (!entry \|\| typeof entry.target !== "string" \|\| entry.target === "") { return false; }` → `if (false) { return false; }` | 12 pass / 1 fail | "atalho não resolvido (target vazio/null) nunca é excluído por esta regra" |
+| 10 | name derivation | `entry.name.trim()` → `entry.name` (drop `.trim()`) | 12 pass / 1 fail | "o match exato de nome 'Uninstall' não vira substring ..." (the padded-whitespace fixture) |
+| 11 | whole function | early `return false;` as the first line (rule effectively deleted) | 6 pass / 7 fail | every "exclui ..." test, plus `partitionUninstallers`'s test |
+
+Rows 9–10 were not in the round-2 review's own list but were added on
+self-review here: `isUninstallerEntry` contains two more clauses besides the
+6 decision-branches in rows 1–8 (the input guard that short-circuits on a
+missing/empty target, and the `typeof`+`trim()` that derives `name` before
+it feeds `EXACT_UNINSTALL_NAME`), and the mutation table is only a true
+per-clause proof if every clause the function contains is a row — leaving
+either of these two out would have repeated the exact "coverage claimed but
+not verified per-clause" pattern round 2 rejected round 1 for. Both have a
+test that fails when neutered alone.
+
+Row 11's 7 failing tests, for the record (unchanged in substance from round
+1, now correctly described as "the whole-function proof," not "every
+clause"):
 
 ```
-ℹ tests 12
-ℹ pass 5
-ℹ fail 7
-✖ failing tests:
 ✖ exclui o achado real: Uninstall DJI Assistant 2 -> unins000.exe
 ✖ exclui variantes numeradas do Inno Setup, incluindo caminho com espaço
 ✖ exclui outros nomes de binário dedicados a desinstalação
@@ -271,18 +459,22 @@ suite:
 ✖ partitionUninstallers separa a lista real medida: 1 excluído de 4, nomeado
 ```
 
-7 of 12 tests fail (`AssertionError [ERR_ASSERTION]: false !== true`, or the
-count-based assertions in `partitionUninstallers`'s test), covering every
-exclusion path the rule implements (basename patterns, the exact-name
-exception, the msiexec exception). The 5 that still pass are the "must NOT
-exclude" false-positive guards, which hold vacuously once nothing is ever
-excluded — exactly the shape rule zero warns about ("a test that passes either
-way proves nothing"), which is why this suite pairs every exclusion assertion
-with a kept-entry assertion rather than relying on the vacuous ones alone. The
-temporary edit was then removed and the suite re-verified green
-(`tests 12 / pass 12 / fail 0`) before anything was staged; the neutered
-version itself was never committed, so there is no artifact for it beyond the
-pasted output above — that output is the evidence, not a pointer to one.
+The row-11 mutation's remaining 6 passes are the "must NOT exclude"
+false-positive guards (including the new row-6 fixture, which also expects
+`false` and so passes vacuously under a function that always returns
+`false`) — exactly the shape rule zero warns about ("a test that passes
+either way proves nothing"). This is precisely why coverage is now reported
+per clause (rows 1–10): a test that only passes vacuously under the
+whole-function mutation can still be the one pinning clause behavior a
+narrower, single-clause mutation would otherwise miss — as row 6
+demonstrates directly.
+
+**All 10 clauses (rows 1–10) have at least one test that fails when that
+clause alone is neutered, and the whole-function fallback (row 11) still
+fails independently.** Every mutation was reverted with `git checkout --`
+immediately after its result was recorded, and the baseline (`13`/`13`/`0`)
+was re-confirmed after every single revert before the next mutation began; no
+neutered version was ever committed.
 
 ## 10. Alternatives considered
 
