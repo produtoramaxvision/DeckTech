@@ -427,9 +427,10 @@ round 4 did not change scan-apps.mjs's scan logic (only two source-line
 citations in its comments, finding 3) or `isUninstallerEntry`'s matching
 behavior (only test coverage, finding 1) or `resolveAppList`'s composition
 (only `dedupeByTarget`'s handling of a `target` shape scan-apps.mjs itself
-never produces, since its own line-141 filter already excludes non-string
-targets before calling `resolveAppList` — finding 2), so the same 138/10
-counts were expected and confirmed, not assumed:
+never produces, since its own `resolved = entries.filter(...)` pre-filter
+already excludes non-string targets before calling `resolveAppList` —
+finding 2), so the same 138/10 counts were expected and confirmed, not
+assumed:
 
 ```
 === PROOF-04 — real scan on this machine ===
@@ -729,10 +730,16 @@ that those narrower mutations were **not** covered by this table: dropping
 `^`/`$` from all four basename patterns, and dropping `/i` from those same
 four patterns plus `MSIEXEC_BASENAME`, all left this exact 14-test file
 green. §9.1b below is the corrected, finer-grained coverage for those two
-specific mechanisms (anchoring, case-insensitivity) on every regex in the
-module that has them — it does not replace this table, which still
-correctly proves each clause's *existence* matters; §9.1b proves each
-clause's *anchoring and casing*, specifically, also matters.
+specific mechanisms: anchoring on the four `UNINSTALLER_BASENAME_PATTERNS`
+entries (the only regexes in the module that use `^`/`$`), and
+case-insensitivity on all eight `/i`-flagged regexes the module contains —
+the four basename patterns, `MSIEXEC_BASENAME`, `EXACT_UNINSTALL_NAME`,
+the `.exe` guard clause, and `MSI_UNINSTALL_ARG`, individually enumerated
+in §9.1b's Groups 1–5, not asserted as "every regex" in the abstract. It
+does not replace this table, which still correctly proves each clause's
+*existence* matters; §9.1b proves each clause's *anchoring and casing*,
+specifically, also matters — for those eight sites, by name, not by a
+general claim about the module.
 
 ### 9.1b Anchoring (`^`/`$`) and case-insensitivity (`/i`) — round-4 finding 1
 

@@ -31,7 +31,11 @@
 // unconditionally on `entry.target` here contradicted both sibling
 // modules' documented contracts and threw a bare TypeError the moment a
 // real caller (Phase 3's future win32 apps.js provider, which will not
-// necessarily have measure/windows/scan-apps.mjs:141's own pre-filter) hit
+// necessarily have measure/windows/scan-apps.mjs's own
+// `entries.filter((e) => typeof e.target === "string" && e.target !== "")`
+// pre-filter — cited by what it does, not a line number, so this
+// reference does not rot the way an earlier one did in this same commit's
+// sibling files; round-4 review finding 3) hit
 // it. Not reachable through scan-apps.mjs today (that pre-filter already
 // guarantees every `target` reaching this pipeline is a non-empty string),
 // but a latent crash in a module this ADR's own header names as the one
