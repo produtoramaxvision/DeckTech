@@ -109,6 +109,9 @@ export async function refreshVersion(options = {}) {
       versionCache.value = {
         tag: m[1],
         htmlUrl: "https://github.com/produtoramaxvision/DeckTech/releases/tag/" + m[1],
+        // NOTE (BRAND-01/BRAND-08/BRAND-12): apkUrl uses dokke.apk until the Android rebrand
+        // (BRAND-08 in Phase 11) renames the release asset (e.g. decktech.apk) in lockstep with
+        // MainActivity.kt:458 and docs/src/main.js:5. Inactive while ENABLE_VERSION_CHECK is false.
         apkUrl: "https://github.com/produtoramaxvision/DeckTech/releases/latest/download/dokke.apk",
       };
       versionCache.age = Date.now();
