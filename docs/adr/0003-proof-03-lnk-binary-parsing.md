@@ -349,11 +349,17 @@ constant — the same honest framing round 2 used for the (now-deleted) cold
 claim, applied here to the quantity (a span of medians across runs) that
 this benchmark actually supports making a claim about.
 
-COM's own loop-only time varies substantially run to run and within a
-single warm run — 281.1–395.8 ms this run's 5 warm iterations, a ~40% swing
-the reviewer independently confirmed on their own re-runs, on a machine
-with other software running concurrently (Blender, Adobe Creative Cloud
-apps, etc. — see the process list implied by
+COM's own loop-only time varies substantially both run to run and within a
+single warm run. Within-run: this run's 5 warm iterations spanned
+281.1–395.8 ms, a 40.8% swing, consistent with round 2's own committed run
+(230.5–325.6 ms, 41.3% swing) — two independent runs measured BY THIS
+DOCUMENT, not attributed to the reviewer, who did not report per-iteration
+warm min/max in their findings. Run to run: the round-3 reviewer's own two
+re-runs measured COM warm MEDIANS of 441.8 ms and 321.8 ms — a ~120 ms
+difference between two back-to-back re-runs on the same machine, on top of
+whatever intra-run variance each of those runs also had. Both machines had
+other software running concurrently (Blender, Adobe Creative Cloud apps,
+etc. on this machine — see the process list implied by
 `.maxvision/research/WINDOWS-STACK.md`). **This document does NOT assert
 whether warming makes COM faster, slower, or has no effect.** Round 2's
 version of this section claimed warming did not help COM, from a single
