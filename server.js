@@ -8,6 +8,7 @@ import { join, extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import { log as defaultLog } from "./log.js";
+import { SW_CACHE_VERSION, SW_CACHE_TOKEN } from "./sw-cache-version.js";
 
 function tryReadCert(envPath) {
   try { return readFileSync(envPath); } catch { return null; }
@@ -978,7 +979,12 @@ export function makeApp(deps = {}) {
         "X-Frame-Options": "DENY",
         "Referrer-Policy": "strict-origin-when-cross-origin",
       });
-      res.end(b);
+      // FIX-08: index.html and sw.js ship the SW_CACHE_TOKEN placeholder
+      // instead of a hand-typed version literal; substituting it here from
+      // the single sw-cache-version.js constant, on every response (both are
+      // already served no-store above), is what keeps sw.js's CACHE and
+      // index.html's registration ?rev= from ever drifting apart again.
+      res.end(isUi ? b.toString("utf8").split(SW_CACHE_TOKEN).join(SW_CACHE_VERSION) : b);
     })
       .catch(() => { res.writeHead(404); res.end("not found"); });
   };

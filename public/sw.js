@@ -1,4 +1,7 @@
-const CACHE = "dokke-v24";
+// FIX-08: "__SW_CACHE_VERSION__" is a placeholder — server.js substitutes it
+// with the single source of truth in sw-cache-version.js on every response,
+// so this and index.html's registration ?rev= can never drift apart again.
+const CACHE = "__SW_CACHE_VERSION__";
 const PRECACHE = ["/", "/index.html", "/icon-192.png", "/icon-192-dark.png", "/icon-512.png", "/manifest.webmanifest"];
 
 self.addEventListener("install", function(e) {

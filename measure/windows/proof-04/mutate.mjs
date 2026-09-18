@@ -61,7 +61,7 @@ const MUTANTS = [
 
 function runSuite() {
   try {
-    return execFileSync("node", ["--test", ...TESTS], { cwd: REPO, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    return execFileSync(process.execPath, ["--test", ...TESTS], { cwd: REPO, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   } catch (err) {
     return (err.stdout || "") + (err.stderr || "");
   }

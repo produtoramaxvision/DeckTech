@@ -25,8 +25,6 @@
     --green: #30d158;
     --amber: #ffd60a;
     --red: #ff453a;
-    --glass: rgba(255,255,255,.07);
-    --edge: rgba(255,255,255,.10);
     --dokke-safe-top: env(safe-area-inset-top, 0px);
     --dokke-safe-bottom: env(safe-area-inset-bottom, 0px);
     --app-tile: min(40vmin, max(21vw,21vh), 180px);
@@ -863,6 +861,9 @@
       "error.PIECE_NOT_WEBSITE": "Essa peça não é um website",
       "error.PIECE_NOT_FOUND": "Peça não encontrada",
       "error.INVALID_REQUEST": "Solicitação inválida",
+      "error.FOCUS_RESTRICTED": "Não consegui focar \"{name}\" — abri uma nova instância",
+      "error.APP_NOT_FOUND": "\"{name}\" não está mais instalado",
+      "error.LAUNCH_FAILED": "Não consegui abrir \"{name}\"",
       "obs.title": "OBS Commander", "obs.offline": "OBS offline — abra o OBS para liberar as cenas",
       "obs.unavailable": "OBS indisponível — verifique o WebSocket", "obs.live": "AO VIVO", "obs.connected": "conectado",
       "obs.startRecording": "Gravar", "obs.stopRecording": "Parar", "obs.startLive": "Live", "obs.stopLive": "Parar live", "obs.stopAll": "Encerrar",
@@ -906,6 +907,9 @@
       "error.PIECE_NOT_WEBSITE": "This piece is not a website",
       "error.PIECE_NOT_FOUND": "Piece not found",
       "error.INVALID_REQUEST": "Invalid request",
+      "error.FOCUS_RESTRICTED": "Could not focus \"{name}\" — opened a new instance",
+      "error.APP_NOT_FOUND": "\"{name}\" is no longer installed",
+      "error.LAUNCH_FAILED": "Could not open \"{name}\"",
       "obs.title": "OBS Commander", "obs.offline": "OBS offline — open OBS to enable scenes",
       "obs.unavailable": "OBS unavailable — check the WebSocket", "obs.live": "LIVE", "obs.connected": "connected",
       "obs.startRecording": "Record", "obs.stopRecording": "Stop", "obs.startLive": "Live", "obs.stopLive": "Stop live", "obs.stopAll": "Stop",
@@ -1270,8 +1274,17 @@
     let r;
     try { r = await post("/api/apps/" + encodeURIComponent(name) + "/activate", { pid: pid }); }
     catch (e) { toast(t("toast.macDisconnected"), "err"); return; }
-    if (!r || r.data.ok !== true) toast(t("toast.openFailed", { name: name }), "err");
-    else loadApps();
+    const data = r && r.data;
+    if (data && data.ok === true){ loadApps(); return; }
+    if (data && data.code === "FOCUS_RESTRICTED"){
+      // PRD §15: o SO pode restringir trazer a janela pra frente; abrir uma
+      // nova instância é o fallback aceito — a ação funcionou, só não do
+      // jeito "limpo". Avisa sem estilo de erro e recarrega (app abriu).
+      toast(serverErrorMessage(data, "toast.openFailed", { name: name }));
+      loadApps();
+      return;
+    }
+    toast(serverErrorMessage(data, "toast.openFailed", { name: name }), "err");
   }
 
   async function activatePiece(piece){
@@ -3106,7 +3119,11 @@
   boot();
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js?rev=dokke-v24").catch(function() {});
+    // FIX-08: "__SW_CACHE_VERSION__" is substituted server-side (server.js)
+    // from the single source of truth in sw-cache-version.js — the same
+    // value sw.js's CACHE constant gets substituted with, so the two can't
+    // drift apart from a hand edit that touches only one of them.
+    navigator.serviceWorker.register("/sw.js?rev=__SW_CACHE_VERSION__").catch(function() {});
   }
 })();</script>
 </body>
