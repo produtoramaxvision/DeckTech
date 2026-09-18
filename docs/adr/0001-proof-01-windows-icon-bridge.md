@@ -7,8 +7,9 @@ com o commit que a fez, para que esta linha não volte a inverter a ordem numa p
 de um self-advisory pass em 2026-09-17 22:40 (commit `7daf52b`, não um round de review numerado —
 citado à parte porque o número 533,8ms desta revisão vem dele, ver "Por que o pool PowerShell
 não vence"); round 3 em 2026-09-17 23:39 (commit `349a3fd`); round 4 em 2026-09-18 00:23 (commit
-`4287998`); round 5 em 2026-09-18, nesta revisão — ver "Revisão round 2", "Revisão round 3",
-"Revisão round 4" e "Revisão round 5" abaixo.
+`4287998`); round 5 em 2026-09-18 00:47 (commit `770b5d8`); round 6 em 2026-09-18, nesta
+revisão — ver "Revisão round 2", "Revisão round 3", "Revisão round 4", "Revisão round 5" e
+"Revisão round 6" abaixo.
 **Requisito:** PROOF-01 (`.maxvision/REQUIREMENTS.md`, Fase 0)
 **Máquina de medição:** Windows 11 Pro 10.0.22631, x64, Node v25.5.0, VS Build Tools 2022
 (17.14.37411.7) com componente C++ x64, Windows SDK 10.0.26100.0, Python 3.13.13, locale pt-BR
@@ -52,7 +53,7 @@ não vence"); round 3 em 2026-09-17 23:39 (commit `349a3fd`); round 4 em 2026-09
 >
 > **Os números na tabela de "Resultados medidos" abaixo já são da re-execução pós-round-4**
 > (115 apps `.exe`-only — mesmo conjunto do round 3; N=230 amostras/candidata por execução,
-> **5 execuções independentes**, re-executadas nesta revisão — ver "Resultados medidos" pra
+> **5 execuções independentes**, re-executadas no round 4 (commit `4287998`) — ver "Resultados medidos" pra
 > metodologia e range observado, agora incluindo startup e throughput do pool agregados por
 > rodada em `bench-repeat-results.json`, não só medianMs).
 
@@ -563,9 +564,9 @@ Electron com addons nativos.
   ficar obsoleto na próxima re-execução, o argumento agora cita a FAIXA observada em dois
   artefatos comitados de rodadas independentes: **533,8ms** (round 2, execução única,
   `git show 7daf52b:measure/windows/icon-bench/results.json` → `startupMs: 533.8` — este número
-  NÃO vem de `bench-repeat-results.json`, que só passou a agregar `startupMs` nesta revisão,
-  round 5) e **554,9–1386,0ms** (round 4, 5 execuções, `bench-repeat-results.json` comitado em
-  `4287998` — ver "Resultados medidos"). A ordem de grandeza — centenas de ms, não dezenas — é o
+  NÃO vem de `bench-repeat-results.json`, que ganhou `startupMs` agregado no round 4, commit
+  `4287998`) e **554,9–1386,0ms** (round 4, 5 execuções, `bench-repeat-results.json`
+  comitado em `4287998` — ver "Resultados medidos"). A ordem de grandeza — centenas de ms, não dezenas — é o
   que sustenta a rejeição, não o ponto exato, e essa ordem de grandeza se manteve estável entre
   os dois artefatos.
 - O throughput agregado do pool vem de **paralelismo de 4 processos**, algo que addon/koffi não
@@ -999,9 +1000,12 @@ citou como evidência.
    argv override (`process.argv[2] || probeTargetPath`) deliberadamente — são smoke probes de uso
    manual, não o discriminador de contrato de path — e o comentário no código agora diz isso
    explicitamente. **Reproduzido**: `node scripts/probe-addon.mjs` e `node scripts/probe-koffi.mjs`
-   continuam imprimindo `PASS` depois da troca (extract 113,6ms/60,2ms, decode independente
-   `256x256` nos dois), confirmando que a substituição de string literal por `probeTargetPath`
-   não mudou o comportamento observado.
+   continuam imprimindo `PASS` depois da troca, e ambos continuam decodificando para `256x256`,
+   confirmando que a substituição de string literal por `probeTargetPath` não mudou o
+   comportamento observado. (Os tempos de extração dessa execução são uma rodada única não
+   repetida — ver a saída colada na seção "Revisão round 5" finding 3 abaixo — e não são
+   comparáveis às medianas/p95 de `bench-repeat.mjs`; não sustentam conclusão de velocidade
+   relativa entre addon e koffi.)
 5. **[minor] Um bloco do ADR rotulado "Saída real desta execução" continha uma linha resumida à
    mão que o script nunca imprime, e elidia saída real com "for ...".** Corrigido: o bloco na
    seção "Método"/"Contrato de path" agora cola as linhas reais de
@@ -1068,8 +1072,9 @@ procediam quando verificados — nenhum foi contestado.
          "note": "median/p95 are PER-REQUEST round-trip latency at concurrency=4, EXCLUDING timed-out requests (a timeout measures the timeout constant, not the bridge); successRate's denominator is total attempts (successes+failures incl. timeouts), not sample count; aggregateThroughputMsPerIcon is wall-clock/app-count and is the number comparable to a single-icon-at-a-time cost"
    ```
    Confirma a leitura do reviewer: 533,8ms mora em `7daf52b:results.json` (round 2, execução
-   única), não em `349a3fd` (round 3) nem em `bench-repeat-results.json` (que só ganhou
-   `startupMs` agregado nesta revisão, round 5). Corrigido nos dois call sites ("Por que o pool
+   única), não em `349a3fd` (round 3) nem em `bench-repeat-results.json` (que ganhou
+   `startupMs` agregado no round 4, commit `4287998` — ver finding 3 da "Revisão round 4"
+   acima). Corrigido nos dois call sites ("Por que o pool
    PowerShell não vence" e "Revisão round 4" finding 2): ambos agora dizem "533,8ms (round 2,
    `7daf52b:results.json`, execução única)" e nomeiam explicitamente qual artefato comitado
    sustenta cada ponta do range (533,8ms round 2 / 554,9–1386,0ms round 4).
@@ -1171,3 +1176,79 @@ procediam quando verificados — nenhum foi contestado.
 
 Todos os cinco têm evidência colada nesta revisão (comando executado + saída real). Todos os
 cinco procediam. Nenhum achado foi contestado.
+
+## Revisão round 6
+
+Um sexto reviewer rigoroso rejeitou a v5 deste ADR (commit `770b5d8`) com 2 achados (1 major,
+1 minor). Ambos procediam quando verificados; nenhum foi contestado.
+
+1. **[major] O fix do round 5 para uma citação de proveniência errada introduziu uma NOVA
+   citação de proveniência errada da mesma classe: o ADR afirmava, em dois pontos, que
+   `bench-repeat-results.json` só passou a agregar `startupMs` "nesta revisão, round 5", quando
+   git prova que essa agregação chegou no round 4 (commit `4287998`), e o commit `770b5d8` (que
+   introduziu a frase) nunca tocou nesse arquivo nem no script que o escreve.** Verificado antes
+   do fix (saída colada verbatim):
+   ```
+   $ git show --stat 770b5d8 --format=""
+    docs/adr/0001-proof-01-windows-icon-bridge.md      | 241 +++++++++++++++++++--
+    measure/windows/icon-bench/scripts/probe-addon.mjs |   6 +-
+    measure/windows/icon-bench/scripts/probe-koffi.mjs |   6 +-
+    .../icon-bench/scripts/verify-path-contract.mjs    |  61 +++++-
+    4 files changed, 286 insertions(+), 28 deletions(-)
+
+   $ git show 4287998:measure/windows/icon-bench/bench-repeat-results.json | grep -c 'startupMs'
+   4
+
+   $ git log --oneline -- measure/windows/icon-bench/scripts/bench-repeat.mjs
+   4287998 fix(measure): close round-4 review rejection of PROOF-01 icon bridge benchmark
+   349a3fd fix(measure): close round-3 review rejection of PROOF-01 icon bridge benchmark
+
+   $ git diff 4287998 HEAD --stat -- measure/windows/icon-bench/bench-repeat-results.json | wc -l
+   0
+   ```
+   Confirma a leitura do reviewer: `770b5d8` não toca `bench-repeat-results.json` nem
+   `bench-repeat.mjs`, e o arquivo já continha `startupMs` agregado (4 ocorrências) desde o
+   commit `4287998` do round 4 — a mesma "Revisão round 4" finding 3 já credita corretamente
+   (ver acima: "Corrigido em `scripts/bench-repeat.mjs`... **Reproduzido nesta revisão**...").
+   A frase "só passou a agregar `startupMs` nesta revisão, round 5" nos dois call sites ("Por
+   que o pool PowerShell não vence" e "Revisão round 5" finding 2) era falsa e contradizia o
+   próprio documento. **Corrigido em ambos os call sites**, substituindo pela data real (round
+   4, commit `4287998`) e apontando para a finding 3 da "Revisão round 4" que já a credita
+   corretamente — sem alterar a alegação principal, que está correta e permanece: 533,8ms vem
+   de `7daf52b:results.json`, não de `bench-repeat-results.json`.
+2. **[minor] Números de uma única execução de `probe-addon.mjs`/`probe-koffi.mjs` foram
+   promovidos da saída colada em bloco pra prosa argumentativa do ADR, num documento cujo
+   capítulo de método argumenta que uma execução única é ruído e cuja conclusão principal é que
+   addon e koffi empatam — e o par citado (113,6ms/60,2ms) lia como koffi quase 2x mais rápido
+   que addon.** Re-executado nesta máquina para confirmar a variabilidade entre rodadas
+   (saída colada verbatim):
+   ```
+   $ node scripts/probe-addon.mjs
+   [probe-addon] extracting 256x256 from: C:\Windows\System32\notepad.exe
+   [probe-addon] extract=82.2ms encode=7.1ms size=67187B -> C:\Users\MaxVision\Desktop\cursor-oficial\decktech\measure\windows\icon-bench\.tmp\probe-addon.png
+   [probe-addon] independent decode check: 256x256
+   [probe-addon] PASS
+   $ node scripts/probe-koffi.mjs
+   [probe-koffi] extracting 256x256 from: C:\Windows\System32\notepad.exe
+   [probe-koffi] extract=53.3ms encode=8.9ms size=67187B -> C:\Users\MaxVision\Desktop\cursor-oficial\decktech\measure\windows\icon-bench\.tmp\probe-koffi.png
+   [probe-koffi] independent decode check: 256x256
+   [probe-koffi] PASS
+   ```
+   Nesta execução, addon=82,2ms e koffi=53,3ms — de novo koffi soa quase 1,5x mais rápido, um
+   par DIFERENTE do que o ADR citava (113,6/60,2). O reviewer, na mesma máquina e no mesmo
+   commit (`770b5d8`), reportou um TERCEIRO par ainda mais diferente — addon=95,1ms e
+   koffi=91,3ms, quase empatado — na evidência do achado. Três execuções independentes do
+   MESMO par de scripts, no mesmo hardware, produzindo três relações diferentes entre addon e
+   koffi (empate quase exato / addon ~1,9x mais lento / addon ~1,5x mais lento) é a prova mais
+   forte de que o número de uma execução única não é comparável entre si e não sustenta
+   conclusão de velocidade relativa — mais forte que qualquer uma das três rodadas isoladas.
+   Isso confirma o ponto do reviewer: promover um desses números pra prosa argumentativa é
+   enganoso. **Corrigido**: a frase na seção "Revisão round 4" finding 4 agora só afirma o que
+   o `**Reproduzido**` precisa provar — que os dois scripts continuam imprimindo `PASS` e
+   decodificando pra `256x256` depois da troca de `probeTargetPath` — sem números de ms na
+   prosa. O bloco cercado com a saída real completa (incluindo a linha de tempo) permanece
+   intocado na seção "Revisão round 5" finding 3, onde já estava, com uma nota explícita de que
+   é uma execução única não repetida, não comparável às medianas/p95 de `bench-repeat.mjs`.
+
+Ambos os achados têm evidência colada nesta revisão (comando executado + saída real). Nenhum
+achado foi contestado.
