@@ -22,7 +22,14 @@ $startApps = Get-StartApps | Select-Object Name, AppID
 # Get-AppxPackage is the authoritative registry of installed MSIX/UWP
 # packages. It is the ground truth used to confirm a Get-StartApps row is
 # genuinely packaged, instead of trusting an AppID string shape.
-$appxPackages = Get-AppxPackage | Select-Object Name, PackageFamilyName
+# InstallLocation is carried too: it is the basis of the round-2 structural
+# "absent from the .lnk scan" proof (a resolved .lnk target that happens to
+# fall inside a package's own InstallLocation would mean that package is
+# NOT actually absent from the .lnk scan). InstallLocation lives under
+# %ProgramFiles%\WindowsApps, never under a per-user profile path, so
+# carrying it here does not introduce the PII concern that raw-startapps.json
+# has for the rest of this dump (see docs/adr/0002, "known gaps").
+$appxPackages = Get-AppxPackage | Select-Object Name, PackageFamilyName, InstallLocation
 
 $result = [ordered]@{
   collectedAtUtc = (Get-Date).ToUniversalTime().ToString('o')

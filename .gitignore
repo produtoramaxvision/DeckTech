@@ -28,4 +28,14 @@ onpspec.config.json
 # Página de instalação (artefatos locais do Vite)
 docs/dist/
 .vercel/
+
+# PROOF-02 (measure/windows): raw-startapps.json is a full personal-machine
+# software inventory (every Get-StartApps row + every installed AppX
+# package) with absolute paths embedding the OS username. Never committed —
+# only the derived, redacted uwp-scan-result.json is. See docs/adr/0002.
+measure/windows/proof-02/**/raw-startapps.json
+# Default scratch output dir for repeated/dev runs of uwp-enum.mjs — the
+# committed snapshot lives in measure/windows/proof-02/out/ and is only
+# updated via an explicit `--out measure/windows/proof-02/out` re-record.
+measure/windows/proof-02/.scratch/
 ios/Dokke.xcodeproj/project.xcworkspace/xcuserdata/

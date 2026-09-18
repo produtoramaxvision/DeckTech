@@ -1,11 +1,47 @@
 {
-  "generatedAtUtc": "2026-09-18T00:27:58.429Z",
-  "outDir": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-02\\out",
+  "generatedAtUtc": "2026-09-18T01:04:00.689Z",
+  "outDir": "%USERPROFILE%\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-02\\out",
+  "repoState": {
+    "headCommit": "7819df63d0ebb6f5d818d0a4853f06faec36d66b",
+    "lnkParserDirty": false,
+    "lnkParserStatusLine": null
+  },
+  "culture": "pt-BR",
   "timings": {
-    "lnkWalkMs": 8.08,
-    "lnkFilesFound": 182,
-    "powershellCollectMs": 866.25,
-    "totalMs": 874.32
+    "lnkWalk": {
+      "median": 6.191,
+      "min": 5.497,
+      "max": 7.684,
+      "n": 5,
+      "unit": "ms"
+    },
+    "powershellCollect": {
+      "median": 1710.47,
+      "min": 1433.837,
+      "max": 3084.836,
+      "n": 5,
+      "unit": "ms"
+    },
+    "totalMs": 1716.66,
+    "totalMsNote": "sum of the two arms' medians, not a single elapsed-time sample",
+    "lnkTargetResolveMs": 22.3,
+    "lnkTargetResolveMsNote": "single sample, diagnostic only — new proof plumbing, not the existing .lnk-scan mechanism being benchmarked"
+  },
+  "lnkBaseline": {
+    "roots": [
+      {
+        "label": "PROGRAMDATA",
+        "dir": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",
+        "count": 123
+      },
+      {
+        "label": "APPDATA",
+        "dir": "%USERPROFILE%\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs",
+        "count": 59
+      }
+    ],
+    "totalLnkFiles": 182,
+    "unresolvedTargetCount": 12
   },
   "counts": {
     "startAppsIndexRows": 188,
@@ -21,7 +57,14 @@
       "name": "Calculadora",
       "aumid": "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
       "activationPath": "shell:AppsFolder\\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
-      "absentFromLnkScan": true
+      "lnkDisplayNameCollision": false,
+      "absentFromLnkScan": true,
+      "structuralAbsenceEvidence": {
+        "installLocation": "C:\\Program Files\\WindowsApps\\Microsoft.WindowsCalculator_11.2607.0.0_x64__8wekyb3d8bbwe",
+        "resolvedTargetMatches": [],
+        "byteSearchMatches": [],
+        "absent": true
+      }
     },
     {
       "label": "Fotos (Photos)",
@@ -30,7 +73,14 @@
       "name": "Fotos",
       "aumid": "Microsoft.Windows.Photos_8wekyb3d8bbwe!App",
       "activationPath": "shell:AppsFolder\\Microsoft.Windows.Photos_8wekyb3d8bbwe!App",
-      "absentFromLnkScan": true
+      "lnkDisplayNameCollision": false,
+      "absentFromLnkScan": true,
+      "structuralAbsenceEvidence": {
+        "installLocation": "C:\\Program Files\\WindowsApps\\Microsoft.Windows.Photos_2026.11080.24002.0_x64__8wekyb3d8bbwe",
+        "resolvedTargetMatches": [],
+        "byteSearchMatches": [],
+        "absent": true
+      }
     },
     {
       "label": "PowerShell (Store) — substitute for Terminal, see note below",
@@ -39,7 +89,14 @@
       "name": "PowerShell",
       "aumid": "Microsoft.PowerShell_8wekyb3d8bbwe!App",
       "activationPath": "shell:AppsFolder\\Microsoft.PowerShell_8wekyb3d8bbwe!App",
-      "absentFromLnkScan": true
+      "lnkDisplayNameCollision": false,
+      "absentFromLnkScan": true,
+      "structuralAbsenceEvidence": {
+        "installLocation": "C:\\Program Files\\WindowsApps\\Microsoft.PowerShell_7.6.6.0_x64__8wekyb3d8bbwe",
+        "resolvedTargetMatches": [],
+        "byteSearchMatches": [],
+        "absent": true
+      }
     }
   ],
   "terminalInstalled": false,
@@ -47,7 +104,17 @@
     "app": "Calculadora",
     "aumid": "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
     "launchedViaExplorerShellAppsFolder": true,
+    "baselineSkipped": false,
+    "skipReason": null,
+    "attemptedPid": "45092",
+    "extraPidsObserved": [],
     "processObserved": true,
+    "cleanup": {
+      "attemptedGraceful": true,
+      "forced": false,
+      "survivedGraceful": false,
+      "error": null
+    },
     "error": null
   },
   "duplicateCaseEvidence": {
@@ -56,165 +123,217 @@
       {
         "name": "Claude",
         "aumid": "1bbf47ca-ae3c-4c7c-accd-4ac80b81cc1f",
-        "packaged": false,
+        "aumidShaped": false,
         "family": null,
         "appIdPart": null,
-        "lnkNameCollision": true
+        "familyInAppxRegistry": false,
+        "packaged": false,
+        "lnkDisplayNameCollision": true
       },
       {
         "name": "Claude",
         "aumid": "Claude_pzs8sxrjxfjjc!Claude",
-        "packaged": true,
+        "aumidShaped": true,
         "family": "Claude_pzs8sxrjxfjjc",
         "appIdPart": "Claude",
-        "lnkNameCollision": true
+        "familyInAppxRegistry": true,
+        "packaged": true,
+        "lnkDisplayNameCollision": true
       }
-    ]
+    ],
+    "lnkFilesNamedClaude": [
+      {
+        "file": "%USERPROFILE%\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Aplicativos web do Firefox\\Claude.lnk",
+        "resolvedTargetPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+      }
+    ],
+    "packagedClaudeStructuralAbsenceCheck": {
+      "installLocation": "C:\\Program Files\\WindowsApps\\Claude_1.37937.3.0_x64__pzs8sxrjxfjjc",
+      "resolvedTargetMatches": [],
+      "byteSearchMatches": [],
+      "absent": true
+    }
   },
   "packagedApps": [
     {
       "name": "Backup do Windows",
       "aumid": "MicrosoftWindows.Client.CBS_cw5n1h2txyewy!WindowsBackup",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "MicrosoftWindows.Client.CBS_cw5n1h2txyewy",
       "appIdPart": "WindowsBackup",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "Bloco de notas",
       "aumid": "Microsoft.WindowsNotepad_8wekyb3d8bbwe!App",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "Microsoft.WindowsNotepad_8wekyb3d8bbwe",
       "appIdPart": "App",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "Calculadora",
       "aumid": "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "Microsoft.WindowsCalculator_8wekyb3d8bbwe",
       "appIdPart": "App",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "Calibragem do HDR do Windows",
       "aumid": "MicrosoftCorporationII.WindowsHDRCalibration_8wekyb3d8bbwe!App",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "MicrosoftCorporationII.WindowsHDRCalibration_8wekyb3d8bbwe",
       "appIdPart": "App",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "ChatGPT",
       "aumid": "OpenAI.Codex_2p2nqsd0c76g0!App",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "OpenAI.Codex_2p2nqsd0c76g0",
       "appIdPart": "App",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "Claude",
       "aumid": "Claude_pzs8sxrjxfjjc!Claude",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "Claude_pzs8sxrjxfjjc",
       "appIdPart": "Claude",
-      "lnkNameCollision": true
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": true
     },
     {
       "name": "Começar",
       "aumid": "MicrosoftWindows.Client.CBS_cw5n1h2txyewy!WebExperienceHost",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "MicrosoftWindows.Client.CBS_cw5n1h2txyewy",
       "appIdPart": "WebExperienceHost",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "Configurações",
       "aumid": "windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "windows.immersivecontrolpanel_cw5n1h2txyewy",
       "appIdPart": "microsoft.windows.immersivecontrolpanel",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "Filmes e TV",
       "aumid": "Microsoft.ZuneVideo_8wekyb3d8bbwe!Microsoft.ZuneVideo",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "Microsoft.ZuneVideo_8wekyb3d8bbwe",
       "appIdPart": "Microsoft.ZuneVideo",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "Fotos",
       "aumid": "Microsoft.Windows.Photos_8wekyb3d8bbwe!App",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "Microsoft.Windows.Photos_8wekyb3d8bbwe",
       "appIdPart": "App",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "Gravador de Som",
       "aumid": "Microsoft.WindowsSoundRecorder_8wekyb3d8bbwe!App",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "Microsoft.WindowsSoundRecorder_8wekyb3d8bbwe",
       "appIdPart": "App",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "Gyroflow",
       "aumid": "29160AdrianRoss.Gyroflow_q81n4e8pq4bra!Gyroflow",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "29160AdrianRoss.Gyroflow_q81n4e8pq4bra",
       "appIdPart": "Gyroflow",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "KDE Connect",
       "aumid": "KDEe.V.KDEConnect_7vt06qxq7ptv8!KDEe.V.KDEConnect",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "KDEe.V.KDEConnect_7vt06qxq7ptv8",
       "appIdPart": "KDEe.V.KDEConnect",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "Microsoft Store",
       "aumid": "Microsoft.WindowsStore_8wekyb3d8bbwe!App",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "Microsoft.WindowsStore_8wekyb3d8bbwe",
       "appIdPart": "App",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "NVIDIA Control Panel",
       "aumid": "NVIDIACorp.NVIDIAControlPanel_56jybvy8sckqj!NVIDIACorp.NVIDIAControlPanel",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "NVIDIACorp.NVIDIAControlPanel_56jybvy8sckqj",
       "appIdPart": "NVIDIACorp.NVIDIAControlPanel",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "PowerShell",
       "aumid": "Microsoft.PowerShell_8wekyb3d8bbwe!App",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "Microsoft.PowerShell_8wekyb3d8bbwe",
       "appIdPart": "App",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "Segurança do Windows",
       "aumid": "Microsoft.SecHealthUI_8wekyb3d8bbwe!SecHealthUI",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "Microsoft.SecHealthUI_8wekyb3d8bbwe",
       "appIdPart": "SecHealthUI",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     },
     {
       "name": "Vincular ao Celular",
       "aumid": "Microsoft.YourPhone_8wekyb3d8bbwe!App",
-      "packaged": true,
+      "aumidShaped": true,
       "family": "Microsoft.YourPhone_8wekyb3d8bbwe",
       "appIdPart": "App",
-      "lnkNameCollision": false
+      "familyInAppxRegistry": true,
+      "packaged": true,
+      "lnkDisplayNameCollision": false
     }
   ]
 }

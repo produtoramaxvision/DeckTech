@@ -67,7 +67,16 @@ feita nesta máquina, como extrai ícone, como enumera apps e como resolve atalh
      (N-API, koffi, pool PowerShell) contra a linha de base medida de 43,2 ms do
      `IShellItemImageFactory`, e o vencedor está nomeado num ADR versionado.
   2. Executar o enumerador UWP imprime Calculadora, Fotos e Terminal — os três hoje ausentes do
-     scan por `.lnk` — cada um com caminho de ativação e a contagem total do scan.
+     scan por `.lnk` — cada um com caminho de ativação e a contagem total do scan. **Desvio
+     registrado (2026-09-18, PROOF-02 round 2):** Windows Terminal
+     (`Microsoft.WindowsTerminal_8wekyb3d8bbwe`) não está instalado nesta máquina — verificado por
+     três vias independentes (`Get-AppxPackage -Name "*Terminal*"` vazio, `where.exe wt.exe` não
+     encontra, `winget list --id Microsoft.WindowsTerminal` sem pacotes). Por regra 1 (nunca
+     instalar software só para fazer uma prova passar), o critério foi satisfeito com uma
+     substituição no 3º slot: o PowerShell empacotado via Store (`Microsoft.PowerShell_8wekyb3d8bbwe`,
+     confirmado instalado, mesmo formato de AUMID, mesmo caminho de código de classificação/ativação
+     que o Terminal exerceria). Ver `docs/adr/0002-proof-02-uwp-app-enumeration.md` para a evidência
+     completa. Critério considerado satisfeito com esta substituição nomeada.
   3. O leitor binário de `.lnk` em Node resolve os mesmos atalhos que o COM resolveu, com a
      lista de targets idêntica e o tempo total impresso lado a lado com os 2395 ms/149 medidos.
   4. Um scan completo desta máquina não retorna nenhuma entrada cujo target seja `unins*.exe`, e
