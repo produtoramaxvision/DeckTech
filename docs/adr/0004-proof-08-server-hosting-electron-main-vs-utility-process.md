@@ -892,7 +892,10 @@ overwritten by nothing further; the frozen `hb.t=1789708713258` (rel
 t+3372ms) is what every later sample reads, through the last row printed,
 iter 37/37, `windows[read in (t+91640ms, t+92596ms]]`, i.e. a run of
 **~92.6s**, inside the ~56–93s budget the loop itself printed at the start
-(finding #3, below) — while `/health` answers `TIMEOUT` from the first
+(the "Actual poll cadence" finding #3 above, not below — a pre-existing
+mislabel fixed in passing this round: `EnumWindows`'s per-call `Add-Type`
+recompile, not a nominal 300ms step, is why the budget is ~56–93s) — while
+`/health` answers `TIMEOUT` from the first
 post-crash sample onward, and the independently-enumerated window set shows
 the `#32770`/`Error` dialog already present in the sample read in
 `(t+5590ms, t+6372ms]` (absent in the prior sample, read in
