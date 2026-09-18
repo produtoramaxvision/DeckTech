@@ -28,6 +28,7 @@ function makeServer() {
 }
 import { listAppProcesses, listInstalledApps, realIconService } from "./apps.js";
 import { activateApp, openWebsite } from "./actions.js";
+import { createPlatform } from "./platform/index.js";
 import {
   loadConfig,
   saveConfig,
@@ -386,13 +387,44 @@ function createStatusFeed({ readConfig, listProcesses, version = null }) {
   };
 }
 
+/**
+ * PLAT-01 wiring (Fase 4): resolve o provider real da plataforma via
+ * `createPlatform()` — o seam que Fases 0-3 formalizaram e que, até aqui,
+ * nada em server.js chamava (daí GET /api/apps/installed devolver só o
+ * fallback "Finder" do macOS mesmo rodando em win32). Chamado por
+ * `makeApp`/`startServer` só quando `deps.platform`/`opts.platform` não foi
+ * injetado — nunca no import do módulo, então um SO sem provider
+ * (`PLATFORM_NOT_IMPLEMENTED`, ex.: Linux, ambiente de contribuidor) não
+ * derruba o processo ao carregar server.js. Nesse caso cai pros MESMOS
+ * stubs macOS-based que este arquivo já usava antes da fábrica existir —
+ * degrada, não lança.
+ */
+function defaultPlatform() {
+  try {
+    return createPlatform();
+  } catch (err) {
+    if (err && err.code === "PLATFORM_NOT_IMPLEMENTED") {
+      return { listInstalledApps, listAppProcesses, activateApp, openWebsite, iconService: realIconService() };
+    }
+    throw err;
+  }
+}
+
 export function makeApp(deps = {}) {
   const {
     root = join(import.meta.dirname, "public"),
-    appTools = { listAppProcesses, listInstalledApps },
-    actions = { activateApp, openWebsite },
+    // `platform` é o seam: injetável direto (testes de wiring) ou herdado de
+    // startServer via opts.platform, resolvido uma vez só por servidor.
+    // `appTools`/`actions`/`iconService` continuam com a MESMA semântica de
+    // override de sempre — deps.appTools (quando presente) substitui o
+    // objeto inteiro, sem merge; é o que os 12 arquivos de teste que só
+    // injetam listAppProcesses dependem (listInstalledApps fica undefined
+    // nesse caso, e tudo bem — eles nunca batem em /api/apps/installed).
+    platform = defaultPlatform(),
+    appTools = { listAppProcesses: platform.listAppProcesses, listInstalledApps: platform.listInstalledApps },
+    actions = { activateApp: platform.activateApp, openWebsite: platform.openWebsite },
     obs = null,
-    iconService = realIconService(),
+    iconService = platform.iconService,
     onStatusChange = null,
     getDeviceCount = null,
     log = defaultLog,
@@ -1170,11 +1202,18 @@ export async function startServer(arg = {}) {
   };
   opts.trustLoopback = opts.trustLoopback !== false;
   const uiVer = () => uiVersion(join(import.meta.dirname, "public"));
+  // Resolvido UMA vez por servidor e reaproveitado (via ...opts abaixo) por
+  // makeApp — mesmo gap PLAT-01 do default de appTools (server.js:392),
+  // só que pro feed WS de "processos rodando": antes deste fix caía direto
+  // em listAppProcesses (macOS) quando opts.appTools não vinha injetado,
+  // mesma classe de bug que deixava GET /api/apps/installed preso no
+  // fallback "Finder" em win32.
+  opts.platform = opts.platform ?? defaultPlatform();
   const feed = createStatusFeed({
     readConfig: () => configFile ? loadConfig(configFile) : Promise.resolve(opts.config || { pinned: [] }),
     listProcesses: (opts.appTools && opts.appTools.listAppProcesses)
       ? opts.appTools.listAppProcesses
-      : listAppProcesses,
+      : opts.platform.listAppProcesses,
     version: uiVer,
   });
   const handler = makeApp({
