@@ -110,6 +110,26 @@ function win32Platform(deps = {}) {
     resolveWindowsAppearanceTracker = createWindowsAppearanceTracker,
   } = deps;
   const appearanceTracker = resolveWindowsAppearanceTracker();
+  const iconService = makeIconService({ scan: win32ListInstalledApps, appearanceToken: appearanceTracker.token });
+  // Fase 4 (wiring): `appearanceTracker` lazy-starta um powershell.exe
+  // PERSISTENTE (platform/windows/theme.js's startThemeWatcher — sem
+  // .unref(), por design: o app real precisa do watch vivo por toda a
+  // sessão) na PRIMEIRA getIconPng() que passar por ele. Enquanto
+  // createPlatform() não era chamado por ninguém (o próprio bug desta
+  // tarefa), esse watcher nunca nascia fora dos testes dedicados de
+  // platform/windows/theme.js, que sempre o param explicitamente. Wireado
+  // como default de server.js, um server criado (e depois fechado) sem
+  // nunca receber SIGTERM/kill — como `node --test`, que cria um server
+  // novo por teste — deixaria um powershell.exe orfão por teste e travava
+  // o processo inteiro em exit (achado real: test/ui.test.mjs sozinho
+  // nunca retornava depois do fix de wiring, sem nenhum teste FALHANDO —
+  // todos os 16 passavam, só o processo não saía). `iconService.dispose()`
+  // não é membro do contrato de 5 campos de createPlatform() (não mexe em
+  // CONTRACT_MEMBERS/platform-factory.test.mjs) — é um método a mais no
+  // objeto iconService, que server.js#startServer chama em close() só
+  // quando existe (`?.dispose?.()`), então um iconService injetado por
+  // teste (sem esse método) continua um no-op seguro.
+  iconService.dispose = () => appearanceTracker.stop();
   return {
     listInstalledApps: win32ListInstalledApps,
     listAppProcesses: win32ListAppProcesses,
@@ -122,7 +142,7 @@ function win32Platform(deps = {}) {
     // activateApp (platform/windows/actions.js) seguem a mesma regra: suas
     // próprias instâncias default já resolvem `resolveApps` para
     // win32ListInstalledApps sem precisar de injeção aqui.
-    iconService: makeIconService({ scan: win32ListInstalledApps, appearanceToken: appearanceTracker.token }),
+    iconService,
   };
 }
 

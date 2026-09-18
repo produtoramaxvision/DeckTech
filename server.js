@@ -1298,6 +1298,18 @@ export async function startServer(arg = {}) {
     server.listen(port, resolveStartup);
   });
   let closed = false;
+  // PLAT-01 wiring (achado real, não hipotético): o win32Platform() default
+  // (platform/index.js) lazy-starta um powershell.exe PERSISTENTE (o watch
+  // de tema — platform/windows/theme.js) na primeira requisição de ícone.
+  // Sem parar esse watcher aqui, um server fechado (close()) sem receber
+  // SIGTERM/kill deixa o processo órfão de pé — em `node --test`, que cria
+  // um server novo por teste sem nunca matar o processo Node entre eles,
+  // isso travava a suíte inteira em exit mesmo com todo teste passando
+  // (test/ui.test.mjs sozinho nunca retornava depois do wiring, reproduzido
+  // e corrigido nesta mesma tarefa). `?.dispose?.()` é opcional por design:
+  // um iconService injetado por teste (sem esse método) ou o iconService
+  // macOS (sem processo persistente nenhum) seguem no-op aqui.
+  const disposePlatform = () => { try { opts.platform?.iconService?.dispose?.(); } catch {} };
   const close = () => new Promise((resolve, reject) => {
     if (closed) return resolve();
     if (!server.listening) {
@@ -1305,12 +1317,14 @@ export async function startServer(arg = {}) {
       stopHeartbeat();
       feed.close();
       try { wss.close(); } catch (e) {}
+      disposePlatform();
       return resolve();
     }
     closed = true;
     stopHeartbeat();
     feed.close();
     try { wss.close(); } catch (e) {}
+    disposePlatform();
     server.close(e => e ? reject(e) : resolve());
   });
   return { port: server.address().port, close };
