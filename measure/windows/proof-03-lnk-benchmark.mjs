@@ -863,7 +863,21 @@ async function main() {
   // honestly abstains on. It is always routed into
   // unexpectedParserEmptyGapCount, which DOES gate the exit code.
   const idListOnlyGapRows = rows.filter((r) => r.comparisonTier === 'parser-empty' && r.category && r.category.noUsablePathSource && !r.parserExtraDataTruncated);
-  const unexpectedParserEmptyRows = rows.filter((r) => r.comparisonTier === 'parser-empty' && !(r.category && r.category.noUsablePathSource && !r.parserExtraDataTruncated));
+  // Projected the same way extraDataTruncatedRows is below (path + the
+  // fields that explain WHY this row is "unexpected", not the whole row
+  // object already sitting in report.rows). The warning below names this
+  // array in the JSON, so it must actually exist there -- previously it
+  // cited a key that was never written to the report object at all.
+  const unexpectedParserEmptyRows = rows
+    .filter((r) => r.comparisonTier === 'parser-empty' && !(r.category && r.category.noUsablePathSource && !r.parserExtraDataTruncated))
+    .map((r) => ({
+      path: r.path,
+      parserRejectReason: r.parserRejectReason,
+      parserIoError: r.parserIoError,
+      parserException: r.parserException,
+      category: r.category,
+      parserExtraDataTruncated: r.parserExtraDataTruncated,
+    }));
   const idListOnlyGapCount = idListOnlyGapRows.length;
   const unexpectedParserEmptyGapCount = unexpectedParserEmptyRows.length;
 
@@ -899,7 +913,16 @@ async function main() {
     console.log(`  NOTE: noUsablePathSource (${categoryCensus.noUsablePathSource}) != idListOnly (${categoryCensus.idListOnly}) -- at least one shortcut has LinkInfo present but unusable (ForceNoLinkInfo) with no env-var fallback (round-3 minor finding 7); see rows with category.noUsablePathSource=true, category.idListOnly=false in the JSON.`);
   }
   if (unexpectedParserEmptyGapCount > 0) {
-    console.log(`  WARNING: ${unexpectedParserEmptyGapCount} shortcut(s) produced no candidate for a reason OTHER than "no usable target-path source" -- see unexpectedParserEmptyRows in the JSON.`);
+    // Printed inline (same convention as the extraDataTruncated WARNING
+    // above) AND written into the report object below as
+    // unexpectedParserEmptyRows -- a row that is unusual enough to name
+    // in a WARNING is unusual enough to show where the operator is
+    // already looking, not just in the JSON the text below points to.
+    console.log(`  WARNING: ${unexpectedParserEmptyGapCount} shortcut(s) produced no candidate for a reason OTHER than "no usable target-path source" -- see unexpectedParserEmptyRows in the JSON:`);
+    for (const r of unexpectedParserEmptyRows) {
+      const reason = r.parserRejectReason ?? r.parserIoError ?? r.parserException ?? 'unknown -- see category/parserExtraDataTruncated for this row in the JSON';
+      console.log(`    ${r.path} -- ${reason}`);
+    }
   }
   console.log('');
 
@@ -1048,6 +1071,7 @@ async function main() {
     categoryCensus,
     forceNoLinkInfoCount,
     extraDataTruncatedRows,
+    unexpectedParserEmptyRows,
     realpathErrors,
     uwpMarkerScan: uwpScan,
     envSnapshot,

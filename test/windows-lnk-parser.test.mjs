@@ -60,6 +60,17 @@
 //     testable in-process without spawning real git or killing the test
 //     runner. The two git helpers are separately integration-tested
 //     against real throwaway git repos.
+//   - Round-10 blocker 1 ("preferably also" clause): resolveStartMenuRoots
+//     and knownFolderFromRegistry -- the registry known-folder mechanism
+//     the fix introduced to resolve the two Start Menu roots -- shipped
+//     with zero automated coverage of the mechanism itself (only
+//     MISSING_SCAN_ROOT, downstream of resolution, was guarded). Covered
+//     via the existing `spawnImpl`/`regQuery` injection seams: REG_SZ
+//     line parsing (embedded vs. trailing whitespace), REG_EXPAND_SZ/
+//     non-zero status/empty stdout/ENOENT (`.error`)/a throwing
+//     `spawnImpl` all resolving to null rather than a partial value, and
+//     per-root independent fallback (one root registry-resolved, the
+//     other env-var-reconstructed, in both directions).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -73,6 +84,8 @@ import {
   walkLnkFiles,
   resolveReportPath,
   ReportPathRefusal,
+  knownFolderFromRegistry,
+  resolveStartMenuRoots,
   gitPorcelainStatusForPath,
   gitPathIsTracked,
   isoForFilename,
@@ -571,6 +584,140 @@ test('walkLnkFiles: a non-ENOENT error at the ROOT (e.g. EACCES) is recorded wit
   assert.deepEqual(files, []);
   assert.equal(dirErrors.length, 1);
   assert.equal(dirErrors[0].code, 'EACCES', 'a real permission error at the root must keep its own code, not be relabeled MISSING_SCAN_ROOT');
+});
+
+// --- Round-10 blocker finding 1 ("preferably also" clause): registry
+// known-folder resolution (knownFolderFromRegistry/resolveStartMenuRoots)
+// shipped with the fix but with zero automated coverage of the mechanism
+// itself -- every scenario below uses the `spawnImpl`/`regQuery` seams the
+// functions already expose, no new seam added. ---
+
+test('knownFolderFromRegistry: a stubbed REG_SZ line parses to the exact path -- embedded space kept, trailing padding stripped', () => {
+  // Shaped like real `reg query <key> /v <name>` column output: the value
+  // token is padded with trailing spaces before the CRLF, and the path
+  // itself contains an embedded space ("Test User") that must NOT be
+  // collapsed or truncated by the parser (the docblock's "does not
+  // split-and-rejoin on whitespace" claim).
+  const stdout = '\r\n'
+    + 'HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders\r\n'
+    + '    Programs    REG_SZ    C:\\Users\\Test User\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs   \r\n'
+    + '\r\n';
+  const spawnImpl = () => ({ error: null, status: 0, stdout, stderr: '' });
+
+  const result = knownFolderFromRegistry('HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders', 'Programs', { spawnImpl });
+
+  assert.equal(result, 'C:\\Users\\Test User\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs');
+});
+
+test('knownFolderFromRegistry: a REG_EXPAND_SZ line (not REG_SZ) is not treated as the value -- returns null, never the unexpanded %VAR% string', () => {
+  // `Shell Folders` (unlike `User Shell Folders`) is documented to always
+  // hold a resolved REG_SZ. If this machine's key somehow returned
+  // REG_EXPAND_SZ instead, the function must not silently hand back an
+  // unexpanded '%VAR%'-shaped string as if it were resolved.
+  const stdout = '\r\nHKEY_CURRENT_USER\\...\\Shell Folders\r\n    Programs    REG_EXPAND_SZ    %APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\r\n\r\n';
+  const spawnImpl = () => ({ error: null, status: 0, stdout, stderr: '' });
+
+  const result = knownFolderFromRegistry('HKCU\\...\\Shell Folders', 'Programs', { spawnImpl });
+
+  assert.equal(result, null);
+});
+
+test('knownFolderFromRegistry: a non-zero reg.exe exit status returns null even though stdout is non-empty and REG_SZ-shaped -- discriminates the status guard from the empty-stdout guard', () => {
+  // stdout is deliberately populated with a well-formed REG_SZ line so
+  // this can only return non-null if the `proc.status !== 0` check is
+  // skipped -- an empty-stdout stub would let a weaker implementation
+  // (one missing only the status check) pass by accident.
+  const stdout = '\r\nHKEY_CURRENT_USER\\...\\Shell Folders\r\n    Programs    REG_SZ    C:\\Users\\bob\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\r\n\r\n';
+  const spawnImpl = () => ({ error: null, status: 1, stdout, stderr: 'ERROR: The system was unable to find the specified registry key or value.\r\n' });
+
+  const result = knownFolderFromRegistry('HKCU\\...\\Shell Folders', 'Programs', { spawnImpl });
+
+  assert.equal(result, null);
+});
+
+test('knownFolderFromRegistry: empty stdout (status 0) returns null', () => {
+  const spawnImpl = () => ({ error: null, status: 0, stdout: '', stderr: '' });
+
+  const result = knownFolderFromRegistry('HKCU\\...\\Shell Folders', 'Programs', { spawnImpl });
+
+  assert.equal(result, null);
+});
+
+test('knownFolderFromRegistry: reg.exe missing from PATH (spawnSync sets .error, ENOENT) returns null -- the docblock\'s "reg.exe not found" case', () => {
+  // Per Node's spawnSync contract, a command that cannot be launched at
+  // all (e.g. not found on PATH) reports the failure via `.error` (an
+  // ErrnoException) with `.status` left null and no stdout -- distinct
+  // from a command that ran and exited non-zero.
+  const enoent = new Error('spawnSync reg ENOENT');
+  enoent.code = 'ENOENT';
+  const spawnImpl = () => ({ error: enoent, status: null, stdout: undefined, stderr: undefined });
+
+  const result = knownFolderFromRegistry('HKCU\\...\\Shell Folders', 'Programs', { spawnImpl });
+
+  assert.equal(result, null);
+});
+
+test('knownFolderFromRegistry: a throwing spawnImpl is caught -- returns null, never propagates', () => {
+  const spawnImpl = () => { throw new Error('simulated: spawnSync itself threw (e.g. EPERM on the sandbox)'); };
+
+  const result = knownFolderFromRegistry('HKCU\\...\\Shell Folders', 'Programs', { spawnImpl });
+
+  assert.equal(result, null);
+});
+
+test('resolveStartMenuRoots: per-root independent fallback -- Common (HKLM) resolves from the registry while User (HKCU) falls back to %APPDATA%, verified independently', () => {
+  const savedProgramData = process.env.ProgramData;
+  const savedAppData = process.env.APPDATA;
+  // A space in the fallback fixture doubles as coverage for task rule 5
+  // (path.join over hardcoded separators, exercised with a space).
+  process.env.ProgramData = 'C:\\Unused ProgramData';
+  process.env.APPDATA = 'C:\\Users\\Test User\\AppData\\Roaming';
+  try {
+    const calls = [];
+    const regQuery = (key, valueName) => {
+      calls.push({ key, valueName });
+      if (key.startsWith('HKLM')) return 'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs';
+      return null; // HKCU (User) lookup fails -- must fall back independently
+    };
+
+    const roots = resolveStartMenuRoots([], { regQuery });
+
+    assert.deepEqual(roots[0], { path: 'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs', source: 'registry-known-folder' });
+    assert.deepEqual(roots[1], {
+      path: join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+      source: 'env-var-reconstruction-fallback',
+    });
+    assert.equal(calls.length, 2);
+    assert.ok(calls.some((c) => c.key.startsWith('HKLM') && c.valueName === 'Common Programs'), 'the all-users root must be queried under HKLM with value name "Common Programs"');
+    assert.ok(calls.some((c) => c.key.startsWith('HKCU') && c.valueName === 'Programs'), 'the per-user root must be queried under HKCU with value name "Programs"');
+  } finally {
+    if (savedProgramData === undefined) delete process.env.ProgramData; else process.env.ProgramData = savedProgramData;
+    if (savedAppData === undefined) delete process.env.APPDATA; else process.env.APPDATA = savedAppData;
+  }
+});
+
+test('resolveStartMenuRoots: per-root independent fallback -- the OPPOSITE root falls back this time, proving the decision is not shared between the two', () => {
+  const savedProgramData = process.env.ProgramData;
+  const savedAppData = process.env.APPDATA;
+  process.env.ProgramData = 'C:\\Test ProgramData';
+  process.env.APPDATA = 'C:\\Unused AppData';
+  try {
+    const regQuery = (key) => {
+      if (key.startsWith('HKCU')) return 'C:\\Users\\bob\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs';
+      return null; // HKLM (Common) lookup fails this time
+    };
+
+    const roots = resolveStartMenuRoots([], { regQuery });
+
+    assert.deepEqual(roots[0], {
+      path: join(process.env.ProgramData, 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+      source: 'env-var-reconstruction-fallback',
+    });
+    assert.deepEqual(roots[1], { path: 'C:\\Users\\bob\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs', source: 'registry-known-folder' });
+  } finally {
+    if (savedProgramData === undefined) delete process.env.ProgramData; else process.env.ProgramData = savedProgramData;
+    if (savedAppData === undefined) delete process.env.APPDATA; else process.env.APPDATA = savedAppData;
+  }
 });
 
 // --- Round-10 minor finding 3: --write-canonical gate coverage ---
