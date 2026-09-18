@@ -37,16 +37,36 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const outDir = path.join(__dirname, "..", "data");
 const outFile = path.join(outDir, "apps.json");
 
+// Round-7 review fix (finding 1, BLOCKER): this file already had the correct
+// accounting pattern three functions below this one — unresolvedLnks and
+// excludedResolvedTargets both record every item the harness drops, WITH A
+// REASON, into apps.json, instead of silently shrinking the population. The
+// three enumeration-time failure modes this fix addresses (absent root,
+// unreadable root, unreadable subdirectory) did NOT follow that pattern:
+// a missing root returned an empty list, an unreadable directory vanished
+// via a bare `catch { continue; }`, and an unset APPDATA silently fell back
+// to the Default-profile provisioning template (never a real user's Start
+// Menu) — all three with no counter and exit 0. That inconsistency is what
+// makes this a gap, not a deliberate design choice: the correct pattern
+// already existed in this same file and simply was not applied here.
 function walkLnk(root) {
   const found = [];
-  if (!existsSync(root)) return found;
+  const unreadableDirs = [];
   const stack = [root];
   while (stack.length) {
     const dir = stack.pop();
     let entries;
     try {
       entries = readdirSync(dir, { withFileTypes: true });
-    } catch {
+    } catch (err) {
+      // Decision (round-7 fix): an unreadable directory DEEPER in the tree is
+      // a partial loss within an otherwise-working root — recorded here and
+      // walking continues, so one locked/EPERM subfolder (a OneDrive
+      // placeholder, an AV-quarantined folder) doesn't kill the whole
+      // benchmark run. An unreadable/absent ROOT itself is treated as a
+      // total population loss for that root instead, and is fatal — see the
+      // rootUnreadable check below, after both walks complete.
+      unreadableDirs.push({ dir, code: err.code || null, errno: err.errno ?? null, message: err.message });
       continue;
     }
     for (const entry of entries) {
@@ -58,24 +78,67 @@ function walkLnk(root) {
       }
     }
   }
-  return found;
+  return { found, unreadableDirs };
 }
 
-const machineRoot = path.join(
-  process.env.ProgramData || "C:\\ProgramData",
-  "Microsoft", "Windows", "Start Menu", "Programs"
-);
-const userRoot = path.join(
-  process.env.APPDATA || "C:\\Users\\Default\\AppData\\Roaming",
-  "Microsoft", "Windows", "Start Menu", "Programs"
-);
+// Round-7 review fix (finding 1, BLOCKER, part 3): deleted the
+// `|| "C:\\ProgramData"` / `|| "C:\\Users\\Default\\AppData\\Roaming"`
+// fallbacks outright. %ProgramData% is a machine-wide system env var Windows
+// itself sets; if it is absent, the environment is broken in a way worth
+// failing loudly for, not guessing past. %APPDATA% is worse to guess: the
+// Default profile is a provisioning TEMPLATE, never any real user's Start
+// Menu, so falling back to it would silently produce a plausible-looking
+// WRONG app set (near-empty, or someone else's) rather than an error — the
+// exact failure mode the review flagged.
+if (!process.env.ProgramData) {
+  console.error("[list-apps] FATAL: %ProgramData% is not set — cannot locate the machine-wide Start Menu root. Refusing to guess a fallback path.");
+  process.exit(1);
+}
+if (!process.env.APPDATA) {
+  console.error("[list-apps] FATAL: %APPDATA% is not set — cannot locate the per-user Start Menu root. Refusing to fall back to C:\\Users\\Default\\AppData\\Roaming (that is the Default-profile provisioning template, never a real user's Start Menu, and would silently produce a wrong app set instead of an error).");
+  process.exit(1);
+}
+
+const machineRoot = path.join(process.env.ProgramData, "Microsoft", "Windows", "Start Menu", "Programs");
+const userRoot = path.join(process.env.APPDATA, "Microsoft", "Windows", "Start Menu", "Programs");
+
+// Round-7 review fix (finding 1, BLOCKER, part 2): a missing/redirected root
+// used to make walkLnk() return an empty array silently — the reproduced
+// evidence showed a 30% smaller app set with no warning and exit 0. Guessing
+// which apps a machine has is exactly what this project exists not to do, so
+// a root that does not exist is now fatal, checked BEFORE any enumeration.
+const missingRoots = [machineRoot, userRoot].filter((r) => !existsSync(r));
+if (missingRoots.length) {
+  console.error(`[list-apps] FATAL: ${missingRoots.length} Start Menu root(s) do not exist — cannot build a complete app list:`);
+  for (const r of missingRoots) console.error(`  - ${r}`);
+  console.error("[list-apps] a missing/redirected root would otherwise silently shrink the benchmarked population (round-7 review finding 1). Refusing to proceed.");
+  process.exit(1);
+}
 
 const t0 = performance.now();
-const lnkFiles = [...walkLnk(machineRoot), ...walkLnk(userRoot)];
+const machineWalk = walkLnk(machineRoot);
+const userWalk = walkLnk(userRoot);
+const lnkFiles = [...machineWalk.found, ...userWalk.found];
+const unreadableDirs = [...machineWalk.unreadableDirs, ...userWalk.unreadableDirs];
 const enumMs = performance.now() - t0;
 
 console.log(`[list-apps] enumerated ${lnkFiles.length} .lnk files in ${enumMs.toFixed(1)} ms`);
 console.log(`[list-apps] roots: ${machineRoot} ; ${userRoot}`);
+// Printed immediately after enumeration (not only in the final summary) so
+// this diagnostic survives an early exit at the checks below.
+console.log(`[list-apps] unreadable directories encountered during enumeration: ${unreadableDirs.length}${unreadableDirs.length ? " (path/code recorded in apps.json.unreadableDirs)" : ""}`);
+
+// Root-level unreadable (exists per existsSync above, but readdirSync threw —
+// EACCES/EPERM, a reparse point, a roaming redirect mid-read) is the same
+// total-population loss as an absent root, so it is fatal too, per the
+// decision documented in walkLnk() above.
+const rootUnreadable = unreadableDirs.filter((u) => u.dir === machineRoot || u.dir === userRoot);
+if (rootUnreadable.length) {
+  console.error(`[list-apps] FATAL: ${rootUnreadable.length} Start Menu root(s) exist but could not be read:`);
+  for (const u of rootUnreadable) console.error(`  - ${u.dir} (${u.code || u.message})`);
+  console.error("[list-apps] same reasoning as a missing root (round-7 review finding 1): proceeding on a partial read would silently guess the population. Refusing to proceed.");
+  process.exit(1);
+}
 
 if (lnkFiles.length === 0) {
   console.error("[list-apps] no .lnk files found — cannot build app list");
@@ -200,6 +263,8 @@ writeFileSync(
       userRoot,
       lnkCount: lnkFiles.length,
       enumMs: Number(enumMs.toFixed(1)),
+      unreadableDirCount: unreadableDirs.length,
+      unreadableDirs,
       resolveMs: Number(resolveMs.toFixed(1)),
       resolvedCount: rows.filter((r) => r.target).length,
       unresolvedCount: unresolvedLnks.length,
@@ -220,6 +285,7 @@ writeFileSync(
   "utf8"
 );
 
+console.log(`[list-apps] unreadable directory count (enumeration-time, non-root): ${unreadableDirs.length} (recorded with path/code in apps.json.unreadableDirs)`);
 console.log(`[list-apps] resolved ${resolvedApps.length} apps total (all extensions); extension histogram: ${JSON.stringify(extensionHistogram)}`);
 console.log(`[list-apps] unresolved .lnk count (resolution itself failed/empty): ${unresolvedLnks.length} (recorded with reasons in apps.json.unresolvedLnks)`);
 console.log(`[list-apps] resolved-but-excluded count (uninstaller/dedup/missing file): ${excludedResolvedTargets.length} (recorded with reasons in apps.json.excludedResolvedTargets)`);

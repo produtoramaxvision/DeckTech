@@ -3,8 +3,10 @@
   "machineRoot": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",
   "userRoot": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs",
   "lnkCount": 182,
-  "enumMs": 13.6,
-  "resolveMs": 633.7,
+  "enumMs": 9.5,
+  "unreadableDirCount": 0,
+  "unreadableDirs": [],
+  "resolveMs": 579.1,
   "resolvedCount": 178,
   "unresolvedCount": 4,
   "unresolvedLnks": [
@@ -400,7 +402,7 @@
   ],
   "dedupedAppCount": 115,
   "hasSpaceInPath": true,
-  "generatedAt": "2026-09-18T02:14:51.797Z",
+  "generatedAt": "2026-09-18T04:20:05.350Z",
   "apps": [
     {
       "name": "Administrative Tools",

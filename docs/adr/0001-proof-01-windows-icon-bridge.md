@@ -2,14 +2,26 @@
 
 **Status:** Aceita
 **Data:** Criada 2026-09-17 22:00 (commit `2ffab25`). Revisões em ordem cronológica, cada uma
-com o commit que a fez, para que esta linha não volte a inverter a ordem numa próxima revisão
-(round 5 review, finding 5): round 2 em 2026-09-17 22:33 (commit `2c8cc99`); correção pós-round-2
-de um self-advisory pass em 2026-09-17 22:40 (commit `7daf52b`, não um round de review numerado —
-citado à parte porque o número 533,8ms desta revisão vem dele, ver "Por que o pool PowerShell
-não vence"); round 3 em 2026-09-17 23:39 (commit `349a3fd`); round 4 em 2026-09-18 00:23 (commit
-`4287998`); round 5 em 2026-09-18 00:47 (commit `770b5d8`); round 6 em 2026-09-18 01:02 (commit
-`8d3ab77`) — ver "Revisão round 2", "Revisão round 3", "Revisão round 4", "Revisão round 5" e
-"Revisão round 6" abaixo.
+com o(s) commit(s) que a fez, para que esta linha não volte a inverter a ordem numa próxima
+revisão (round 5 review, finding 5). **Restrição estrutural (round-7 fix, finding 2):** um
+commit não pode citar o próprio hash — essa é a razão pela qual esta linha já quebrou três vezes
+(placeholder "nesta revisão" da v5; o fix do round 6 corrigindo esse placeholder; e o commit
+`15c8155` re-quebrando a linha ao ser o commit que editava a entrada sobre si mesmo). Por isso a
+entrada de cada round SÓ é preenchida no round seguinte, como esta edição agora preenche a do
+round 6 — a entrada do round que está fazendo esta própria edição (round 7) não tenta se
+auto-citar; ver "Revisão round 7" abaixo, que registra por que isso é decisão estrutural e não
+um novo descuido, e cujo(s) commit(s) serão adicionados retroativamente na próxima revisão que
+tocar este arquivo. Cronologia: round 2 em 2026-09-17 22:33 (commit `2c8cc99`); correção
+pós-round-2 de um self-advisory pass em 2026-09-17 22:40 (commit `7daf52b`, não um round de
+review numerado — citado à parte porque o número 533,8ms desta revisão vem dele, ver "Por que o
+pool PowerShell não vence"); round 3 em 2026-09-17 23:39 (commit `349a3fd`); round 4 em
+2026-09-18 00:23 (commit `4287998`); round 5 em 2026-09-18 00:47 (commit `770b5d8`); round 6 em
+2026-09-18 01:02–01:03 (commits `8d3ab77` e `15c8155`; `15c8155` foi mis-escopado — sua mensagem
+de commit descrevia apenas esta edição de uma linha, mas o diff também carregava 152 linhas não
+relacionadas de `docs/adr/0003-proof-03-lnk-binary-parsing.md`, revertidas byte-a-byte em
+`e037bcb` e o conteúdo daquele arquivo recuperado pelo dono da PROOF-03 em `1a17224`; achado do
+round-7 review, ver "Revisão round 7" abaixo) — ver "Revisão round 2", "Revisão round 3",
+"Revisão round 4", "Revisão round 5", "Revisão round 6" e "Revisão round 7" abaixo.
 **Requisito:** PROOF-01 (`.maxvision/REQUIREMENTS.md`, Fase 0)
 **Máquina de medição:** Windows 11 Pro 10.0.22631, x64, Node v25.5.0, VS Build Tools 2022
 (17.14.37411.7) com componente C++ x64, Windows SDK 10.0.26100.0, Python 3.13.13, locale pt-BR
@@ -1249,6 +1261,155 @@ Um sexto reviewer rigoroso rejeitou a v5 deste ADR (commit `770b5d8`) com 2 acha
    prosa. O bloco cercado com a saída real completa (incluindo a linha de tempo) permanece
    intocado na seção "Revisão round 5" finding 3, onde já estava, com uma nota explícita de que
    é uma execução única não repetida, não comparável às medianas/p95 de `bench-repeat.mjs`.
+
+Ambos os achados têm evidência colada nesta revisão (comando executado + saída real). Nenhum
+achado foi contestado.
+
+## Revisão round 7
+
+Um sétimo reviewer rigoroso rejeitou a v6 deste ADR com 2 achados (1 blocker, 1 major). Ambos
+procediam quando verificados; nenhum foi contestado.
+
+1. **[blocker] `list-apps.mjs` encolhia silenciosamente a população benchmarcada quando uma
+   raiz do Start Menu estava ausente/redirecionada ou uma subpasta era ilegível: reportava
+   sucesso, passava por todo gate e escrevia um conjunto 30% menor, sem aviso, sem contador e
+   exit 0 — a cadeia de proveniência do ADR (182 atalhos → 178 resolvidos → 140 únicos → 115
+   `.exe`) podia silenciosamente ser uma cadeia diferente em outra máquina enquanto toda
+   alegação do ADR ainda "passava".** Reproduzido pelo reviewer (saída colada verbatim):
+   ```
+   $ cd measure/windows/icon-bench && APPDATA="C:\Users\MaxVision\NoSuchRoamingDir" node scripts/list-apps.mjs
+   [list-apps] enumerated 123 .lnk files in 6.7 ms
+   [list-apps] roots: C:\ProgramData\... ; C:\Users\MaxVision\NoSuchRoamingDir\Microsoft\Windows\Start Menu\Programs
+   [list-apps] resolved 103 apps total (all extensions)
+   [list-apps] wrote 80 .exe-only deduped apps to ...\data\apps.json
+   [list-apps] at least one path contains a space: true
+   EXIT=0
+   ```
+   Três sites de perda silenciosa em `measure/windows/icon-bench/scripts/list-apps.mjs`: :42
+   `if (!existsSync(root)) return found;` (raiz ausente/redirecionada some sem registro); :47-50
+   `try { entries = readdirSync(...); } catch { continue; }` (diretório ilegível — EACCES/EPERM,
+   reparse point, redirecionamento de roaming — some sem mensagem nem contador); :69
+   `process.env.APPDATA || "C:\\Users\\Default\\AppData\\Roaming"` (o perfil Default é um
+   template de provisionamento, nunca o Start Menu de um usuário real, então um APPDATA não
+   definido produzia um conjunto de apps plausível porém ERRADO em vez de um erro). O reviewer
+   apontou que o padrão CORRETO já existia neste mesmo arquivo, três funções adiante:
+   `unresolvedLnks` e `excludedResolvedTargets` já registram cada item descartado COM MOTIVO em
+   `apps.json` — o que torna isto um gap, não uma escolha deliberada.
+
+   **Corrigido** em `measure/windows/icon-bench/scripts/list-apps.mjs`:
+   - `%ProgramData%` e `%APPDATA%` não têm mais fallback algum: se qualquer um estiver ausente,
+     o script agora falha com um erro nomeado (`FATAL: %APPDATA% is not set — ...`) e `exit 1`,
+     em vez de adivinhar um caminho. O comentário no código explica por que o fallback do
+     `Default\AppData\Roaming` era especificamente perigoso (template de provisionamento, não
+     um usuário real).
+   - Uma raiz do Start Menu que não existe (`existsSync` falso) agora é fatal, checada ANTES de
+     qualquer enumeração: o script lista as raízes ausentes e sai com `exit 1`.
+   - `walkLnk()` agora retorna `{ found, unreadableDirs }`: todo `readdirSync` que lançar exceção
+     durante a caminhada (path, `err.code`, `err.errno`, mensagem) é registrado em
+     `unreadableDirs`, seguindo exatamente o padrão de `unresolvedLnks`/`excludedResolvedTargets`
+     já presente no arquivo — `apps.json` ganhou `unreadableDirCount` e `unreadableDirs`, e o
+     console imprime a contagem logo após a enumeração (não só no resumo final), para sobreviver
+     a uma saída antecipada nos gates seguintes (`hasSpace`, lista vazia).
+   - Decisão explícita, documentada em comentário no código: uma subpasta ilegível PROFUNDA na
+     árvore é uma perda PARCIAL dentro de uma raiz que funciona — registrada, não fatal, para que
+     uma pasta travada/EPERM isolada não mate o benchmark inteiro. Uma RAIZ ilegível (existe mas
+     `readdirSync` lança — EACCES/EPERM/reparse point) é a MESMA perda total de população que uma
+     raiz ausente, então também é fatal — checada logo após as duas caminhadas.
+
+   **Reproduzido nesta revisão** — o comando exato do reviewer, mais as duas variantes de env var
+   não definida, mais uma raiz ilegível REAL construída com `icacls /deny` (não simulada), mais um
+   run limpo confirmando que a cadeia 182→178→140→115 do ADR não mudou:
+   ```
+   $ cd measure/windows/icon-bench && APPDATA="C:\Users\MaxVision\NoSuchRoamingDir" node scripts/list-apps.mjs; echo "EXIT=$?"
+   [list-apps] FATAL: 1 Start Menu root(s) do not exist — cannot build a complete app list:
+     - C:\Users\MaxVision\NoSuchRoamingDir\Microsoft\Windows\Start Menu\Programs
+   [list-apps] a missing/redirected root would otherwise silently shrink the benchmarked population (round-7 review finding 1). Refusing to proceed.
+   EXIT=1
+
+   $ env -u APPDATA node scripts/list-apps.mjs; echo "EXIT=$?"
+   [list-apps] FATAL: %APPDATA% is not set — cannot locate the per-user Start Menu root. Refusing to fall back to C:\Users\Default\AppData\Roaming (...)
+   EXIT=1
+
+   $ env -u ProgramData node scripts/list-apps.mjs; echo "EXIT=$?"
+   [list-apps] FATAL: %ProgramData% is not set — cannot locate the machine-wide Start Menu root. Refusing to guess a fallback path.
+   EXIT=1
+   ```
+   Raiz ilegível real (não uma raiz ausente): `icacls <pasta> /deny 'MaxVisionFPV\MaxVision:(RX)'`
+   numa subpasta dentro de uma árvore `APPDATA` fake com um `.lnk` dummy, run com essa `APPDATA`:
+   ```
+   [list-apps] enumerated 123 .lnk files in 5.3 ms
+   [list-apps] unreadable directories encountered during enumeration: 1 (path/code recorded in apps.json.unreadableDirs)
+   [list-apps] unreadable directory count (enumeration-time, non-root): 1 (recorded with path/code in apps.json.unreadableDirs)
+   [list-apps] wrote 80 .exe-only deduped apps to ...\data\apps.json (23 non-.exe targets excluded ...)
+   EXIT=0
+   ```
+   Confirma a decisão: subpasta ilegível → registrada em `unreadableDirs`, não fatal, `exit 0`.
+   Raiz ausente/ilegível → fatal, `exit 1`, `apps.json` NÃO é reescrito (o `exit(1)` acontece
+   antes de qualquer `writeFileSync`, verificado com `git status --porcelain` mostrando o arquivo
+   intocado depois dos três runs degradados acima).
+
+   Run limpo, máquina real, depois de reverter a árvore `APPDATA` fake:
+   ```
+   $ node scripts/list-apps.mjs; echo "EXIT=$?"
+   [list-apps] enumerated 182 .lnk files in 9.5 ms
+   [list-apps] unreadable directories encountered during enumeration: 0
+   [list-apps] resolved 182 .lnk targets via single PowerShell/WScript.Shell process in 579.1 ms (3.18 ms/lnk amortized)
+   [list-apps] resolved 140 apps total (all extensions); extension histogram: {"exe":115,"msc":9,"txt":2,"pdf":1,"url":6,"html":3,"htm":3,"chm":1}
+   [list-apps] unresolved .lnk count (resolution itself failed/empty): 4
+   [list-apps] resolved-but-excluded count (uninstaller/dedup/missing file): 38
+   [list-apps] wrote 115 .exe-only deduped apps to ...\data\apps.json (25 non-.exe targets excluded ...)
+   [list-apps] at least one path contains a space: true
+   EXIT=0
+   ```
+   182 → 178 resolvidos (182 − 4 não-resolvidos) → 140 únicos (todas extensões) → 115 `.exe` —
+   idêntico ao que o ADR já citava; `git diff --stat -- measure/windows/icon-bench/data/apps.json`
+   mostra apenas os dois campos novos (`unreadableDirCount: 0`, `unreadableDirs: []`), os dois
+   timings (`enumMs`, `resolveMs`) e `generatedAt` mudando — nenhum app, contagem ou motivo de
+   exclusão mudou.
+
+2. **[major] O commit `15c8155` tinha mensagem descrevendo uma edição de uma linha do cabeçalho
+   deste ADR, mas o diff carregava 152 linhas não relacionadas de `docs/adr/0003-proof-03-lnk-binary-parsing.md`, violando a regra "stage only the files you intended" na mesma dimensão que o
+   round 6 estava corrigindo; o cabeçalho do ADR então creditava o round 6 a um único commit
+   quando o round 6 é dois commits.** Verificado (saída colada verbatim):
+   ```
+   $ git show -s --format='%H %ci' 8d3ab77 15c8155 e037bcb 1a17224
+   8d3ab7773fa238d9d1a69d0ce57072b2ed710a08 2026-09-18 01:02:17 -0300
+   15c81559606a59d200e3ce232e5a40987853a879 2026-09-18 01:03:05 -0300
+   e037bcb1ce508132e1face79824227c4f1480de9 2026-09-18 01:04:17 -0300
+   1a17224d177fc6781fef0b8d165cd31cdfce1dda 2026-09-18 01:05:09 -0300
+
+   $ git show --stat 15c8155 --format=""
+    docs/adr/0001-proof-01-windows-icon-bridge.md |   4 +-
+    docs/adr/0003-proof-03-lnk-binary-parsing.md | 152 ++++++++++++++++++--------
+    2 files changed, 106 insertions(+), 50 deletions(-)
+
+   $ git diff d4daa7d e037bcb --stat -- docs/adr/0003-proof-03-lnk-binary-parsing.md
+   (vazio — revert byte-a-byte confirmado)
+
+   $ git diff 15c8155 1a17224 --stat -- docs/adr/0003-proof-03-lnk-binary-parsing.md
+    docs/adr/0003-proof-03-lnk-binary-parsing.md | 5 +++--
+    1 file changed, 3 insertions(+), 2 deletions(-)
+   ```
+   Confirma a leitura do reviewer: nenhum dado foi perdido (`e037bcb` reverteu byte-a-byte, e o
+   dono da PROOF-03 recuperou o conteúdo correto em `1a17224`), mas o commit `15c8155` tem uma
+   mensagem que não descreve seu próprio diff. Segunda metade do achado: o cabeçalho do ADR dizia
+   "round 6 em 2026-09-18 01:02 (commit `8d3ab77`)" quando round 6 é dois commits — `8d3ab77`
+   (01:02:17) e `15c8155` (01:03:05) — quebrando pela terceira vez o próprio propósito declarado
+   da linha ("para que esta linha não volte a inverter a ordem numa próxima revisão").
+
+   **Corrigido**: o cabeçalho (linhas 4-12) agora nomeia os dois commits do round 6
+   (`8d3ab77` e `15c8155`) com a nota de mis-escopo e o revert. Em vez de tentar uma quarta
+   correção pontual que quebraria de novo na próxima vez que um round citasse a si mesmo, o
+   cabeçalho agora declara a restrição estrutural por escrito (um commit não pode citar o
+   próprio hash) e move a responsabilidade de preencher a entrada de um round para o round
+   SEGUINTE — exatamente como esta edição preencheu a do round 6. A entrada do round 7 (esta
+   revisão) portanto não tenta se auto-citar; seu(s) commit(s) serão adicionados retroativamente
+   na próxima revisão que tocar este arquivo. Não houve rebase nem reescrita de histórico — o
+   commit `15c8155` mis-escopado permanece no histórico como está; apenas o texto do ADR foi
+   corrigido para descrevê-lo com precisão. Processo adotado para este próprio commit de
+   correção: `git commit --` com pathspec explícito, listando apenas os arquivos pretendidos, em
+   vez de depender do índice compartilhado (que `git status` mostrava com arquivos não
+   relacionados de outra tarefa em progresso).
 
 Ambos os achados têm evidência colada nesta revisão (comando executado + saída real). Nenhum
 achado foi contestado.
