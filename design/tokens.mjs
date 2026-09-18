@@ -26,11 +26,16 @@
 //     instead of carrying a fabricated path:line.
 //   - Known limitation, disclosed rather than hidden: mechanical lightness
 //     inversion is the right move for ground/ink pairs (a warm near-black
-//     canvas inverts to a warm near-white one) but produces a WHITE glow for
-//     tokens that are conventionally dark in both themes (the three elevation
-//     shadows, `--dt-glass-inset`, `--dt-glass-bloom`). That is flagged per
-//     token below (`light.caveat`) and is a placeholder for a follow-up visual
-//     design pass, not a claim that the light shadow ramp is final.
+//     canvas inverts to a warm near-white one, a white ink inverts to black
+//     ink at the same alpha) but produces a WHITE glow for the three
+//     elevation-shadow tokens (`--dt-elev-1/2/3`), which are conventionally
+//     dark-based in both themes. That is flagged per token below
+//     (`light.caveat`) and is a placeholder for a follow-up visual design
+//     pass, not a claim that the light shadow ramp is final. `--dt-glass-inset`
+//     (a white-alpha highlight, same alpha-flip as ink) and `--dt-glass-bloom`
+//     (a warm mid-tone glow whose lightness barely shifts) are NOT flagged —
+//     the rule did not break either of them; see the inline comments beside
+//     each for why.
 //
 // COUNT DISCREPANCY (disclosed, not silently resolved): REQUIREMENTS.md DES-01
 // and ROADMAP.md Phase 6 criterion 1 both say "the 50 tokens from the
@@ -265,11 +270,17 @@ export const TOKENS = [
     "--dt-glass-inset",
     "inset 0 1.5px 0 rgba(255,255,255,.35)",
     "public/index.html:255",
-    { caveat: SHADOW_CAVEAT },
+    // Deliberately NOT SHADOW_CAVEAT: the alpha-flip (white -> black, same
+    // alpha) is the same rule applied to --dt-ink, and a dark top inset on
+    // near-white light-theme glass reads as an edge, not a glow. Verify in a
+    // design-polish pass, but this one is not known-broken the way the
+    // elevation shadows are.
   ),
-  color("--dt-glass-bloom", "0 0 18px rgba(210,95,30,.22)", "public/index.html:255", {
-    caveat: SHADOW_CAVEAT,
-  }),
+  color("--dt-glass-bloom", "0 0 18px rgba(210,95,30,.22)", "public/index.html:255"),
+  // Deliberately NOT SHADOW_CAVEAT: rgba(210,95,30,.22) -> rgba(225,110,45,.22)
+  // is a warm ember glow that stays a warm ember glow (hue/saturation held,
+  // lightness barely shifts because the color is already mid-tone) — the
+  // rule did not break this token the way it breaks a near-black shadow.
   plain(
     "--dt-blur-chrome",
     TOKEN_KINDS.BLUR,
