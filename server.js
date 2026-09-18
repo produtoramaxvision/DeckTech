@@ -219,7 +219,22 @@ const STATUS_POLL_MS = 1500;
  * reinício de roteador). Zero deps — dgram é builtin do Node.
  */
 const DISCOVERY_PORT = 3001;
-export const DISCOVERY_MAGIC = "dokke:discover";
+// WIRE-01 (D19): Dual-accept discovery magic, DeckTech primary.
+// Legacy "dokke:discover" support scheduled for removal: 2027-03-18.
+export const DISCOVERY_MAGIC = "decktech:discover";
+export const DISCOVERY_MAGIC_LEGACY = "dokke:discover";
+export const DISCOVERY_MAGIC_DOKKE = "dokke:discover";
+export const DECKTECH_HEADER = "x-decktech";
+export const DECKTECH_CLIENT_HEADER = "x-decktech-client";
+
+export function isDeckTechClient(req) {
+  if (!req || !req.headers) return false;
+  return (
+    "x-decktech" in req.headers ||
+    "x-decktech-client" in req.headers ||
+    (typeof req.headers["x-client"] === "string" && req.headers["x-client"].toLowerCase() === "decktech")
+  );
+}
 
 function ipv4ToInt(ip) {
   const parts = ip.split(".").map(Number);
@@ -250,14 +265,24 @@ function localIpFor(peerIp) {
   return null;
 }
 
-/** Sobe o listener UDP que responde "dokke:<ip>:<porta>" pra quem perguntar. */
+/** Sobe o listener UDP que responde ao broadcast de descoberta. */
 export function startDiscovery(port = DISCOVERY_PORT, { portHint = 3000, log = console.log } = {}) {
   const sock = createSocket("udp4");
   sock.on("message", (msg, rinfo) => {
-    if (msg.toString("utf8").trim() !== DISCOVERY_MAGIC) return;
+    const text = msg.toString("utf8").trim();
+    let prefix = null;
+    if (text === DISCOVERY_MAGIC) {
+      prefix = "decktech";
+    } else if (text === DISCOVERY_MAGIC_LEGACY) {
+      // WIRE-01 (D19): Legacy Dokke UDP discovery reply prefix.
+      // Removal date: 2027-03-18.
+      prefix = "dokke";
+    } else {
+      return;
+    }
     const ip = localIpFor(rinfo.address);
     if (!ip) return;
-    const reply = `dokke:${ip}:${portHint}`;
+    const reply = `${prefix}:${ip}:${portHint}`;
     sock.send(reply, rinfo.port, rinfo.address);
     log(`[discover] ${rinfo.address}:${rinfo.port} → ${reply}`);
   });
@@ -451,7 +476,18 @@ export function makeApp(deps = {}) {
       }
       return { ok: true, position: body.position };
     };
-    if (url.pathname === "/health") { res.writeHead(200, JSON_HEADERS); res.end(JSON.stringify({ ok: true, service: "Dokke" })); return; }
+    if (url.pathname === "/health") {
+      res.writeHead(200, JSON_HEADERS);
+      if (isDeckTechClient(req)) {
+        res.end(JSON.stringify({ ok: true, service: "DeckTech" }));
+        return;
+      }
+      // WIRE-01 (D19): Legacy Dokke health response byte-for-byte.
+      // Android companion (MainActivity.kt:346) and Mac (ServerManager.swift:232)
+      // query health with no distinguishing headers. Removal date: 2027-03-18.
+      res.end(JSON.stringify({ ok: true, service: "Dokke" }));
+      return;
+    }
     if (url.pathname === "/api/probe") {
       const flags = Object.fromEntries(url.searchParams);
       console.log("[probe]", JSON.stringify({ ua: req.headers["user-agent"], ...flags }));
@@ -885,11 +921,14 @@ export function makeApp(deps = {}) {
     }
     // Status p/ app Mac: quantos devices escutam o WS + health
     if (url.pathname === "/api/status" && req.method === "GET") {
+      const isDeckTech = isDeckTechClient(req);
       Promise.resolve()
         .then(() => readConfig())
         .then(cfg => ok({
           ok: true,
-          service: "Dokke",
+          // WIRE-01 (D19): Dual-accept service identity for /api/status.
+          // Legacy "Dokke" removal date: 2027-03-18.
+          service: isDeckTech ? "DeckTech" : "Dokke",
           devices: typeof getDeviceCount === "function" ? getDeviceCount() : 0,
           pinned: cfg.pinned.length,
           config: {

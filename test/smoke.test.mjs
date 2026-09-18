@@ -8,6 +8,13 @@ test("server responde /health", async () => {
     const r = await fetch(`http://127.0.0.1:${port}/health`);
     assert.equal(r.status, 200);
     assert.deepEqual(await r.json(), { ok: true, service: "Dokke" });
+
+    // WIRE-01 (D19): requisição com header DeckTech recebe service "DeckTech"
+    const dt = await fetch(`http://127.0.0.1:${port}/health`, {
+      headers: { "x-decktech": "1" },
+    });
+    assert.equal(dt.status, 200);
+    assert.deepEqual(await dt.json(), { ok: true, service: "DeckTech" });
   } finally { await close(); }
 });
 

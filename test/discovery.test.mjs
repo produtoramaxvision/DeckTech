@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createSocket } from "node:dgram";
-import { startDiscovery, DISCOVERY_MAGIC } from "../server.js";
+import { startDiscovery, DISCOVERY_MAGIC, DISCOVERY_MAGIC_LEGACY } from "../server.js";
 
 function ask(port, payload, timeoutMs = 2000) {
   return new Promise(resolve => {
@@ -27,11 +27,28 @@ test("responde descoberta com dokke:ip:porta", async () => {
   await new Promise(r => sock.on("listening", r));
   try {
     const port = sock.address().port;
-    const reply = await ask(port, DISCOVERY_MAGIC);
+    const reply = await ask(port, DISCOVERY_MAGIC_LEGACY);
     assert.ok(reply, "deveria ter respondido");
     const m = reply.match(/^dokke:(\d{1,3}(?:\.\d{1,3}){3}):(\d+)$/);
     assert.ok(m, `resposta malformada: ${reply}`);
     assert.equal(m[2], "4567", "porta deveria ser a do server");
+    assert.doesNotMatch(reply, /^decktech:/, "não deveria responder decktech para dokke:discover");
+  } finally {
+    sock.close();
+  }
+});
+
+test("responde descoberta com decktech:ip:porta", async () => {
+  const sock = startDiscovery(0, { portHint: 4567, log: () => {} });
+  await new Promise(r => sock.on("listening", r));
+  try {
+    const port = sock.address().port;
+    const reply = await ask(port, DISCOVERY_MAGIC);
+    assert.ok(reply, "deveria ter respondido");
+    const m = reply.match(/^decktech:(\d{1,3}(?:\.\d{1,3}){3}):(\d+)$/);
+    assert.ok(m, `resposta malformada: ${reply}`);
+    assert.equal(m[2], "4567", "porta deveria ser a do server");
+    assert.doesNotMatch(reply, /^dokke:/, "não deveria responder dokke para decktech:discover");
   } finally {
     sock.close();
   }

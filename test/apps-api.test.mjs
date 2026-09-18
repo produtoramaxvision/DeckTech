@@ -23,6 +23,13 @@ test("@spec:AC-336 /health continua público após inicialização do host", asy
     const response = await fetch(`http://127.0.0.1:${port}/health`);
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { ok: true, service: "Dokke" });
+
+    // WIRE-01 (D19): requisição com header DeckTech recebe service "DeckTech"
+    const decktechRes = await fetch(`http://127.0.0.1:${port}/health`, {
+      headers: { "x-decktech": "1" },
+    });
+    assert.equal(decktechRes.status, 200);
+    assert.deepEqual(await decktechRes.json(), { ok: true, service: "DeckTech" });
   } finally { await close(); }
 });
 
