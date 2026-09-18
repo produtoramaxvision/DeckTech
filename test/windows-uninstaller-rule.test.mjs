@@ -8,12 +8,28 @@
 //   - a naive "name contains 'uninstall'" predicate fails the false-positive
 //     assertions below, because they assert legitimate apps are KEPT
 //
-// Platform-independent by design (see module header): the predicate takes
-// only the already-resolved {name, target} shape, so this suite runs on any
-// OS and does not depend on the real Windows scan in scan-apps.mjs.
+// Host-OS-independent by design, but NOT because the predicate makes "no
+// platform calls" (round-1/round-2 phrasing, which was false — `basename()`
+// is exactly a platform call). It is independent because the module
+// imports `basename` from `node:path/win32` specifically, so its behavior
+// is pinned to Windows path semantics regardless of which OS runs this
+// suite. Round-3 review found the module importing plain `node:path`
+// instead (host-dispatched) and reproduced the failure directly: on a POSIX
+// host, `node:path`'s `basename()` resolves to `path.posix.basename`, which
+// does not split on `\`, so every backslash-only Windows-path fixture below
+// stopped matching — 5 of these 13 tests failed. This repo's own
+// `.github/workflows/test.yml` runs `npm test` (`node --test`, all of
+// test/) on `ubuntu-latest`, so that gap was live, not theoretical. The
+// "pins win32 path semantics" test below documents the exact mechanism and
+// fails again if the module ever reverts to host-dispatched `node:path`.
+// This suite does not depend on the real Windows scan in scan-apps.mjs
+// either way — the predicate takes only the already-resolved
+// {name, target, arguments} shape.
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import { basename as win32Basename } from "node:path/win32";
+import { basename as posixBasename } from "node:path/posix";
 import { isUninstallerEntry, partitionUninstallers } from "../measure/windows/lib/uninstaller-rule.mjs";
 
 test("exclui o achado real: Uninstall DJI Assistant 2 -> unins000.exe", () => {
@@ -22,6 +38,32 @@ test("exclui o achado real: Uninstall DJI Assistant 2 -> unins000.exe", () => {
     target: "C:\\Program Files (x86)\\DJI Assistant 2\\unins000.exe",
   };
   assert.equal(isUninstallerEntry(entry), true);
+});
+
+test("pina a semântica win32 do path: basename() do módulo deve usar node:path/win32, não node:path host-dispatched", () => {
+  const target = "C:\\Program Files\\Some App\\unins000.exe";
+  // Sanity check on the test itself, not on the module: this fixture only
+  // discriminates win32 vs posix basename() if the two genuinely disagree
+  // for this input. If they ever agreed (e.g. someone changed the fixture
+  // to a forward-slash path), the assertion below would pass vacuously
+  // under EITHER import and prove nothing — exactly what rule zero warns
+  // against. Failing loudly here, before the real assertion, means a
+  // future edit to this fixture cannot silently stop discriminating.
+  assert.notEqual(
+    win32Basename(target),
+    posixBasename(target),
+    "sanity: fixture must produce different basenames under win32 vs posix semantics",
+  );
+  assert.equal(win32Basename(target), "unins000.exe");
+  assert.equal(posixBasename(target), target, "posix basename() does not split on backslash, by definition");
+  // The real assertion: if measure/windows/lib/uninstaller-rule.mjs ever
+  // reverts `import { basename } from "node:path/win32"` (line 19) back to
+  // the host-dispatched `import { basename } from "node:path"`, this
+  // fixture fails on any POSIX host (including .github/workflows/test.yml's
+  // ubuntu-latest runner) because posix basename() leaves the whole
+  // backslash-separated path intact and none of UNINSTALLER_BASENAME_PATTERNS
+  // match it.
+  assert.equal(isUninstallerEntry({ name: "Uninstall Some App", target }), true);
 });
 
 test("exclui variantes numeradas do Inno Setup, incluindo caminho com espaço", () => {

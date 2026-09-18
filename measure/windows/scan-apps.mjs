@@ -32,9 +32,27 @@
 // root); 'CommonPrograms'/'Programs' were verified against this machine to
 // resolve to the exact same paths the previous hardcoded Join-Path used
 // (123/59 .lnk, matching exactly) before being adopted here. Every basename
-// check on this file also uses node:path's basename() instead of a
-// hand-rolled backslash regex — matching the standard the rule module
-// itself holds (measure/windows/lib/uninstaller-rule.mjs:19,90).
+// check on this file uses node:path/win32's `basename`/`extname` — same
+// explicit win32 import the rule module holds
+// (measure/windows/lib/uninstaller-rule.mjs:36,107), not a hand-rolled
+// backslash regex. `join` (used only for this script's own temp-file path,
+// never for a scanned shortcut) is deliberately left on plain `node:path`:
+// this script only ever runs on win32 itself (guarded below), so it
+// behaves identically either way, and importing only the two functions
+// that touch scanned Windows paths from `/win32` keeps the import list an
+// accurate map of "which calls carry the win32-semantics guarantee" rather
+// than an all-or-nothing statement about the whole file.
+//
+// Round-3 finding 2: the exclusion rule now runs BEFORE dedupe-by-target,
+// via measure/windows/lib/resolve-app-list.mjs, not after. Dedupe-then-
+// partition (the previous order) silently discarded the `arguments` of
+// every shortcut but the first walked at a given target, starving the
+// rule's msiexec branch (decided purely on `arguments`) of the field it
+// needs whenever 2+ shortcuts share a target with differing arguments —
+// see resolve-app-list.mjs's header and
+// docs/adr/PROOF-04-uninstaller-exclusion-rule.md §4c for the measured
+// evidence this bug was live on this machine's directory-walk order, not
+// hypothetical.
 //
 // Usage: node measure/windows/scan-apps.mjs
 // Requires Windows (uses PowerShell + WScript.Shell COM). Writes its
@@ -43,8 +61,10 @@
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, basename, extname } from "node:path";
-import { partitionUninstallers } from "./lib/uninstaller-rule.mjs";
+import { join } from "node:path";
+import { basename, extname } from "node:path/win32";
+import { resolveAppList } from "./lib/resolve-app-list.mjs";
+import { dedupeByTarget } from "./lib/dedupe-target.mjs";
 
 if (process.platform !== "win32") {
   console.error("scan-apps.mjs requires Windows (win32). Current platform:", process.platform);
@@ -121,41 +141,45 @@ const totalLnk = entries.length;
 const resolved = entries.filter((e) => typeof e.target === "string" && e.target !== "");
 const unresolvedEntries = entries.filter((e) => !(typeof e.target === "string" && e.target !== ""));
 
-// Same basename() the rule module uses (uninstaller-rule.mjs:19,90) — never
-// a hand-rolled backslash split (round-2 finding 4).
+// node:path/win32's basename() — same explicit import the rule module
+// holds (uninstaller-rule.mjs:36,107) — never a hand-rolled backslash
+// split (round-2 finding 4).
 const isExeTarget = (target) => extname(basename(target)).toLowerCase() === ".exe";
 const resolvedExe = resolved.filter((e) => isExeTarget(e.target));
 
-// Dedupe by normalized target path (case-insensitive on Windows; NTFS is
-// case-preserving but not case-sensitive by default).
-function dedupeByTarget(list) {
-  const byTarget = new Map();
-  for (const entry of list) {
-    const key = entry.target.toLowerCase();
-    if (!byTarget.has(key)) byTarget.set(key, entry);
-  }
-  return [...byTarget.values()];
-}
-const deduped = dedupeByTarget(resolved);
+// Diagnostic-only dedupe of the RAW resolved set, before the exclusion
+// rule runs — kept for comparison against WINDOWS-STACK.md §6.1 and as an
+// honest "what would collapsing by target alone look like" baseline. This
+// is NOT the set the exclusion rule is applied to (see round-3 finding 2 /
+// resolve-app-list.mjs below) — it exists only for the two diagnostic
+// lines that reference it.
+const dedupedBeforeRule = dedupeByTarget(resolved);
 const dedupedExeOnly = dedupeByTarget(resolvedExe);
 
-const { kept, excluded } = partitionUninstallers(deduped);
+// Round-3 finding 2 fix: the exclusion rule runs on `resolved` (every
+// individual shortcut, each with its own `arguments`) BEFORE dedupe, via
+// resolveAppList — not on a pre-deduped set. See
+// measure/windows/lib/resolve-app-list.mjs's header for why the order
+// matters; the old order silently discarded the `arguments` of every
+// shortcut but the first walked at a shared target.
+const { kept, excluded } = resolveAppList(resolved);
 
 // Diagnostic, independent of the exclusion rule's own msiexec handling:
-// every shortcut that resolves to msiexec.exe at all, uninstaller or not,
-// shown with its arguments so the /x-vs-/i distinction the rule relies on
-// is visible and auditable here, not just inside the rule.
-const msiexecHits = deduped.filter((e) => basename(e.target).toLowerCase() === "msiexec.exe");
+// every INDIVIDUAL shortcut that resolves to msiexec.exe (from `resolved`,
+// not a deduped set), uninstaller or not, shown with its own arguments so
+// the /x-vs-/i distinction the rule relies on is visible and auditable
+// here per-shortcut, not collapsed before it can be inspected.
+const msiexecHits = resolved.filter((e) => basename(e.target).toLowerCase() === "msiexec.exe");
 
 console.log("=== PROOF-04 — real scan on this machine ===");
 console.log(`.lnk found (Start Menu, machine + user):     ${totalLnk}`);
 console.log(`Start Menu subdirectories that could not be enumerated: ${dirErrorCount}`);
 console.log(`resolved to a non-empty target path:         ${resolved.length} (${unresolvedEntries.length} unresolved)`);
 console.log(`  of which, target basename ends in .exe:    ${resolvedExe.length}`);
-console.log(`unique after dedupe by target path:          ${deduped.length}  [BEFORE exclusion rule, all resolved targets]`);
+console.log(`unique after dedupe by target path (diagnostic, BEFORE the exclusion rule sees anything): ${dedupedBeforeRule.length}`);
 console.log(`unique after dedupe, .exe targets only:      ${dedupedExeOnly.length}  [for comparison against WINDOWS-STACK.md §6.1's 149/122, which counted .exe resolutions]`);
-console.log(`unique after uninstaller-exclusion rule:     ${kept.length}  [AFTER exclusion rule, applied to the all-targets set above]`);
-console.log(`entries removed by the exclusion rule:       ${excluded.length}`);
+console.log(`kept after exclusion rule + dedupe (rule-then-dedupe order — see round-3 finding 2): ${kept.length}`);
+console.log(`entries removed by the exclusion rule (per shortcut, not deduped): ${excluded.length}`);
 console.log("");
 console.log("--- unresolved shortcuts (name -> reason) ---");
 if (unresolvedEntries.length === 0) {
@@ -181,7 +205,17 @@ if (msiexecHits.length === 0) {
   console.log("(none found on this machine — no msiexec-based entry exists to worry about)");
 } else {
   for (const e of msiexecHits) {
-    const verdict = excluded.includes(e) ? "EXCLUDED (uninstall verb)" : "KEPT (not an uninstall verb)";
+    // Three-way, not two-way: an entry can be excluded (uninstall verb),
+    // kept and present in the final deduped list, or kept-but-collapsed —
+    // judged not-an-uninstaller on its own arguments, but a target-path
+    // sibling (walked earlier, also kept) survived the dedupe instead.
+    // Round-3 finding 2: only a two-way EXCLUDED/KEPT verdict was reported
+    // before, which could not distinguish "in the final app list" from
+    // "judged safe but collapsed away" for a target with 2+ kept siblings.
+    let verdict;
+    if (excluded.includes(e)) verdict = "EXCLUDED (uninstall verb)";
+    else if (kept.includes(e)) verdict = "KEPT (not an uninstall verb, in final list)";
+    else verdict = "KEPT-BUT-COLLAPSED (not an uninstall verb, but a target-path sibling survived the dedupe instead)";
     console.log(`  ${e.name}  ->  ${e.target}  args="${e.arguments ?? ""}"  [${verdict}]`);
   }
 }
@@ -195,3 +229,15 @@ console.log("--- sanity check: any AFTER entry whose target basename matches uni
 // "notunins.exe").
 const leftover = kept.filter((e) => /^unins.*\.exe$/i.test(basename(e.target)));
 console.log(leftover.length === 0 ? "PASS — none" : `FAIL — ${leftover.length} left: ${JSON.stringify(leftover)}`);
+// Round-3 finding 3 (documentation-only per the review's own required fix
+// — see ADR §3): this sanity check is deliberately BROADER than
+// UNINSTALLER_BASENAME_PATTERNS's Inno-Setup pattern and is exactly the
+// mechanism that makes a future gap surface as a visible FAIL here rather
+// than passing silently. No separate diagnostic was added for the gap
+// itself — a narrower, patterns-union-vs-glob check was tried and dropped:
+// it produced a "NOTE" line even though nothing was wrong (the one
+// basename it named is caught by the exact-name exception, not a basename
+// pattern — a whole-rule non-issue reported as a loose end at the tail of
+// the probe's own output). Documenting the tradeoff in the ADR and relying
+// on this already-passing, already-broader check is the more honest
+// signal: PASS here means what it says.

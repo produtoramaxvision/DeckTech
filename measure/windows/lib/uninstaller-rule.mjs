@@ -1,10 +1,27 @@
 // PROOF-04 — exclusion rule for uninstaller entries in the Windows app scan.
 //
-// Pure predicate, no I/O, no platform calls. Consumed today by
-// measure/windows/scan-apps.mjs (the Phase 0 probe) and intended to be the
-// same module Phase 3 (PLAT-02, platform/win32/apps.js — not yet created)
-// imports for the real `listInstalledApps()` provider, so the rule lives in
-// exactly one place instead of being re-derived per caller.
+// Pure predicate, no I/O. It does call one platform API — `basename()` — but
+// deliberately imports it from `node:path/win32`, NOT the host-dispatched
+// `node:path`, so its behavior is fixed to Windows path semantics no matter
+// which OS runs the process. This matters concretely: the entries this
+// predicate receives are always Windows-resolved shortcut TargetPath strings
+// (e.g. "C:\\Program Files\\Some App\\unins000.exe"), and this repo's own
+// `.github/workflows/test.yml` runs `npm test` (`node --test`, covering all
+// of test/) on `ubuntu-latest`. Round-3 review caught this module importing
+// plain `node:path` instead: on a POSIX host that dispatches to
+// `path.posix.basename`, which does not split on `\`, so a backslash-only
+// Windows path basenames to itself unchanged and every pattern below fails
+// to match — 5 of the 13 tests in
+// test/windows-uninstaller-rule.test.mjs failed when this was reproduced
+// (see git history / the ADR's round-3 section for the exact repro). Fixed
+// by importing `node:path/win32` explicitly below; see the "pins win32 path
+// semantics" fixture in the test file for the regression guard.
+//
+// Consumed today by measure/windows/scan-apps.mjs (the Phase 0 probe) and
+// intended to be the same module Phase 3 (PLAT-02, platform/win32/apps.js —
+// not yet created) imports for the real `listInstalledApps()` provider, so
+// the rule lives in exactly one place instead of being re-derived per
+// caller.
 //
 // Design: match the RESOLVED TARGET's basename against a narrow, exact-match
 // list of installer-framework uninstaller binary names. Do NOT match on the
@@ -16,12 +33,15 @@
 // bare word "Uninstall" — a distinct, much narrower signal than "contains
 // uninstall"; see the ADR for the real entry on this machine that required it.
 
-import { basename } from "node:path";
+import { basename } from "node:path/win32";
 
 // Exact (not substring) basename patterns for uninstaller binaries produced
 // by common Windows installer frameworks. Anchored at both ends so a
 // legitimate app whose filename merely *contains* one of these words never
-// matches — only an exact, whole-basename hit does.
+// matches — only an exact, whole-basename hit does. Deliberately narrower
+// than the ROADMAP's `unins*.exe` glob — see ADR §3's precision/recall
+// note for why, and scan-apps.mjs's broader sanity check for how a future
+// gap would surface.
 const UNINSTALLER_BASENAME_PATTERNS = [
   // Inno Setup: unins000.exe, unins001.exe, ... (three digits, but the
   // digit count is not part of the Inno Setup contract, so match any run
