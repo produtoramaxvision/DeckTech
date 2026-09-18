@@ -182,6 +182,33 @@ test("createWindowsAppearanceTracker: stop() mata o processo e start() depois de
   assert.equal(spawnCount, 1, "start() após stop() não deve spawnar de novo");
 });
 
+// Pin explícito pro ordering que a correção de re-arm (onWatcherExit ->
+// autoStartAttempted = false) depende: stop() marca `stopped = true` e
+// mata o processo, MAS o processo real só dispara seu próprio evento
+// 'exit' um instante depois — de forma assíncrona, DEPOIS que stop() já
+// retornou. Esse 'exit' tardio ainda chama onWatcherExit, que agora reseta
+// autoStartAttempted — sem este teste, nada garantiria que `stopped`
+// continua bloqueando um respawn nesse cenário (a ordem "stopped=true
+// ANTES do kill()" é o que torna isso seguro, não documentado por
+// nenhuma asserção antes deste teste).
+test("createWindowsAppearanceTracker: onExit assíncrono do processo morto, CHEGANDO DEPOIS de stop(), não religa o watch — stopped continua bloqueando mesmo com autoStartAttempted resetado", async () => {
+  let spawnCount = 0;
+  let onExitCb;
+  const tracker = createWindowsAppearanceTracker({
+    read: async () => "apps=dark",
+    startWatcher: (keyPath, { onExit }) => { spawnCount++; onExitCb = onExit; return { kill: () => {} }; },
+  });
+  tracker.start();
+  assert.equal(spawnCount, 1);
+  tracker.stop();
+  // Simula o 'exit' real chegando DEPOIS de stop() já ter retornado (o
+  // processo real leva um instante pra sair depois de kill()) — onExitCb
+  // aqui é a MESMA função que startThemeWatcher chamaria.
+  onExitCb(null);
+  assert.equal(await tracker.token(), "apps=dark", "token() continua respondendo (leitura avulsa) mesmo depois de stop() + onExit tardio");
+  assert.equal(spawnCount, 1, "stop() + onExit tardio não deveria religar o watch, mesmo com autoStartAttempted resetado por onWatcherExit — stopped continua bloqueando");
+});
+
 // --- PLAT-07 Round-2 (finding 1, hardening): token() é a única porta de
 // entrada do lazy-start, então ele NUNCA pode propagar uma exceção do
 // startWatcher — icon.js:312 faz `String(await appearanceToken())` sem
