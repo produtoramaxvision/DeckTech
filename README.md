@@ -6,6 +6,8 @@
 
 <p align="center"><a href="README.en.md">Read this README in English</a></p>
 
+> **Origem e Atribuição:** O DeckTech é desenvolvido pela Produtora MaxVision sob licença MIT, sendo um fork do [Dokke](https://github.com/felipenalves/Dokke) criado originalmente por [Felipe Alves (Felipe Natanael)](https://github.com/felipenalves) sob a licença MIT. Todos os créditos ao autor e ao projeto original são preservados.
+
 <p align="center">
   <b>Dock de apps que sincroniza do Mac pra qualquer device na LAN.</b><br>
   Nasceu de um Galaxy J5 velho parado em casa — hoje roda em qualquer Android, iPhone ou navegador.
@@ -254,6 +256,8 @@ Ou copie o payload pronto (cola direto no app do banco):
 00020101021226510014br.gov.bcb.pix0129pagamentos@inovadigitalid.com5204000053039865802BR5912Felipe Alves6009SAO PAULO62070503***630430EA
 ```
 
-## Licença
+## Licença e Atribuição
 
-MIT
+DeckTech é mantido por Produtora MaxVision sob a licença MIT.
+
+Este projeto é um fork do [Dokke](https://github.com/felipenalves/Dokke) v0.2.8, criado e desenvolvido originalmente por [Felipe Alves (Felipe Natanael)](https://github.com/felipenalves) sob licença MIT. A atribuição original e todo o mérito da criação do Dokke são integralmente preservados ao lado do desenvolvimento do DeckTech.
