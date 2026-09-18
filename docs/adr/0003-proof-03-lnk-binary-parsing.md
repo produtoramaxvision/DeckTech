@@ -328,18 +328,26 @@ previously-claimed "10.2x cold" and "9.5x–10.2x cold range" are deleted
 from this document, not merely softened — they do not describe a stable
 property of the two methods being compared.
 
-The **warm** claim is the one this document stands behind: the Node parser
-is consistently faster than COM in the warm regime, median 16.4x this run,
-range 11.6x–18.3x across 5 iterations. It is NOT a stable
-two-significant-figure constant — round 2's committed run measured a warm
-median of 13.8x (range 12.1x–18.5x), and the reviewer's own two re-runs of
-the warm figures (performed to check this document, not carried forward as
-its numbers) measured warm medians of 17.0x and 12.3x with ranges
-15.8x–17.6x and 9.8x–15.4x. Consistent order of magnitude (roughly
-one-and-a-half orders), not a reproducible two-sig-fig number — the same
-honest framing round 2 used for the (now-deleted) cold claim applies here,
-and this time it is the framing the data actually supports at four
-independent n=5 runs compared (13.8x, 17.0x, 12.3x, 16.4x).
+The **warm** claim is the one this document stands behind, stated as a span
+across the four independent n=5 measurements that exist, not as any single
+run's min/max: **the warm-median speedup clusters in the 12.3x–17.0x
+range** across round 2's committed run (median 13.8x), the round-3
+reviewer's own two re-runs (medians 17.0x and 12.3x), and this round's
+committed run (median 16.4x). At the level of individual iterations
+(not medians), the observed spread across all four runs' 20 total warm
+iterations is wider — as low as 9.8x (reviewer's second re-run) and as high
+as 18.5x (round 2's committed run) — reported here as an OBSERVED spread of
+individual data points, not as a claimed range the way the deleted cold
+figure was: this run's own 5 iterations landed 11.6x–18.3x, which is a
+proper subset of that wider spread, not the whole of it. Do not quote this
+run's min/max as if it bounded the phenomenon; four separate n=5 samples
+already show it does not (round 2's own min, 12.1x, sits BELOW this run's
+median, and its own max, 18.5x, sits above this run's max). The honest
+claim is the four-median cluster above, roughly consistent to within a
+factor of 1.4 (12.3x to 17.0x), not a reproducible two-significant-figure
+constant — the same honest framing round 2 used for the (now-deleted) cold
+claim, applied here to the quantity (a span of medians across runs) that
+this benchmark actually supports making a claim about.
 
 COM's own loop-only time varies substantially run to run and within a
 single warm run — 281.1–395.8 ms this run's 5 warm iterations, a ~40% swing
@@ -390,11 +398,13 @@ pass.
 flagged as resting on an unreconciled denominator, not a validated one:**
 `16.07 ms/shortcut` (`2395/149`) is the research doc's own number, restated
 here for context, not re-derived or extended into a speedup claim. This
-ADR's speedup claim (11.6x–18.3x warm this run; no cold/iteration-0 ratio is
-claimed at all — round-3 blocker 1) is computed against this run's OWN COM
-measurement (182 shortcuts, both paths, same process, same machine, same
-moment) — not against the 149 baseline — specifically to avoid building a
-claim on top of that unreconciled number. If a reader wants the number
+ADR's speedup claim (a 12.3x–17.0x span of warm medians across four
+independent n=5 runs, this run's own median being 16.4x; no cold/
+iteration-0 ratio is claimed at all — round-3 blocker 1) is computed
+against each run's OWN COM measurement (182 shortcuts, both paths, same
+process, same machine, same moment) — not against the 149 baseline —
+specifically to avoid building a claim on top of that unreconciled number.
+If a reader wants the number
 anyway: the benchmark itself now prints and persists
 (`thisRun.warm.nodeParserMsPerItemMedian`) the warm-median Node parser
 per-shortcut time — `0.1137 ms/shortcut` this run — instead of requiring
@@ -485,12 +495,13 @@ at the `exact` tier by the parser's actual (primary) output — no
 case-insensitive, realpath, or secondary-candidate fallback was ever
 needed on this machine's shortcut set. The other 8 of those 178 are not
 mismatches (the parser never produced a *wrong* answer): they are the
-IDList-only gap documented in the next section, where the parser correctly
-returns no candidate instead of guessing. "Zero mismatches" and "resolves
+no-usable-target-path-source gap documented in the next section, where the
+parser correctly returns no candidate instead of guessing. "Zero
+mismatches" and "resolves
 the same 170-of-178 shortcuts COM resolves, with an honest gap on the
 remaining 8" are both true, measured claims; "identical coverage" is not.
 
-### The 8 shortcuts the parser does not resolve (of 12 IDList-only total)
+### The 8 shortcuts the parser does not resolve (of 12 with no usable target-path source)
 
 12 shortcuts on this machine are IDList-only (`HasLinkTargetIDList` set,
 `HasLinkInfo` not set — no environment-variable block either). Resolving
@@ -614,21 +625,26 @@ parser produced somewhere in a candidate list:
    tier, checked against the parser's actual returned value — verified by
    the discriminating `135 + 35 = 170` decomposition and a real mutation
    test (see "Verifying the fix" above).
-2. A warm-state speedup over COM, measured with warmup and repetition:
-   median 16.4x, range 11.6x–18.3x (n=5) — the committed run. Round-2's
-   committed run measured warm median 13.8x (range 12.1x–18.5x); the
-   round-3 reviewer's own re-runs measured warm medians 17.0x and 12.3x
-   (ranges 15.8x–17.6x and 9.8x–15.4x). Consistent order of magnitude
-   across four independent warm measurements, not a reproducible
-   two-significant-figure constant, and NOT compared against the research
-   doc's 149/2395ms baseline as a validated ratio (see "The 149-vs-182
-   denominator" above) — only against each run's own COM measurement, same
-   machine, same moment, same process. **No cold/first-touch speedup is
-   claimed at all** — round-3 blocker 1 found the previously-claimed
-   9.5x–10.2x cold range does not reproduce on a genuinely first-touch run
-   (measured 2.2x and 12.5x across two attempts, moving in opposite
-   directions for Node vs COM), so that number is deleted from this
-   decision rather than restated with different bounds.
+2. A warm-state speedup over COM, measured with warmup and repetition
+   across FOUR independent n=5 runs, claimed as the span of their medians,
+   not any single run's min/max: **12.3x–17.0x** (round-2 committed 13.8x;
+   round-3 reviewer's two re-runs 17.0x and 12.3x; round-3's own committed
+   run 16.4x). Individual iterations across those four runs' 20 total warm
+   samples ranged more widely, 9.8x–18.5x (observed spread of data points,
+   not a claimed bound — this run's own 5 iterations, 11.6x–18.3x, are a
+   subset of that wider spread, and quoting only this run's bounds as "the"
+   range would repeat the exact defect shape blocker 1 was rejected for:
+   round-2's own min, 12.1x, sits below this run's median). Consistent to
+   within a factor of ~1.4 across four independent measurements, not a
+   reproducible two-significant-figure constant, and NOT compared against
+   the research doc's 149/2395ms baseline as a validated ratio (see "The
+   149-vs-182 denominator" above) — only against each run's own COM
+   measurement, same machine, same moment, same process. **No cold/
+   first-touch speedup is claimed at all** — round-3 blocker 1 found the
+   previously-claimed 9.5x–10.2x cold range does not reproduce on a
+   genuinely first-touch run (measured 2.2x and 12.5x across two attempts,
+   moving in opposite directions for Node vs COM), so that number is
+   deleted from this decision rather than restated with different bounds.
 3. A well-defined, honestly-scoped gap (shortcuts with no usable
    target-path source and a non-empty COM target, 8/182 ≈ 4.4% of this
    machine's set) with an unambiguous signal when it occurs
