@@ -218,7 +218,7 @@ async function runOnce(approach, { crashAfterMs = 0, installHandler = false, arm
     for (const pointMs of IDLE_SAMPLE_POINTS_MS) {
       const waitMs = Math.max(0, pointMs - (Date.now() - readyTs));
       await new Promise((r) => setTimeout(r, waitMs));
-      const tree = await processTree(mainPid);
+      const tree = await processTree(mainPid, { notBeforeMs: spawnTs });
       const actualElapsedMs = Date.now() - readyTs;
       result.idle.push({ atMsAfterReady: pointMs, actualElapsedMs, tree, totalMB: mb(sumRss(tree)) });
     }
@@ -228,7 +228,9 @@ async function runOnce(approach, { crashAfterMs = 0, installHandler = false, arm
     // directly and hits its startDiscovery(3001) call — see the file
     // header). Checked via Get-NetUDPEndpoint's actual OwningProcess, never
     // by scraping stdout for a "bound" success line startDiscovery never
-    // emits (it only logs on ITS OWN bind error — server.js:210).
+    // emits (it only logs on ITS OWN bind error — server.js:212, ROUND-4 FIX
+    // minor finding #8: this previously cited server.js:210, which is the
+    // discovery REPLY log, not the bind-error handler).
     if (approach === "utility") {
       const lastTree = result.idle[result.idle.length - 1]?.tree || [];
       const serverChild = lastTree.find((p) => /Node — our forked server\.js/.test(p.role));
@@ -258,13 +260,13 @@ async function runOnce(approach, { crashAfterMs = 0, installHandler = false, arm
     // ready, same fix as the idle sampler above.
     const preWaitMs = Math.max(0, (crashAfterMs - 1000) - (Date.now() - readyTs));
     await new Promise((r) => setTimeout(r, preWaitMs));
-    const preCrashTree = await processTree(mainPid);
+    const preCrashTree = await processTree(mainPid, { notBeforeMs: spawnTs });
     const preCrashElapsedMs = Date.now() - readyTs;
     const postWaitMs = Math.max(0, (crashAfterMs + 5000) - (Date.now() - readyTs));
     await new Promise((r) => setTimeout(r, postWaitMs));
-    const postCrashTree = await processTree(mainPid);
+    const postCrashTree = await processTree(mainPid, { notBeforeMs: spawnTs });
     const postCrashElapsedMs = Date.now() - readyTs;
-    const mainAlive = await isPidAlive(mainPid);
+    const mainAlive = await isPidAlive(mainPid, { notBeforeMs: spawnTs });
     const heartbeat = readHeartbeat(heartbeatFile);
     const heartbeatSnapshotAt = Date.now();
     result.crash = {
@@ -318,6 +320,29 @@ function stats(nums) {
     max: sorted[sorted.length - 1],
     spread: sorted[sorted.length - 1] - sorted[0],
   };
+}
+
+// ROUND-4 FIX (blocker finding #1, required-fix item 2): this FLAG existed
+// ONLY for cold start (originally at the bottom of main(), below). The
+// round-4 reviewer's central complaint is that idle RSS — the ADR's actual
+// load-bearing number — never got the same treatment, so a contaminated
+// battery (one arm's spread blown out by an adopted unrelated process) could
+// publish a clean-looking delta/spread pair with nothing printed to flag it.
+// Lifted into a shared helper and now applied to BOTH cold start and idle
+// RSS, so neither metric can publish a "the delta is far outside both arms'
+// spreads" claim the run's own numbers don't support.
+function deltaVsSpread(title, unit, statsA, statsB, fmt) {
+  if (!statsA || !statsB) return;
+  const delta = Math.abs(statsA.median - statsB.median);
+  const maxSpread = Math.max(statsA.spread, statsB.spread);
+  console.log(`\n=== ${title}: delta vs. within-arm spread ===`);
+  console.log(`median delta A vs B: ${fmt(delta)} ${unit}`);
+  console.log(`A spread: ${fmt(statsA.spread)} ${unit} | B spread: ${fmt(statsB.spread)} ${unit}`);
+  if (delta < maxSpread) {
+    console.log(`FLAG: median delta (${fmt(delta)} ${unit}) is SMALLER than at least one arm's own spread (${fmt(maxSpread)} ${unit}) — not a reproducible directional claim at this n.`);
+  } else {
+    console.log(`Median delta exceeds both arms' spread — directionally supported at this n.`);
+  }
 }
 
 function summarize(label, reps) {
@@ -513,18 +538,11 @@ position.`);
     process.exitCode = 1;
   }
 
-  if (statsA?.coldStats && statsB?.coldStats) {
-    const delta = Math.abs(statsA.coldStats.median - statsB.coldStats.median);
-    const maxSpread = Math.max(statsA.coldStats.spread, statsB.coldStats.spread);
-    console.log(`\n=== cold-start delta vs. within-arm spread ===`);
-    console.log(`median delta A vs B: ${delta.toFixed(0)} ms`);
-    console.log(`A spread: ${statsA.coldStats.spread.toFixed(0)} ms | B spread: ${statsB.coldStats.spread.toFixed(0)} ms`);
-    if (delta < maxSpread) {
-      console.log(`FLAG: median delta (${delta.toFixed(0)} ms) is SMALLER than at least one arm's own spread (${maxSpread.toFixed(0)} ms) — not a reproducible directional claim at this n.`);
-    } else {
-      console.log(`Median delta exceeds both arms' spread — directionally supported at this n.`);
-    }
-  }
+  deltaVsSpread("cold start", "ms", statsA?.coldStats, statsB?.coldStats, (v) => v.toFixed(0));
+  // ROUND-4 FIX (blocker finding #1): idle RSS now gets the identical
+  // delta-vs-spread FLAG cold start already had — see deltaVsSpread's
+  // header comment above.
+  deltaVsSpread("idle RSS (whole process tree)", "MB", statsA?.idleStats, statsB?.idleStats, (v) => v.toFixed(1));
 
   writeFileSync(join(runsScratch, "raw-results.json"), JSON.stringify(results, null, 2));
   console.log(`\nraw JSON results: ${join(runsScratch, "raw-results.json")}`);
