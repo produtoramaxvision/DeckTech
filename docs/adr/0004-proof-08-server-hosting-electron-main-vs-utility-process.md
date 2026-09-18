@@ -302,22 +302,53 @@ observation window, window still exists, `/health` would answer
 `{"event":"crash-scheduled","afterMs":3000,"target":"utility-child"}` →
 `{"event":"server-exit","code":1,"mainStillAlive":true,"windowStillExists":true}`
 → (9s later) `{"event":"quitting",...}`. `electron exit: code=0` (our own
-scheduled `app.quit()`, not the crash) in all 3 reps.
+scheduled `app.quit()`, not the crash) in all 3 reps. **Correction made while
+verifying this section (found by checking `raw-results.json` directly, not
+trusting the printed summary):** none of these 3 reps' JSON logs contain a
+`server-stderr` event with the literal stack-trace text, despite `code=1`
+firing reliably every time — `main-utility.mjs`'s `child.stderr.on("data",
+...)` forwarding of the forked child's output is itself racy under this
+session's load (the `exit` event can fire, and `run.mjs` can read the log
+file, before the last `data` event for stderr is delivered — confirmed
+present in only 2 of 7 total A-arm crash reps run this round, both
+matched-handler; see §5.2). What IS reliably true, independent of that
+capture race: `code=1` matches Node's own documented default
+`uncaughtException` exit code exactly, and a standalone check on this
+machine (`node -e "setTimeout(()=>{throw new Error('x')},50)"`) confirms
+Node's default prints the full stack to stderr and exits 1 — so the
+diagnostic is real, but this probe's own literal-text capture of it is
+unreliable and should not be read as "0 stack traces observed this round".
 
 **B) in-process:** every rep — `mainAliveAfterCrash: true`, `electron exit:
 code=null signal=SIGTERM` (our watchdog force-killed it; it never exited on
 its own), process tree still fully present (main + gpu + network + renderer,
-~275–278 MB total) at the post-crash snapshot ~9–9.5s after ready. This is
-the modal-dialog state described above: main process technically alive,
-window technically existing, both non-functional until externally killed.
+~275–278 MB total) at the post-crash snapshot ~9–9.5s after ready. Re-run
+independently this round with `crash-timeline.mjs inprocess` (300ms
+resolution, not the coarser before/after snapshot `run.mjs` takes) to verify
+the "frozen heartbeat" / "`/health` TIMEOUT" specifics, since the round-2
+battery's own crash summary only captures one heartbeat sample, not a
+series: heartbeat ticks normally through t+2316ms, then **freezes at its
+t+3617ms-tick content (`hb.t: ...4786`) for every subsequent poll through
+t+63333ms** (40+ polls, 60+ real seconds under this session's load) while
+`/health` answers `TIMEOUT` continuously from t+3617ms onward — confirming
+round-1's finding stands under round-2's own fresh data, not just carried
+over. `stderr tail:` for this run was empty, consistent with the mechanism
+in the box above (the dialog is the diagnostic; stderr genuinely gets
+nothing).
 
 ### 5.2 Matched handler policy — same explicit handler in both arms (n=3 reps each)
 
 **A) `utilityProcess.fork`:** unchanged from 5.1 — `mainAliveAfterCrash:
 true`, `electron exit: code=0` (self-scheduled quit) in all 3 reps.
-Installing the handler in `server-entry-crash.mjs` changed nothing observable
-because Node's own default for that process was already print-stack-and-
-exit(1); the handler produces the byte-identical outcome.
+Installing the handler in `server-entry-crash.mjs` produced the same
+observable outcome (`code=1` child exit, main/window survive) as 5.1's
+default; **2 of these 3 reps' logs do contain the literal `server-stderr`
+text** (the 3rd hit the same capture race as 5.1) — e.g. rep 1:
+`Error: PROOF-08 injected crash: simulated unhandled error in server process
+(utility, via entry wrapper)\n    at Timeout._onTimeout
+(...server-entry-crash.mjs:50:11)`. This is the same exit code and survival
+outcome as the default, not a byte-for-byte stderr comparison (not
+performed).
 
 **B) in-process:** **`mainAliveAfterCrash: false` in all 3 reps** —
 `electron exit: code=1`, post-crash process tree **empty** (root process
@@ -325,9 +356,16 @@ gone, all 4 processes including the window's own renderer/gpu/network
 children terminated together). Log confirms the handler fired:
 `{"event":"main-uncaught-exception-handled","message":"PROOF-08 injected
 crash...","stack":"Error: ...\n    at Timeout._onTimeout
-(.../main-inprocess.mjs:137:13)\n..."}`. Elapsed from ready to empty tree:
-~10.0–10.8s across the 3 reps (crash at 3s + ~1s handler/exit propagation +
-the probe's own ~5s settle wait before the final snapshot).
+(.../main-inprocess.mjs:137:13)\n..."}`. Real propagation time, computed from
+`raw-results.json`'s own event timestamps (not estimated): crash fires at
+t+3000ms as scheduled, the handler observes it 2–5ms later, and
+`exitInfo.at` follows the handler by **90–118ms** across the 3 reps — so the
+process is fully gone roughly 3.1s after ready, not the ~10s figure below.
+The ~10.0–10.8s `postCrashElapsedMs` reported per rep is when `run.mjs`
+*takes its post-crash snapshot* (crash at 3s + the probe's own fixed ~5–7s
+settle wait before snapshotting, not "time for the process to actually
+exit") — the snapshot simply finds an already-empty tree, since the process
+exited ~7s earlier than the snapshot was taken.
 
 **The matched-handler comparison changes the diagnosis, not the decision.**
 With the same handler policy, B's crash goes from "silent, undiagnosable
@@ -371,10 +409,10 @@ The four behaviors, side by side:
 
 | | main process survives | window survives | server signals down cleanly | diagnostic produced | self-terminates |
 |---|---|---|---|---|---|
-| A, default | **yes** | **yes** | yes — `ECONNREFUSED` once child gone | yes — full stack trace to stderr | yes — child exits(1) in ~0ms |
-| A, matched | **yes** | **yes** | yes — `ECONNREFUSED` once child gone | yes — full stack trace to stderr (explicit handler, same outcome) | yes — child exits(1) in ~0ms |
-| B, default | technically, but frozen | frozen, unresponsive | no — `TIMEOUT`, indistinguishable from "slow" | **yes — a modal dialog** (not stderr; round-1 mischaracterized this as silent) | **no — needs external kill** |
-| B, matched | **no — whole process exits** | **no — dies with it** | yes — connection refused once process is gone | yes — full stack trace to stderr | **yes — process exits(1)**, but takes the window with it |
+| A, default | **yes** | **yes** | yes — `ECONNREFUSED` once child gone | `code=1` matches Node's documented default exactly; literal stderr text captured in this probe's own log 0/4 A-arm reps this round (a probe capture race, not absence — see §5.1) | yes — child exits(1) in ~0ms |
+| A, matched | **yes** | **yes** | yes — `ECONNREFUSED` once child gone | same as default; literal stderr text captured 2/3 reps (§5.2) | yes — child exits(1) in ~0ms |
+| B, default | technically, but frozen | frozen, unresponsive | no — `TIMEOUT`, indistinguishable from "slow" | **yes — a modal dialog** (not stderr — confirmed empty; round-1 mischaracterized the dialog itself as absent) | **no — needs external kill** |
+| B, matched | **no — whole process exits** | **no — dies with it** | yes — connection refused once process is gone | yes — full stack trace to stderr, captured in log for all 3 reps | **yes — process exits(1)** ~90–118ms after the handler runs, but takes the window with it |
 
 ## 6. Measurement bugs found along the way (disclosed, not hidden)
 
@@ -456,6 +494,27 @@ folded into "the fix" because it demonstrates the same class of bug (an
 unretried PowerShell call on a heavily-loaded machine) can hide in more than
 one call site, and a reviewer re-running this ADR's own Appendix commands
 should not have to discover that themselves.
+
+**Not a bug, but a capture-reliability gap worth disclosing — found while
+verifying §5's own claims against `raw-results.json` rather than trusting
+the printed summary.** `main-utility.mjs`'s forwarding of the forked child's
+stderr (`child.stderr.on("data", ...)` → a `server-stderr` JSON-log event)
+did not fire in 4 of 7 Approach-A crash reps run this round (all 3 §5.1
+default reps, 1 of 3 §5.2 matched reps, plus a dedicated post-fix
+`crash-timeline.mjs utility` re-run) — the child's `exit` event, and
+`run.mjs`'s subsequent read of the log file, can both happen before the last
+`stderr` `data` event is delivered, under this session's load. `code=1`
+(the reliable signal, via the `exit` event) fired every single time; only
+the literal stack-trace *text* capture is intermittent. §5.1/§5.2 and the
+comparison table are corrected to state this precisely — "diagnostic
+produced" for A now cites the exit code plus an independently-verified fact
+about Node's default behavior, not an assumed-always-captured stack trace.
+Not fixed in code this round (it doesn't affect any measured number that
+feeds §8's decision — exit code, `mainAlive`, and window survival are all
+captured via non-racy channels), but flagged for Fase 5: any real
+supervisor built on this ADR's signal (§9, `child.on('exit', code)`) should
+not additionally depend on literal stderr text from a forked
+`utilityProcess` being reliably captured.
 
 ## 7. Weighing against SHELL-03
 
