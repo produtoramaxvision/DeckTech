@@ -1,6 +1,6 @@
 # ADR-0003: Binary `.lnk` parsing in Node vs COM (`WScript.Shell`)
 
-- Status: Accepted (revised through round 7 — see "Revision history" below)
+- Status: Accepted (revised through round 8 — see "Revision history" below)
 - Date: 2026-09-17
 - Requirement: PROOF-03 (`.maxvision/REQUIREMENTS.md` Fase 0), gates PLAT-10
 - Supersedes: nothing. First measurement of unvalidated assumption U5
@@ -185,8 +185,13 @@ questions" below, which replaces the old "149-vs-182 denominator"
 section and keeps that finding, unreconciled, as its OWN, separate
 question from this one).
 
-**The warm speedup claim (corrected in round 5 — round-5 blocker
-finding 1):** the warm-median speedup observed across the FOUR
+**Provenance of the round-5 four-run committed set (historical —
+corrected in round 5, round-5 blocker finding 1; superseded as this
+document's speedup range by the round-7 canonical statement below — see
+"Measured result" → "Ratio evidence — canonical statement" — and
+retained here only as the reproducibility record for which specific runs
+are independently git-verifiable, round-8 blocker finding 1):** the
+warm-median speedup observed across the FOUR
 independent n=5 runs that are actually committed to this repository and
 independently reproducible right now by anyone via `git show
 <sha>:measure/windows/proof-03-results.json` spans **11.6x–16.4x**:
@@ -216,8 +221,12 @@ so a third party cannot reproduce them from this repository; and (2)
 the round-3 reviewer's own two re-runs (medians 17.0x and 12.3x) —
 second-hand, reported in that round's review findings, run on the
 reviewer's own machine/session, likewise not reproducible from anything
-committed here. Combining all three clusters gives an overall observed
-range of **8.8x–17.0x across ten n=5 samples** (four repo-verifiable,
+committed here. Combining all three clusters gave, as of round 5, an
+overall observed range of **8.8x–17.0x across ten n=5 samples**
+(historical — this ten-sample tally is itself superseded by the
+twenty-sample round-7 canonical statement in "Measured result" → "Ratio
+evidence — canonical statement" below, the same way the four-run span
+above is; round-8 blocker finding 1) (four repo-verifiable,
 four uncommitted first-party, two second-hand) — consistent with round
 3's retracted "12.3x–17.0x" bound at its upper end, but this document
 does not restate round 3's "~1.4" factor as a property of that combined
@@ -268,8 +277,27 @@ document last "fixed" it, exactly as this round's reviewer predicted it
 would ("every future reviewer breaks it").
 
 **Ratio evidence — canonical statement (this is the ONE place this
-document states it; "Decision" and the round-6 history entry below point
-here instead of restating it):** across TWENTY n=5 warm runs measured
+document states the CURRENT Node-vs-COM speedup conclusion — round-8
+blocker finding 1: this is a narrower claim than "every ratio range in
+the file," and deliberately so — the separate COM-vs-third-party-baseline
+per-item rate gap ("The COM baseline" below, 5.9x–11.3x, a different
+metric with its own scope statement) is untouched by this parenthetical.
+Restricted to the Node-vs-COM speedup this paragraph is about, every
+other range in the file is either (a) inside "Revision history" below, an
+appendix of past-round entries that are historical by construction, (b)
+inside a table row or the round-6 history entry reporting one specific
+PAST run's own result, never generalized into a document-wide claim, (c)
+one of the two round-5-era paragraphs in this section — "Provenance
+of the round-5 four-run committed set" and the "Combining all three
+clusters" sentence just above — which now say, at the point of statement,
+that they are superseded by this paragraph, or (d) the "Round 6 found..."
+and "Round 7 finding..." narrative paragraphs immediately above this one,
+which each state a prior round's number and, in that same paragraph or
+the next, that the following round found it broken — narrating what
+happened, not asserting a current bound; "Decision," the round-6
+history entry below, and "The COM baseline" → "This ADR's speedup claim"
+all point here instead of restating it):** across TWENTY n=5 warm runs
+measured
 for this ADR through round 7 (four committed + four uncommitted
 first-party round 5, two second-hand round 3, two second-hand round 6,
 two first-party round 6, three second-hand round 7 — the reviewer's own
@@ -317,7 +345,7 @@ runs, the binary reader saves COM-median minus Node-median per full
 quarter to half a second per full scan on this machine (0.23–0.46 s)** —
 not the ~2.4 s the research baseline's 16 ms/shortcut premise would
 suggest for a similarly-sized set (that premise does not reproduce on
-this machine at all; see "The COM baseline" above). This is arithmetic on
+this machine at all; see "The COM baseline" below). This is arithmetic on
 each committed run's own `warm.nodeParserMs.median` and
 `warm.comLoopOnlyMs.median` fields, already present in the committed
 JSON, not a new measurement. Eleven further samples, none committed, all
@@ -328,12 +356,83 @@ document's round-4/5 measurement session (253.5 ms, 234.2 ms, 238.0 ms,
 grazes but does not fall below the observed 226.5 ms lower edge,
 compared at full millisecond precision rather than the rounded "0.23
 s"), round 6's
-worker's two runs (277.34 ms, 234.07 ms), and this round's (round 7's)
-three fresh confirmation runs (241.65 ms, 236.26 ms, 254.47 ms — computed
-from this section's three round-7 runs above: 277.0546 − 35.407, 264.8426
-− 28.5819, 286.4326 − 31.9648). Fifteen samples across seven review
-rounds, zero of them outside 0.23–0.46 s. This band, not any ratio
-figure, is what "Decision" motivates PLAT-10 with.
+worker's two runs (277.34 ms, 234.07 ms), and round 7's three fresh
+confirmation runs — 241.65 ms, 236.26 ms, 254.47 ms, arithmetic on
+277.0546 − 35.407, 264.8426 − 28.5819, 286.4326 − 31.9648
+(round-8 major finding 2: those six COM/Node medians were typed directly
+into round 7's revision of this paragraph and were never quoted verbatim
+or committed as their own artifact anywhere in this repository — `git
+log --all -S"277.0546"` and the same for each sibling number return only
+this document's own text, introduced by `eb260d5`; unlike every other row
+in this list, no third party can independently confirm them. They are
+first-party but, like the "Corroborating run A–D" cluster above, not
+independently reproducible from anything committed here, and this
+revision corrects the dangling "computed from this section's three
+round-7 runs above" cross-reference that used to imply otherwise — there
+was no "above" to compute from. They still count toward the band because
+the document has no reason to doubt three numbers this document's own
+prior round typed down, only to independently verify them; a reader who
+wants that independent verification should use the round-8 runs below
+instead). Fifteen samples across seven review rounds, zero of them
+outside 0.23–0.46 s.
+
+**Round-8 worker verification — three fresh runs, fully verbatim
+(round-8 major finding 2's fix: independently reproducible confirmation
+data for the slot the round-7 numbers above cannot provide):** run on
+this machine on 2026-09-18, `node measure/windows/proof-03-lnk-benchmark.mjs`,
+three times in sequence; `measure/windows/proof-03-results.json` restored
+via `git checkout --` after each run and confirmed byte-identical to
+`HEAD` (`8d88e16051939adefcfc855cc732386e36407ea7` via `git hash-object`)
+before the next run and again after the third.
+
+Run 1:
+```
+--- Timing: warm (n=5, after 1 discarded warmup iteration) ---
+Node parser: median 25.67 ms, min 24.19, max 29.13, stddev 1.86 -- raw: [25.67, 25.04, 29.13, 28.00, 24.19]
+COM loop-only: median 257.2 ms, min 248.2, max 290.3, stddev 14.5 -- raw: [261.3, 257.2, 290.3, 248.2, 255.3]
+Speedup (median of per-iteration COM/Node ratios): median 10.2x, min 8.9x, max 10.6x
+Node parser warm median, per-shortcut: 0.1410 ms/shortcut
+COM warm median, per-shortcut: 1.4130 ms/shortcut
+```
+COM-median minus Node-median: 257.2 − 25.67 = **231.53 ms**. Agreement:
+170 exact / 0 case-insensitive / 0 realpath / 0 secondary-only / 0
+mismatch / 8 no-usable-target-path-source gap, 42 env-var, 12
+IDList-only, 1 MSI-advertised, 0 UNC — bit-identical to the canonical
+`6932c45` run.
+
+Run 2 (immediately after run 1):
+```
+--- Timing: warm (n=5, after 1 discarded warmup iteration) ---
+Node parser: median 28.63 ms, min 26.65, max 29.34, stddev 1.11 -- raw: [26.70, 26.65, 29.34, 28.63, 28.72]
+COM loop-only: median 263.8 ms, min 247.8, max 326.4, stddev 28.0 -- raw: [247.8, 263.8, 326.4, 261.2, 291.8]
+Speedup (median of per-iteration COM/Node ratios): median 9.9x, min 9.1x, max 11.1x
+Node parser warm median, per-shortcut: 0.1573 ms/shortcut
+COM warm median, per-shortcut: 1.4493 ms/shortcut
+```
+COM-median minus Node-median: 263.8 − 28.63 = **235.17 ms**. Agreement:
+identical to run 1 (170/0/0/0/0/8, 42/12/1/0).
+
+Run 3 (immediately after run 2):
+```
+--- Timing: warm (n=5, after 1 discarded warmup iteration) ---
+Node parser: median 29.55 ms, min 24.15, max 34.18, stddev 3.52 -- raw: [29.55, 33.09, 29.14, 34.18, 24.15]
+COM loop-only: median 268.4 ms, min 264.6, max 274.1, stddev 3.9 -- raw: [274.0, 264.6, 268.4, 266.6, 274.1]
+Speedup (median of per-iteration COM/Node ratios): median 9.2x, min 7.8x, max 11.3x
+Node parser warm median, per-shortcut: 0.1624 ms/shortcut
+COM warm median, per-shortcut: 1.4745 ms/shortcut
+```
+COM-median minus Node-median: 268.4 − 29.55 = **238.85 ms**. Agreement:
+identical to runs 1 and 2 (170/0/0/0/0/8, 42/12/1/0).
+
+All three savings (231.53 ms, 235.17 ms, 238.85 ms) land inside the
+existing 226.5–456.3 ms band without moving either edge, and all three
+speedup medians (10.2x, 9.9x, 9.2x, iteration range 7.8x–11.3x) land
+inside the existing 7.8x–17x / 5.7x–18x ranges from "Ratio evidence —
+canonical statement" above without moving either edge there either — this
+round adds confirmation, not a revision, to both figures. **Eighteen
+samples across eight review rounds, zero of them outside 0.23–0.46 s.**
+This band, not any ratio figure, is what "Decision" motivates PLAT-10
+with.
 
 COM's own loop-only time varies substantially both run to run and within a
 single warm run. Within-run: this round's canonical run's 5 warm
@@ -440,14 +539,14 @@ and, separately and additionally, as comparing against a total that this
 round establishes does not reproduce on this machine via the same
 mechanism (B, above):** `16.07 ms/shortcut` (`2395/149`) is the research
 doc's own number, restated here for context, not re-derived or extended
-into a speedup claim. This ADR's speedup claim (an 11.6x–16.4x span of
-warm medians across the FOUR independently repo-verifiable committed
-n=5 runs — `6932c45`, `7819df6`, `1fa06ae`, `14a44ac`, round-5 blocker
-finding 1 — widening to 8.8x–17.0x across ten total n=5 samples if this
-round's four uncommitted first-party runs and the round-3 reviewer's two
-second-hand medians are also included; this round's own canonical run
-median is 11.6x; no cold/iteration-0 ratio is claimed at all — round-3
-blocker 1) is computed
+into a speedup claim. This document's speedup claim is stated exactly
+once, canonically, in "Measured result" → "Ratio evidence — canonical
+statement" above (roughly 7.8x–17x at the run-median level across twenty
+n=5 runs; no cold/iteration-0 ratio is claimed at all — round-3 blocker
+1; round-8 blocker finding 1 removed the 11.6x–16.4x / 8.8x–17.0x figures
+this paragraph used to restate here, since both are the same round-5-era
+numbers already marked superseded where they are actually stated, in
+"Measured result" above). That claim is computed
 against each run's OWN
 COM measurement (182 shortcuts, both paths, same process, same machine,
 same moment) — not against the 149 baseline — specifically to avoid
@@ -687,12 +786,12 @@ parser produced somewhere in a candidate list:
    finding 1):** the binary reader saves **0.23–0.46 s per full
    182-shortcut Start Menu scan** on this machine, not the ~2.4 s the
    research baseline's 16 ms/shortcut premise would suggest for a
-   similarly-sized set. Fifteen independent samples across all seven
+   similarly-sized set. Eighteen independent samples across all eight
    review rounds land inside this exact band and none has moved either
    edge — see "Measured result" → "Absolute magnitude" above for the full
    sample list and arithmetic. This is the number this Decision leads
    with, specifically because — unlike the ratio in item 3 below — it has
-   not required revision in three consecutive rounds.
+   not required revision in four consecutive rounds.
 3. **The ratio (ancillary context, not a planning floor — round-7 blocker
    finding 1):** across twenty n=5 runs measured for this ADR over seven
    review rounds, the binary reader has been faster than COM in every
@@ -701,7 +800,7 @@ parser produced somewhere in a candidate list:
    observed so far to span roughly 5.7x–18x at the single-iteration level
    and roughly 7.8x–17x at the run-median level (full accounting,
    including which rows lack recoverable data and why, in "Measured
-   result" below). **This document does not, and after this round
+   result" above). **This document does not, and after this round
    will not again, publish a minimum from this distribution as a design
    floor:** rounds 5 and 6 each did exactly that (11.6x, then 6.2x/8.3x),
    and both were falsified by the next round's fresh measurement —
@@ -798,7 +897,84 @@ deliberately NOT the canonical run this section's numbers are drawn from.)
 
 ## Revision history
 
+### Round-8 revision
+
+A rigorous reviewer rejected the round-7 version of this ADR on three
+findings.
+
+1. **[blocker, fixed]** Round 7's own fix for round 6's rejection —
+   consolidating the ratio into one canonical statement — was itself
+   incomplete: two round-5-era paragraphs in "Measured result" (the
+   four-run "11.6x–16.4x" paragraph and the ten-sample "8.8x–17.0x"
+   paragraph, both above the canonical statement) and one sentence in
+   "The COM baseline" → "This ADR's speedup claim" kept restating those
+   same superseded ranges in the present tense, with no marker at the
+   point of statement — the exact defect the round-6 history entry had
+   already been marked to avoid, left unmarked at three other sites.
+   Fixed: the two "Measured result" paragraphs are retitled and marked,
+   at the point of statement, as historical provenance superseded by the
+   canonical statement below them (their specific git-verifiable numbers
+   are kept, since they document which individual runs are independently
+   reproducible — that provenance record has its own value distinct from
+   the ratio headline); "This ADR's speedup claim" is rewritten to strip
+   the duplicated numeric ranges entirely and point at the canonical
+   statement instead, per the finding's second offered option. The
+   canonical statement's own "this is the ONE place this document states
+   it" parenthetical is rewritten to name every remaining ratio-range
+   site in the file and say why each is historical, rather than merely
+   asserting uniqueness — see that parenthetical itself for the full,
+   current four-category accounting of every ratio range remaining in
+   the file (plus one metric explicitly out of its scope: the separate
+   COM-vs-baseline per-item rate gap in "The COM baseline," never part of
+   this finding). `grep -n "x–[0-9]"` was re-run against this revision to
+   produce that accounting, not merely asserted; every hit traces to one
+   of the four categories or the excluded metric.
+2. **[major, fixed]** The three round-7 "fresh confirmation" COM/Node
+   medians behind three of the fifteen samples in the 0.23–0.46 s
+   absolute-saving band (277.0546/35.407, 264.8426/28.5819,
+   286.4326/31.9648) were never quoted verbatim or committed as their
+   own artifact anywhere in this repository — `git log --all -S` for
+   each of the six numbers returns only this document's own prose,
+   introduced directly by `eb260d5` — while the paragraph citing them
+   said they were computed "from this section's three round-7 runs
+   above," a cross-reference to data that does not exist anywhere in the
+   document. Fixed: that dangling cross-reference is removed and the
+   round-7 numbers are explicitly labeled by their actual evidentiary
+   class — first-party but, like the "Corroborating run A–D" cluster, not
+   independently reproducible from anything committed here — and this
+   round's own worker re-ran the committed benchmark three more times
+   (`node measure/windows/proof-03-lnk-benchmark.mjs`, verbatim stdout
+   quoted in "Measured result" → "Round-8 worker verification";
+   `proof-03-results.json` restored via `git checkout --` after each run
+   and confirmed byte-identical to `HEAD` via `git hash-object` before
+   the next run and again after the third) to add three genuinely
+   citable samples: 231.53 ms, 235.17 ms, 238.85 ms, all inside the
+   existing 226.5–456.3 ms band, bringing the total to eighteen samples
+   across eight review rounds. The same three runs' speedup medians
+   (10.2x, 9.9x, 9.2x; iteration range 7.8x–11.3x) also land inside the
+   existing ratio ranges without moving either edge, confirming rather
+   than revising the canonical statement.
+3. **[minor, fixed]** "Decision" item 3 pointed to "Measured result"
+   → "Ratio evidence — canonical statement" with "below," but that
+   subsection is inside "Measured result," which precedes "Decision" in
+   this document — the correct word is "above," matching item 2's
+   correct cross-reference two lines earlier. Fixed: the word changed;
+   no other cross-reference in "Decision" was affected.
+
+`node --test test/windows-lnk-parser.test.mjs`: unaffected by this round
+— no test or library file changed, per task rule 3 (round 8 touched only
+`docs/adr/0003-proof-03-lnk-binary-parsing.md`).
+
 ### Round-7 revision
+
+**Extended, not superseded, by the Round-8 revision above:** round 7
+introduced the canonical-statement structure ("Measured result" → "Ratio
+evidence — canonical statement") this document still uses, and that
+structural design is unchanged. Round 8 found it incompletely applied —
+two more sites restating the old numbers without a marker, and one
+evidentiary gap in the absolute-saving band — and completed it; round 7's
+own measurements described below were not found wrong by round 8, only
+the consolidation's coverage.
 
 A rigorous reviewer rejected the round-6 version of this ADR on three
 findings.
