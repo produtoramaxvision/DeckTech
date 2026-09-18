@@ -6,16 +6,36 @@ See: .maxvision/PROJECT.md (updated 2026-09-17)
 
 **Core value:** Um usuário Windows instala o DeckTech, abre o host, conecta o celular pelo PIN e
 aciona um app Windows pelo dock — tudo na primeira sessão, sem instalar Node.js.
-**Current focus:** Phase 0 — Prova técnica Windows
+**Current focus:** Phase 2 — Contrato de plataforma (Phase 0 COMPLETA)
 
 ## Current Position
 
-Phase: 0 of 13 (Prova técnica Windows)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-09-17 — ROADMAP.md criado; 67/67 requisitos v1 mapeados em 14 fases (0-13)
+Phase: 0 of 13 — **COMPLETA** em 2026-09-18
+Plan: 7/7 lanes fechadas (PROOF-01..08; PROOF-05 executado, nao implementado)
+Status: Fase 0 fechada; proxima onda = Phase 2 + Phase 6 em paralelo
+Last activity: 2026-09-18 — PROOF-08 tee blocker fechado; suite 389 tests / 374 pass / 0 fail / 15 skipped / exit 0
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 8/79 requisitos (10%)
+
+### Fase 0 — resultado
+
+| Lane | Rodadas | Fecho |
+|---|---|---|
+| PROOF-01 | 9 | APROVADO. ADR-0001: ponte de icone = **N-API addon**, koffi como fallback, pool PowerShell rejeitado |
+| PROOF-02 | 3 | APROVADO. ADR-0002: enumeracao UWP via `shell:AppsFolder`, 3/3 apps-prova detectados, locale pt-BR tratado |
+| PROOF-03 | 10 (exhausted) + sweep M4 | ADR-0003: parser binario `.lnk` **8,8x-16,4x** mais rapido que COM, zero divergencia em 182 atalhos |
+| PROOF-04 | 8 + sweep M3 | ADR PROOF-04: regra de exclusao de desinstaladores, com mutation harness (17 killed / 1 survivor) |
+| PROOF-06 | 1 + sweep M1/M2 | `ds-store` -> `optionalDependencies`; `npm ci` volta a funcionar no Windows; guarda de regressao em `test/package-dmg.test.mjs:226` |
+| PROOF-07 | 2 | Testes macOS-only gateados; 15 skips com motivo impresso |
+| PROOF-08 | 10 (exhausted) + sweep tee | ADR-0004: **`utilityProcess.fork`** decidido. D15 resolvido |
+
+Custo: 86 + 10 + 4 = 100 agentes, ~19,6 M tokens de subagente, 0 erro.
+
+Achado extra fora do escopo da fase: 2 testes de `test/ui.test.mjs` que **nunca passaram em lugar
+nenhum** (arquivo inalterado desde o fork, CI upstream e `workflow_dispatch`-only sem Playwright).
+Causa: o dock so preenche um tile quando a peca resolve contra `/api/apps/installed`, que no
+Windows ainda devolve o fallback macOS. Corrigidos injetando `appTools` pelo seam `server.js:295`
+e removendo `waitUntil: "networkidle"`, que a doc oficial do Playwright marca DISCOURAGED.
 
 ## Performance Metrics
 
