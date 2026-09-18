@@ -106,15 +106,31 @@ Resultado bruto completo: [`measure/windows/icon-bench/results.json`](../../meas
      .NET (`System.Drawing.Bitmap`, via
      [`pwsh/verify.ps1`](../../measure/windows/icon-bench/pwsh/verify.ps1)) — um caminho de
      código que NENHUM dos três bridges usa pra ESCREVER o PNG — e compara os bytes BGRA
-     decodificados addon-vs-koffi e addon-vs-pwsh, byte a byte. **Resultado real:** 111/111 apps
-     concordam (delta máximo por canal ≤ 2; addon vs koffi bateram delta=0 em toda amostra
-     inspecionada, pwsh dentro de 1–2/255 por usar o encoder PNG do próprio .NET).
-  2. Duas checagens que o harness não controla: variância do canal alfa (pega um bitmap
-     uniforme/em branco) e fração de preenchimento do bounding-box de conteúdo (pega um blob
-     minúsculo num canto em vez de um ícone real). Resultado: 0/111 apps com bbox quase vazio;
-     7/111 com variância de alfa baixa — inspecionadas manualmente, são ícones quadrados
-     totalmente opacos (alfa=255 uniforme é o comportamento correto pra esse tipo de ícone, não
-     um sinal de falha).
+     decodificados addon-vs-koffi e addon-vs-pwsh, byte a byte. **Resultado real, medido, não
+     estimado:** 111/111 apps concordam, e o delta MÁXIMO GLOBAL observado — addon vs koffi E
+     addon vs pwsh, nas 111 apps, não uma amostra — é **0** (`verify-results.json ->
+     globalMaxDeltaObserved: 0`, `perBridgeMaxDeltaObserved: {"koffi":0,"pwsh":0}`). Os três
+     bridges produzem pixels **byte-idênticos** em todo o conjunto benchmarcado, inclusive pwsh
+     apesar de usar o encoder PNG do próprio .NET — a tolerância de `AGREEMENT_MAX_DELTA = 2`
+     configurada em `verify.mjs` existe como margem de segurança e nunca foi de fato exercitada
+     nesta execução (correção sobre uma versão anterior deste texto, que citava "1–2/255"
+     herdado do comentário do reviewer sem reexecutar a medição).
+  2. Duas checagens **diagnósticas, que NÃO decidem pass/fail** (só `disagreeCount`, a
+     concordância de pixels do item 1, decide isso — ver
+     `verify-results.json.sanityChecksAreDiagnosticOnly`): variância do canal alfa (pega um
+     bitmap uniforme/em branco) e fração de preenchimento do bounding-box de conteúdo (pega um
+     blob minúsculo num canto em vez de um ícone real). Resultado: 0/111 apps com bbox quase
+     vazio; 7/111 com variância de alfa baixa, todos com `bboxFillFraction: 1` (preenchem o
+     frame inteiro) — nomeados em `verify-results.json.lowAlphaVarianceApps`: Antigravity IDE,
+     MSYS2 CLANG64/CLANGARM64/MINGW64/MSYS/UCRT64, NVIDIA App. **Inspecionei visualmente 3
+     desses 7** (Antigravity IDE, MSYS2 CLANG64, NVIDIA App, lendo os PNGs em
+     `.tmp/cache/addon/{10,54,63}.png` diretamente) — são de fato ícones com fundo sólido opaco
+     preenchendo o quadro inteiro (alfa=255 uniforme é o comportamento correto pra esse tipo de
+     ícone, não um sinal de falha); não inspecionei os outros 4 (MSYS2 CLANGARM64/MINGW64/MSYS/
+     UCRT64) individualmente, mas têm o mesmo `bboxFillFraction: 1` e mesma família de app
+     (variantes do mesmo instalador MSYS2), então a mesma explicação é a mais provável — não
+     confirmada visualmente para esses 4 especificamente, dito aqui para não misturar "inspecionei"
+     com "inferi por semelhança".
   3. **Dois controles negativos adversariais, rodados e impressos toda vez que o script roda,**
      provando que a checagem em (1) PODE falhar: (a) compara os ícones de dois apps DIFERENTES
      entre si — resultado real: `Administrative Tools vs Adobe Acrobat: maxAbsDelta=255 ->
@@ -142,14 +158,30 @@ Resultado bruto completo: [`measure/windows/icon-bench/results.json`](../../meas
   e via koffi no lado JS
   ([`lib/win32-path.mjs`](../../measure/windows/icon-bench/lib/win32-path.mjs)) — não uma
   reimplementação em JS que *deveria* ter o mesmo comportamento, a mesma chamada de sistema
-  literal dos dois lados. Contrato documentado e **verificado**, não assumido: converte `/` em
-  `\`, resolve `.`/`..` e paths relativos contra o CWD, remove pontos/espaços à direita do
-  último componente — e **não** expande `%VAR%` nem remove aspas/sufixo `,<índice>` de valores
-  de registro `DisplayIcon` (quem chamar com esses precisa tratar antes). Caso de harness
-  permanente em
-  [`scripts/verify-path-contract.mjs`](../../measure/windows/icon-bench/scripts/verify-path-contract.mjs):
-  pega um app real do `apps.json` (Adobe Acrobat, path com espaço) e testa forma com barra
-  normal e forma relativa nos dois bridges in-process. **Resultado real, colado, não estimado:**
+  literal dos dois lados. **Cada forma do contrato abaixo foi executada nesta máquina contra o
+  addon real** (não assumida a partir da documentação do `GetFullPathNameW`), via
+  [`scripts/verify-path-contract.mjs`](../../measure/windows/icon-bench/scripts/verify-path-contract.mjs)
+  (barra normal / relativo, sobre um app real com espaço no path) e um script de teste ad hoc
+  pontual pras demais formas (espaço/ponto finais, `%VAR%`, aspas, sufixo `,<índice>` — todas
+  contra `C:\Windows\System32\notepad.exe`, `addon.extractIconBgra(path, 256)` direto):
+
+  | Forma | Resultado real | O que confirma |
+  |---|---|---|
+  | canônico (barra invertida, absoluto) | sucesso | baseline |
+  | barra normal (`C:/Windows/...`) | sucesso, pixel-idêntico ao canônico | `/` → `\` |
+  | relativo (`..\..\...`) | sucesso, pixel-idêntico ao canônico | resolvido contra o CWD |
+  | espaço à direita (`notepad.exe `) | sucesso | espaço final removido |
+  | ponto à direita (`notepad.exe.`) | sucesso | ponto final removido |
+  | `%SystemRoot%\...` | **falha**, hr=`0x80070002` (arquivo não encontrado) | `%VAR%` **NÃO** é expandido — tratado como texto literal |
+  | `"C:\Windows\...\notepad.exe"` (com aspas) | **falha**, hr=`0x80070057` (argumento inválido) | aspas **NÃO** são removidas |
+  | `notepad.exe,0` (sufixo de índice de registro) | **falha**, hr=`0x80070002` (arquivo não encontrado) | sufixo `,<índice>` **NÃO** é removido |
+
+  As três últimas linhas falham DE PROPÓSITO — confirmam o que o contrato NÃO cobre, não um bug:
+  quem chamar `realIconService` com um valor `DisplayIcon` de registro precisa expandir
+  `%VAR%` (`ExpandEnvironmentStringsW`), remover aspas e cortar o sufixo `,<índice>` **antes**
+  de passar o path pro addon — esse pré-processamento não existe ainda porque `PLAT-03` (o
+  consumidor) é uma fase futura; fica registrado como requisito explícito da interface, não como
+  suposição. Saída real do caso de harness permanente (barra normal / relativo):
   ```
   addon / forward-slash: extraction OK, pixel-identical to canonical: true
   addon / relative: extraction OK, pixel-identical to canonical: true
@@ -179,9 +211,11 @@ Resultado bruto completo: [`measure/windows/icon-bench/results.json`](../../meas
   o tamanho desse efeito: é o teto do que "laço + encode + escrita em disco" custa nesta
   máquina, bem abaixo da diferença de ~15 ms entre addon e pwsh — a assimetria de encoder não é
   grande o suficiente para explicar a diferença observada entre candidatas. `scripts/verify.mjs`
-  confirma isso diretamente: o delta de pixel decodificado addon-vs-pwsh fica dentro de 1–2/255
-  em todas as 111 apps (ver "Verificação independente" acima), não uma diferença sistemática de
-  encoder.
+  confirma isso diretamente e mais fortemente do que eu esperava: o delta de pixel decodificado
+  addon-vs-pwsh é **0** (byte-idêntico) em todas as 111 apps, não uma diferença pequena mas
+  não-zero (ver "Verificação independente" acima e `globalMaxDeltaObserved` em
+  `verify-results.json`) — a assimetria de encoder existe no código (caminhos diferentes) mas
+  não produz nenhuma diferença de pixel mensurável nesta máquina.
 
 ## Achados de implementação (não só números)
 
@@ -331,7 +365,7 @@ Electron com addons nativos.
   desta investigação comentados inline nos pontos exatos onde apareceriam de novo.
 - O pool PowerShell não é descartado como ideia em geral — pode voltar a fazer sentido para um
   cenário totalmente diferente (ex.: extração em lote muito grande, > milhares de ícones, onde
-  o custo fixo de ~410 ms amortiza) — mas não é a ponte de PLAT-03.
+  o custo fixo de ~530 ms amortiza) — mas não é a ponte de PLAT-03.
 - `PLAT-09` (cache de ícone persistente) reduz a relevância de todas essas medições de "custo
   por scan": com cache em disco quente, PLAT-03 paga o custo medido aqui só uma vez por
   app/tema, não a cada abertura do DeckTech.
@@ -390,11 +424,25 @@ sem reexecutar. Resumo; os detalhes completos de cada um estão inline nas seç�
    distribuição de latência (medem a constante de timeout, não a ponte) — corrigido também o
    denominador de `successRate` para não encolher junto. Em
    [`pwsh/worker.ps1`](../../measure/windows/icon-bench/pwsh/worker.ps1), request malformada
-   agora responde com um envelope de erro em vez de `continue` silencioso. **Reproduzido**: path
-   de script inexistente → rejeita em ~150ms (era hang indefinido); worker morto em pleno
-   request → rejeita em ~30ms (era hang indefinido); request malformada → worker responde com
-   erro E continua servindo requests reais depois. Pool PowerShell re-executado no benchmark
-   completo: **100% de sucesso, 0 timeouts, N=222**.
+   agora responde com um envelope de erro em vez de `continue` silencioso. **Quatro cenários
+   reproduzidos, cada um exercitando um caminho de código diferente** (o processo morre é um
+   caminho, o processo fica vivo mas nunca responde é outro — os dois precisam de prova
+   separada):
+   - path de script inexistente → processo morre quase imediatamente → rejeita em ~150ms via o
+     handler `exit` (era hang indefinido; mensagem inclui a stderr real do PowerShell sobre o
+     `-File` inválido).
+   - worker morto em pleno request → rejeita em ~30ms via `exit` (era hang indefinido).
+   - **worker vivo que nunca responde a uma request** (stub `.ps1` que dorme 3600s após
+     `READY`) → `request(..., timeoutMs=1000)` rejeita em **1015ms** com
+     `name: "PwshTimeoutError"`, carregando `app`/`pid`/`timeoutMs` — este é o caminho do
+     TIMEOUT de fato (distinto dos dois acima, que são morte de processo, não timeout).
+   - **worker vivo que nunca sinaliza READY** (stub `.ps1` que dorme sem nunca imprimir
+     `READY`) → `pool.start(1000)` rejeita em **1001ms** com `PwshTimeoutError`. Sem este teste
+     específico, o caminho de timeout do `waitReady()` (distinto do caminho de morte de
+     processo que os dois primeiros cenários já cobriam) ficaria sem prova.
+   - request malformada → worker responde com erro E continua servindo requests reais depois.
+
+   Pool PowerShell re-executado no benchmark completo: **100% de sucesso, 0 timeouts, N=222**.
 3. **[major] Addon rejeita path que koffi aceita.** Corrigido normalizando via `GetFullPathNameW`
    (a mesma API Win32, chamada dos dois lados — não uma reimplementação em JS) em
    [`addon-icon/icon_addon.cc`](../../measure/windows/icon-bench/addon-icon/icon_addon.cc) e

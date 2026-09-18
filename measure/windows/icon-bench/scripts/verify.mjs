@@ -116,6 +116,7 @@ function main() {
   let lowAlphaVarianceCount = 0;
   const disagreements = [];
   const noContentApps = [];
+  const lowAlphaVarianceApps = [];
   const worstDeltas = [];
 
   for (const r of results) {
@@ -143,16 +144,34 @@ function main() {
       }
       if (refAnalysis.alphaVariance < 1) {
         lowAlphaVarianceCount++;
+        lowAlphaVarianceApps.push({ index: r.index, label: r.label, alphaVariance: refAnalysis.alphaVariance, bboxFillFraction: refAnalysis.bboxFillFraction });
       }
     }
   }
 
   worstDeltas.sort((a, b) => b.maxAbsDelta - a.maxAbsDelta);
+  // The GLOBAL max across every app x every bridge comparison — not the
+  // AGREEMENT_MAX_DELTA tolerance, the actual observed worst case. Stated
+  // explicitly so the ADR reports what was MEASURED (e.g. "0, tolerance
+  // never exercised") rather than restating the tolerance itself or an
+  // inherited figure as if it were a measurement.
+  const globalMaxDelta = worstDeltas.length ? worstDeltas[0].maxAbsDelta : null;
+  const perBridgeMaxDelta = {};
+  for (const bridge of BRIDGES) {
+    if (bridge === REFERENCE_BRIDGE) continue;
+    const bridgeDeltas = worstDeltas.filter((d) => d.bridge === bridge);
+    perBridgeMaxDelta[bridge] = bridgeDeltas.length ? Math.max(...bridgeDeltas.map((d) => d.maxAbsDelta)) : null;
+  }
 
   console.log(`[verify] cross-bridge pixel agreement (max per-channel delta <= ${AGREEMENT_MAX_DELTA}): ${agreeCount}/${results.length - errorCount} apps agree across all bridges`);
   console.log(`[verify] decode errors: ${errorCount}/${results.length}`);
-  console.log(`[verify] apps with near-empty content bbox (<2% fill, reference=${REFERENCE_BRIDGE}): ${noContentCount}/${results.length}`);
-  console.log(`[verify] apps with near-zero alpha variance (reference=${REFERENCE_BRIDGE}): ${lowAlphaVarianceCount}/${results.length}`);
+  console.log(`[verify] GLOBAL max per-channel delta observed (across all apps x all bridge comparisons): ${globalMaxDelta}`);
+  console.log(`[verify] per-bridge max delta vs ${REFERENCE_BRIDGE}: ${JSON.stringify(perBridgeMaxDelta)}`);
+  console.log(`[verify] apps with near-empty content bbox (<2% fill, reference=${REFERENCE_BRIDGE}) — DIAGNOSTIC ONLY, does not gate pass/fail: ${noContentCount}/${results.length}`);
+  console.log(`[verify] apps with near-zero alpha variance (reference=${REFERENCE_BRIDGE}) — DIAGNOSTIC ONLY, does not gate pass/fail: ${lowAlphaVarianceCount}/${results.length}`);
+  if (lowAlphaVarianceApps.length) {
+    console.log(`[verify] low-alpha-variance apps (for manual inspection): ${JSON.stringify(lowAlphaVarianceApps)}`);
+  }
   console.log(`[verify] worst 5 cross-bridge deltas: ${JSON.stringify(worstDeltas.slice(0, 5))}`);
   if (disagreements.length) {
     console.log(`[verify] DISAGREEMENTS (first 10): ${JSON.stringify(disagreements.slice(0, 10), null, 2)}`);
@@ -215,6 +234,8 @@ function main() {
     bridges: BRIDGES,
     referenceBridge: REFERENCE_BRIDGE,
     agreementMaxDeltaThreshold: AGREEMENT_MAX_DELTA,
+    globalMaxDeltaObserved: globalMaxDelta,
+    perBridgeMaxDeltaObserved: perBridgeMaxDelta,
     agreeCount,
     disagreeCount,
     errorCount,
@@ -222,11 +243,14 @@ function main() {
     lowAlphaVarianceCount,
     disagreements,
     noContentApps,
+    lowAlphaVarianceApps,
     worstDeltas: worstDeltas.slice(0, 20),
     negativeControls: {
       differentAppsCorrectlyDisagree: idxA !== idxB,
       noiseVsRealCorrectlyDisagrees: true,
     },
+    sanityChecksAreDiagnosticOnly:
+      "alphaVariance and bboxFillFraction (noContentCount/lowAlphaVarianceCount/noContentApps/lowAlphaVarianceApps) are REPORTED, not gated — they do not affect the pass/fail exit code, only cross-bridge pixel agreement (disagreeCount) does. A low-variance/low-fill icon is not necessarily wrong (a fully-opaque square icon has near-zero alpha variance by construction); these are for manual follow-up, not automated rejection.",
     whatThisCannotCatch:
       "If IShellItemImageFactory itself returns the SAME generic/fallback icon for every app, all three bridges call the identical Win32 API and would all agree on that generic icon. Cross-bridge agreement proves bridge equivalence, not per-app icon correctness. That guarantee comes from manual visual inspection of a named subset (see ADR), not from this script.",
   };

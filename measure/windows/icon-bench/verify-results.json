@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T01:27:08.726Z",
+  "generatedAt": "2026-09-18T01:37:21.414Z",
   "appCount": 111,
   "bridges": [
     "addon",
@@ -8,6 +8,11 @@
   ],
   "referenceBridge": "addon",
   "agreementMaxDeltaThreshold": 2,
+  "globalMaxDeltaObserved": 0,
+  "perBridgeMaxDeltaObserved": {
+    "koffi": 0,
+    "pwsh": 0
+  },
   "agreeCount": 111,
   "disagreeCount": 0,
   "errorCount": 0,
@@ -15,6 +20,50 @@
   "lowAlphaVarianceCount": 7,
   "disagreements": [],
   "noContentApps": [],
+  "lowAlphaVarianceApps": [
+    {
+      "index": 10,
+      "label": "Antigravity IDE",
+      "alphaVariance": 0,
+      "bboxFillFraction": 1
+    },
+    {
+      "index": 54,
+      "label": "MSYS2 CLANG64",
+      "alphaVariance": 0,
+      "bboxFillFraction": 1
+    },
+    {
+      "index": 55,
+      "label": "MSYS2 CLANGARM64",
+      "alphaVariance": 0,
+      "bboxFillFraction": 1
+    },
+    {
+      "index": 56,
+      "label": "MSYS2 MINGW64",
+      "alphaVariance": 0,
+      "bboxFillFraction": 1
+    },
+    {
+      "index": 57,
+      "label": "MSYS2 MSYS",
+      "alphaVariance": 0.035,
+      "bboxFillFraction": 1
+    },
+    {
+      "index": 58,
+      "label": "MSYS2 UCRT64",
+      "alphaVariance": 0,
+      "bboxFillFraction": 1
+    },
+    {
+      "index": 63,
+      "label": "NVIDIA App",
+      "alphaVariance": 0,
+      "bboxFillFraction": 1
+    }
+  ],
   "worstDeltas": [
     {
       "index": 0,
@@ -161,5 +210,6 @@
     "differentAppsCorrectlyDisagree": true,
     "noiseVsRealCorrectlyDisagrees": true
   },
+  "sanityChecksAreDiagnosticOnly": "alphaVariance and bboxFillFraction (noContentCount/lowAlphaVarianceCount/noContentApps/lowAlphaVarianceApps) are REPORTED, not gated — they do not affect the pass/fail exit code, only cross-bridge pixel agreement (disagreeCount) does. A low-variance/low-fill icon is not necessarily wrong (a fully-opaque square icon has near-zero alpha variance by construction); these are for manual follow-up, not automated rejection.",
   "whatThisCannotCatch": "If IShellItemImageFactory itself returns the SAME generic/fallback icon for every app, all three bridges call the identical Win32 API and would all agree on that generic icon. Cross-bridge agreement proves bridge equivalence, not per-app icon correctness. That guarantee comes from manual visual inspection of a named subset (see ADR), not from this script."
 }
