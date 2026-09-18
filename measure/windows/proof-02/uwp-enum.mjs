@@ -335,6 +335,12 @@ const unpackagedApps = classified.filter((r) => !r.packaged);
 // A packaged app is "absent from the .lnk scan" only when BOTH checks find
 // nothing — not inferred from any string match on the display name.
 
+// rawBytesLower is deliberately kept in memory for every one of the 182
+// shortcuts (not streamed/discarded per-file) because structuralAbsenceCheck
+// below runs the byte search once per PACKAGED app (18 searches) against
+// the whole set — re-reading each .lnk from disk per app would be slower
+// and this is a one-shot script, not a long-lived process, so the
+// retention is a deliberate trade, not a leak.
 const lnkParseStart = process.hrtime.bigint();
 const lnkResolved = lnkFiles.map((file) => {
   let buf = null;

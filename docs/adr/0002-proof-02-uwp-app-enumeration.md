@@ -226,10 +226,26 @@ and it reported `activationObserved: true`.
    **skipped** (`activationProof.baselineSkipped: true` with a
    `skipReason`) rather than risk killing a process this script did not
    start, or reporting an unattributable `processObserved: true`. This
-   branch did not fire on this measurement run (baseline was empty); the
-   code path exists and is exercised by
-   `measure/windows/proof-02/uwp-enum.mjs`'s `launchAndObserve()` early
-   return, unit-testable independently of a live launch.
+   branch did not fire on the measurement run above (baseline was empty),
+   so it was exercised separately, deliberately, with a real pre-existing
+   process to control against: `Start-Process
+   'shell:AppsFolder\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App'` was
+   run manually first (`Get-Process` confirmed `CalculatorApp.exe` PID
+   `9264`), then `uwp-enum.mjs` was run again (into a scratch dir, not the
+   committed snapshot). Result:
+   ```
+   Activation proof (baseline-diffed PID, not a bare tasklist poll):
+     launched via explorer.exe shell:AppsFolder\...: false
+     SKIPPED: CalculatorApp.exe already running at baseline (PID(s): 9264).
+     Cannot attribute a newly-launched process to this AUMID without
+     risking killing a process this script did not start — skipping the
+     activation proof rather than faking it.
+   ```
+   `tasklist` confirmed PID `9264` was still running, untouched,
+   immediately after this run — the skip branch protected the
+   pre-existing process exactly as designed, then it was closed manually
+   (`Stop-Process -Id 9264 -Force`) as ordinary test cleanup, not by the
+   script.
 
 ### Windows Terminal is genuinely not installed on this machine
 
@@ -372,17 +388,28 @@ most one instance of a given family per user), never across sides.
   titles) — and every number this ADR cites is already carried by the
   derived, redacted `uwp-scan-result.json`. `.gitignore` now excludes
   `measure/windows/proof-02/**/raw-startapps.json` going forward. **It is
-  not scrubbed from history**: it remains readable in this repository at
-  commit `9d07cd6`. Rewriting that history was out of scope for this fix
-  (it would rewrite shared branch history); if that residual exposure is
-  unacceptable, it needs an explicit history-rewrite decision, which this
-  ADR does not make unilaterally.
-- **`uwp-scan-result.json` itself is redacted before being written**: every
-  path field (`lnkBaseline.roots[].dir`, `structuralAbsenceEvidence.*`,
+  not scrubbed from history**: `git log --oneline --all -- measure/windows/proof-02/out/raw-startapps.json`
+  shows it reachable from **two** commits — `9d07cd6` (added) and
+  `1fa06ae` (a later commit that also touched it) — not only the one
+  round 2's finding cited. Rewriting that history was out of scope for
+  this fix (it would rewrite shared branch history); if that residual
+  exposure is unacceptable, it needs an explicit history-rewrite decision,
+  which this ADR does not make unilaterally.
+- **`uwp-scan-result.json` itself is redacted, but not zero-disclosure.**
+  Every path field (`lnkBaseline.roots[].dir`, `structuralAbsenceEvidence.*`,
   `duplicateCaseEvidence.lnkFilesNamedClaude[].file`, `outDir`) has the
   current user's home directory replaced with the literal
   `%USERPROFILE%` before serialization — verified this run:
   `grep -c "MaxVision" measure/windows/proof-02/out/uwp-scan-result.json` → `0`.
+  **This is not the same claim as "contains no information about installed
+  software."** The committed `packagedApps` array names all 18 packaged
+  apps this scan found installed on this machine, including third-party
+  ones (`Gyroflow`, `KDE Connect`, `NVIDIA Control Panel`, `OpenAI.Codex`,
+  `Claude`) — a much smaller disclosure than the 188-row raw dump, and one
+  this proof cannot avoid: the requirement is literally "enumerate and
+  print the installed packaged apps." That is the minimum the proof needs
+  to demonstrate; it is named here explicitly rather than left for a
+  reader to discover after being told "the PII problem is fixed."
 - **`familyInAppxRegistry: false` on an `aumidShaped: true` row (round-2
   minor finding 11)**: the field distinguishing "AUMID-shaped but
   unverified" from "not AUMID-shaped at all" now exists
