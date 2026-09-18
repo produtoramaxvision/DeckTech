@@ -41,6 +41,39 @@
 //
 // This module has zero dependencies and does no I/O; callers pass in an
 // already-read Buffer (see proof-03-lnk-benchmark.mjs).
+//
+// --- ROUND-2 REVIEW FIXES (see docs/adr/0003-proof-03-lnk-binary-parsing.md) ---
+//
+//   (a) The PRIMARY candidate (candidates[0], which becomes
+//       `resolvedTargetPath`) for an environment-variable shortcut is now
+//       the EXPANDED form ('env-expanded'/'env-expanded-ansi'), not the
+//       raw '%VAR%' string. The raw form is still produced as a secondary
+//       diagnostic candidate (kept for the benchmark's raw-vs-expanded
+//       report and env-var snapshot), it just no longer outranks the
+//       expanded form for what this parser actually resolves a shortcut
+//       to. Blocker 1 in round 2 found 35 of 182 shortcuts where the
+//       previous priority order made the un-expanded '%windir%\...' string
+//       the parser's real output while the benchmark's comparator reported
+//       "exact match" by scanning past it to the expanded candidate.
+//
+//   (b) Every multi-byte read past the ShellLinkHeader is now bounds-checked
+//       against the buffer length before it happens. A truncated or
+//       corrupt .lnk (or a structure whose self-reported size field lies
+//       about the file's real length) returns a structured
+//       {valid:false, rejectReason} that names the structure and the
+//       offset/size involved, instead of letting Node's Buffer methods
+//       throw an unqualified RangeError. Major finding 4 in round 2.
+//
+//   (c) expandEnvVars() no longer rebuilds a case-folded map of
+//       process.env on every call (it was doing so inside the loop the
+//       benchmark times). The map is now a lazily-initialized, per-process
+//       singleton. Minor finding 10a.
+//
+//   (d) parseExtraData's ExtraData block-signature census
+//       (`blockSignaturesSeen`) is no longer computed and discarded: it is
+//       returned as `extraDataBlockSignatures` on the parse result so a
+//       caller (the benchmark) can persist and use it, instead of being
+//       dead code. Minor finding 10b.
 
 /** HeaderSize (section 2.1): ShellLinkHeader.HeaderSize MUST be this value. */
 const HEADER_SIZE = 0x0000004c;
@@ -104,6 +137,41 @@ const BLOCK_SIGNATURE_ENVIRONMENT_VARIABLE = 0xa0000001; // section 2.5.4
 /** EnvironmentVariableDataBlock.BlockSize MUST be this value (section 2.5.4). */
 const ENV_BLOCK_SIZE = 0x00000314;
 
+/**
+ * Thrown when a read (fixed-size field or a variable-length structure whose
+ * self-reported size is checked against the buffer) would run past the end
+ * of the buffer. Always caught centrally in parseLnk and converted into a
+ * structured {valid:false, rejectReason} result -- never allowed to surface
+ * as a raw RangeError to a caller. See round-2 major finding 4.
+ */
+class LnkBoundsError extends Error {
+  constructor(structName, offset, size, bufLength) {
+    super(`${structName} needs ${size} byte(s) at 0x${offset.toString(16)} but the file is ${bufLength} bytes`);
+    this.name = 'LnkBoundsError';
+    this.structName = structName;
+    this.offset = offset;
+    this.size = size;
+    this.bufLength = bufLength;
+  }
+}
+
+/** Throws LnkBoundsError if [offset, offset+size) is not entirely within buf. */
+function need(buf, offset, size, structName) {
+  if (offset < 0 || size < 0 || offset + size > buf.length) {
+    throw new LnkBoundsError(structName, offset, size, buf.length);
+  }
+}
+
+function readU16(buf, offset, structName) {
+  need(buf, offset, 2, structName);
+  return buf.readUInt16LE(offset);
+}
+
+function readU32(buf, offset, structName) {
+  need(buf, offset, 4, structName);
+  return buf.readUInt32LE(offset);
+}
+
 function readNulTerminatedAnsi(buf, start, maxEnd) {
   let end = start;
   while (end < maxEnd && end < buf.length && buf[end] !== 0x00) end += 1;
@@ -123,11 +191,12 @@ function readNulTerminatedUtf16(buf, start, maxEnd) {
  * followed by exactly CountCharacters characters, NOT NUL-terminated.
  * Byte width per character is 2 (UTF-16LE) if isUnicode, else 1 (ANSI).
  */
-function readStringDataItem(buf, offset, isUnicode) {
-  const count = buf.readUInt16LE(offset);
+function readStringDataItem(buf, offset, isUnicode, fieldName) {
+  const count = readU16(buf, offset, `${fieldName}.CountCharacters`);
   const byteLen = count * (isUnicode ? 2 : 1);
   const strStart = offset + 2;
   const strEnd = strStart + byteLen;
+  need(buf, strStart, byteLen, `${fieldName}.String`);
   const value = isUnicode
     ? buf.toString('utf16le', strStart, strEnd)
     : buf.toString('latin1', strStart, strEnd); // see limitation (3)
@@ -140,11 +209,12 @@ function readStringDataItem(buf, offset, isUnicode) {
  * offset where the structure starts.
  */
 function parseCommonNetworkRelativeLink(buf, cnrlBase) {
-  const size = buf.readUInt32LE(cnrlBase + 0);
-  const flags = buf.readUInt32LE(cnrlBase + 4);
+  const size = readU32(buf, cnrlBase + 0, 'CommonNetworkRelativeLink.Size');
+  need(buf, cnrlBase, size, 'CommonNetworkRelativeLink');
+  const flags = readU32(buf, cnrlBase + 4, 'CommonNetworkRelativeLink.Flags');
   const validDevice = (flags & CNRL_FLAGS.ValidDevice) !== 0;
-  const netNameOffset = buf.readUInt32LE(cnrlBase + 8);
-  const deviceNameOffset = buf.readUInt32LE(cnrlBase + 12);
+  const netNameOffset = readU32(buf, cnrlBase + 8, 'CommonNetworkRelativeLink.NetNameOffset');
+  const deviceNameOffset = readU32(buf, cnrlBase + 12, 'CommonNetworkRelativeLink.DeviceNameOffset');
 
   // NetNameOffsetUnicode/DeviceNameOffsetUnicode are present iff
   // NetNameOffset > 0x14 (section 2.3.2).
@@ -152,8 +222,8 @@ function parseCommonNetworkRelativeLink(buf, cnrlBase) {
   let netNameOffsetUnicode = 0;
   let deviceNameOffsetUnicode = 0;
   if (hasUnicodeOffsets) {
-    netNameOffsetUnicode = buf.readUInt32LE(cnrlBase + 20);
-    deviceNameOffsetUnicode = buf.readUInt32LE(cnrlBase + 24);
+    netNameOffsetUnicode = readU32(buf, cnrlBase + 20, 'CommonNetworkRelativeLink.NetNameOffsetUnicode');
+    deviceNameOffsetUnicode = readU32(buf, cnrlBase + 24, 'CommonNetworkRelativeLink.DeviceNameOffsetUnicode');
   }
 
   const netName = netNameOffset
@@ -177,23 +247,24 @@ function parseCommonNetworkRelativeLink(buf, cnrlBase) {
  * file offset where LinkInfo starts (LinkInfoSize is its first field).
  */
 function parseLinkInfo(buf, base) {
-  const linkInfoSize = buf.readUInt32LE(base + 0);
-  const linkInfoHeaderSize = buf.readUInt32LE(base + 4);
-  const linkInfoFlags = buf.readUInt32LE(base + 8);
+  const linkInfoSize = readU32(buf, base + 0, 'LinkInfo.LinkInfoSize');
+  need(buf, base, linkInfoSize, 'LinkInfo');
+  const linkInfoHeaderSize = readU32(buf, base + 4, 'LinkInfo.LinkInfoHeaderSize');
+  const linkInfoFlags = readU32(buf, base + 8, 'LinkInfo.LinkInfoFlags');
   const hasVolumeIdAndLocalBasePath = (linkInfoFlags & LINK_INFO_FLAGS.VolumeIDAndLocalBasePath) !== 0;
   const hasCommonNetworkRelativeLink = (linkInfoFlags & LINK_INFO_FLAGS.CommonNetworkRelativeLinkAndPathSuffix) !== 0;
 
-  const localBasePathOffset = buf.readUInt32LE(base + 16);
-  const commonNetworkRelativeLinkOffset = buf.readUInt32LE(base + 20);
-  const commonPathSuffixOffset = buf.readUInt32LE(base + 24);
+  const localBasePathOffset = readU32(buf, base + 16, 'LinkInfo.LocalBasePathOffset');
+  const commonNetworkRelativeLinkOffset = readU32(buf, base + 20, 'LinkInfo.CommonNetworkRelativeLinkOffset');
+  const commonPathSuffixOffset = readU32(buf, base + 24, 'LinkInfo.CommonPathSuffixOffset');
 
   // LocalBasePathOffsetUnicode / CommonPathSuffixOffsetUnicode are present
   // only when LinkInfoHeaderSize >= 0x24 (section 2.3).
   let localBasePathOffsetUnicode = 0;
   let commonPathSuffixOffsetUnicode = 0;
   if (linkInfoHeaderSize >= 0x24) {
-    localBasePathOffsetUnicode = buf.readUInt32LE(base + 28);
-    commonPathSuffixOffsetUnicode = buf.readUInt32LE(base + 32);
+    localBasePathOffsetUnicode = readU32(buf, base + 28, 'LinkInfo.LocalBasePathOffsetUnicode');
+    commonPathSuffixOffsetUnicode = readU32(buf, base + 32, 'LinkInfo.CommonPathSuffixOffsetUnicode');
   }
 
   const end = base + linkInfoSize;
@@ -245,6 +316,8 @@ function parseLinkInfo(buf, base) {
  * BlockSignature(4)+data blocks, terminated by a block whose BlockSize is
  * < 4. Only EnvironmentVariableDataBlock (section 2.5.4) is decoded; every
  * other block type is skipped by its BlockSize without being interpreted.
+ * `blockSignaturesSeen` is returned (not discarded) so a caller can record
+ * which ExtraData block types this .lnk actually carries.
  */
 function parseExtraData(buf, startOffset) {
   let offset = startOffset;
@@ -252,11 +325,11 @@ function parseExtraData(buf, startOffset) {
   const blockSignaturesSeen = [];
 
   while (offset + 4 <= buf.length) {
-    const blockSize = buf.readUInt32LE(offset);
+    const blockSize = readU32(buf, offset, 'ExtraData.BlockSize');
     if (blockSize < 4) break; // TerminalBlock
-    if (offset + blockSize > buf.length || offset + 8 > buf.length) break; // truncated/corrupt -- stop defensively
+    if (offset + blockSize > buf.length || offset + 8 > buf.length) break; // truncated/corrupt -- stop defensively, not a hard reject
 
-    const blockSignature = buf.readUInt32LE(offset + 4);
+    const blockSignature = readU32(buf, offset + 4, 'ExtraData.BlockSignature');
     blockSignaturesSeen.push(`0x${blockSignature.toString(16)}`);
 
     if (blockSignature === BLOCK_SIGNATURE_ENVIRONMENT_VARIABLE) {
@@ -281,20 +354,53 @@ function parseExtraData(buf, startOffset) {
  * process's environment. Windows environment variable names are
  * case-insensitive; process.env keys are looked up case-insensitively
  * here to match that.
+ *
+ * The case-folded key map is a lazily-initialized, per-process singleton
+ * (round-2 minor finding 10a): building it fresh on every call rebuilt the
+ * entire process.env keyset inside the loop the benchmark times. It is
+ * built lazily rather than at module load so a test can still observe a
+ * process.env mutation made before the first call.
  */
+let envKeysByLowerCache = null;
+function getEnvKeysByLower() {
+  if (envKeysByLowerCache === null) {
+    envKeysByLowerCache = new Map();
+    for (const key of Object.keys(process.env)) envKeysByLowerCache.set(key.toLowerCase(), key);
+  }
+  return envKeysByLowerCache;
+}
+
 export function expandEnvVars(str) {
   if (str == null) return str;
-  const envKeysByLower = new Map();
-  for (const key of Object.keys(process.env)) envKeysByLower.set(key.toLowerCase(), key);
+  const envKeysByLower = getEnvKeysByLower();
   return str.replace(/%([^%]+)%/g, (whole, name) => {
     const realKey = envKeysByLower.get(name.toLowerCase());
     return realKey !== undefined ? process.env[realKey] : whole;
   });
 }
 
+function invalidResult(rejectReason) {
+  return {
+    valid: false,
+    rejectReason,
+    flags: {},
+    linkInfo: null,
+    strings: {},
+    envBlock: null,
+    extraDataBlockSignatures: [],
+    candidates: [],
+    resolvedTargetPath: null,
+    category: { envVar: false, unc: false, msiAdvertised: false, idListOnly: false },
+  };
+}
+
 /**
  * Parses a .lnk file's bytes per [MS-SHLLINK] and returns the fields
- * relevant to target-path resolution and category classification.
+ * relevant to target-path resolution and category classification. Never
+ * throws for a truncated/corrupt/malicious-size .lnk -- every read past
+ * the fixed ShellLinkHeader is bounds-checked, and any bounds failure
+ * comes back as a structured {valid:false, rejectReason} naming the
+ * structure and offset involved (round-2 major finding 4).
  *
  * @param {Buffer} buf
  * @returns {{
@@ -304,6 +410,7 @@ export function expandEnvVars(str) {
  *   linkInfo: object|null,
  *   strings: Record<string, string>,
  *   envBlock: {targetAnsi: string, targetUnicode: string|null}|null,
+ *   extraDataBlockSignatures: string[],
  *   candidates: Array<{source: string, value: string}>,
  *   resolvedTargetPath: string|null,
  *   category: {envVar: boolean, unc: boolean, msiAdvertised: boolean, idListOnly: boolean},
@@ -311,94 +418,105 @@ export function expandEnvVars(str) {
  */
 export function parseLnk(buf) {
   if (buf.length < HEADER_SIZE) {
-    return {
-      valid: false,
-      rejectReason: `file is ${buf.length} bytes, smaller than the ${HEADER_SIZE}-byte ShellLinkHeader`,
-      flags: {}, linkInfo: null, strings: {}, envBlock: null, candidates: [],
-      resolvedTargetPath: null,
-      category: { envVar: false, unc: false, msiAdvertised: false, idListOnly: false },
-    };
+    return invalidResult(`file is ${buf.length} bytes, smaller than the ${HEADER_SIZE}-byte ShellLinkHeader`);
   }
 
   const headerSize = buf.readUInt32LE(0);
   const clsid = buf.subarray(4, 20);
   if (headerSize !== HEADER_SIZE || !clsid.equals(LINK_CLSID)) {
-    return {
-      valid: false,
-      rejectReason: `HeaderSize=0x${headerSize.toString(16)} CLSID=${clsid.toString('hex')} -- does not match the ShellLinkHeader signature`,
-      flags: {}, linkInfo: null, strings: {}, envBlock: null, candidates: [],
-      resolvedTargetPath: null,
-      category: { envVar: false, unc: false, msiAdvertised: false, idListOnly: false },
-    };
+    return invalidResult(`HeaderSize=0x${headerSize.toString(16)} CLSID=${clsid.toString('hex')} -- does not match the ShellLinkHeader signature`);
   }
 
-  const rawLinkFlags = buf.readUInt32LE(20);
-  const flags = {};
-  for (const [name, bit] of Object.entries(LINK_FLAGS)) flags[name] = (rawLinkFlags & bit) !== 0;
+  try {
+    const rawLinkFlags = readU32(buf, 20, 'ShellLinkHeader.LinkFlags');
+    const flags = {};
+    for (const [name, bit] of Object.entries(LINK_FLAGS)) flags[name] = (rawLinkFlags & bit) !== 0;
 
-  let offset = HEADER_SIZE;
+    let offset = HEADER_SIZE;
 
-  if (flags.HasLinkTargetIDList) {
-    const idListSize = buf.readUInt16LE(offset);
-    offset += 2 + idListSize; // deliberately not decoding IDList contents -- see module header, limitation 1
-  }
-
-  let linkInfo = null;
-  if (flags.HasLinkInfo) {
-    const linkInfoSize = buf.readUInt32LE(offset);
-    linkInfo = parseLinkInfo(buf, offset);
-    offset += linkInfoSize;
-  }
-
-  const strings = {};
-  const isUnicode = flags.IsUnicode;
-  if (flags.HasName) { const r = readStringDataItem(buf, offset, isUnicode); strings.name = r.value; offset = r.nextOffset; }
-  if (flags.HasRelativePath) { const r = readStringDataItem(buf, offset, isUnicode); strings.relativePath = r.value; offset = r.nextOffset; }
-  if (flags.HasWorkingDir) { const r = readStringDataItem(buf, offset, isUnicode); strings.workingDir = r.value; offset = r.nextOffset; }
-  if (flags.HasArguments) { const r = readStringDataItem(buf, offset, isUnicode); strings.arguments = r.value; offset = r.nextOffset; }
-  if (flags.HasIconLocation) { const r = readStringDataItem(buf, offset, isUnicode); strings.iconLocation = r.value; offset = r.nextOffset; }
-
-  const { envBlock } = parseExtraData(buf, offset);
-
-  // Candidate target paths, in priority order. ForceNoLinkInfo (bit 8)
-  // means LinkInfo MUST be ignored per spec -- honored here, not just
-  // parsed for display.
-  const candidates = [];
-  const linkInfoUsable = linkInfo && !flags.ForceNoLinkInfo;
-  if (linkInfoUsable && linkInfo.resolvedLocal) {
-    candidates.push({ source: 'linkinfo-local', value: linkInfo.resolvedLocal });
-  }
-  if (linkInfoUsable && linkInfo.resolvedUnc) {
-    candidates.push({ source: 'linkinfo-unc', value: linkInfo.resolvedUnc });
-  }
-  if (envBlock) {
-    if (envBlock.targetUnicode) {
-      candidates.push({ source: 'env-raw', value: envBlock.targetUnicode });
-      candidates.push({ source: 'env-expanded', value: expandEnvVars(envBlock.targetUnicode) });
-    } else if (envBlock.targetAnsi) {
-      candidates.push({ source: 'env-raw-ansi', value: envBlock.targetAnsi });
-      candidates.push({ source: 'env-expanded-ansi', value: expandEnvVars(envBlock.targetAnsi) });
+    if (flags.HasLinkTargetIDList) {
+      const idListSize = readU16(buf, offset, 'LinkTargetIDList.IDListSize');
+      need(buf, offset + 2, idListSize, 'LinkTargetIDList (ItemIDList data)');
+      offset += 2 + idListSize; // deliberately not decoding IDList contents -- see module header, limitation 1
     }
+
+    let linkInfo = null;
+    if (flags.HasLinkInfo) {
+      linkInfo = parseLinkInfo(buf, offset);
+      offset += linkInfo.linkInfoSize;
+    }
+
+    const strings = {};
+    const isUnicode = flags.IsUnicode;
+    if (flags.HasName) { const r = readStringDataItem(buf, offset, isUnicode, 'StringData.NAME_STRING'); strings.name = r.value; offset = r.nextOffset; }
+    if (flags.HasRelativePath) { const r = readStringDataItem(buf, offset, isUnicode, 'StringData.RELATIVE_PATH'); strings.relativePath = r.value; offset = r.nextOffset; }
+    if (flags.HasWorkingDir) { const r = readStringDataItem(buf, offset, isUnicode, 'StringData.WORKING_DIR'); strings.workingDir = r.value; offset = r.nextOffset; }
+    if (flags.HasArguments) { const r = readStringDataItem(buf, offset, isUnicode, 'StringData.COMMAND_LINE_ARGUMENTS'); strings.arguments = r.value; offset = r.nextOffset; }
+    if (flags.HasIconLocation) { const r = readStringDataItem(buf, offset, isUnicode, 'StringData.ICON_LOCATION'); strings.iconLocation = r.value; offset = r.nextOffset; }
+
+    const { envBlock, blockSignaturesSeen } = parseExtraData(buf, offset);
+
+    // Candidate target paths, in priority order -- the FIRST candidate
+    // becomes `resolvedTargetPath`, i.e. what this parser actually
+    // resolves the shortcut to. ForceNoLinkInfo (bit 8) means LinkInfo
+    // MUST be ignored per spec -- honored here, not just parsed for
+    // display.
+    const candidates = [];
+    const linkInfoUsable = linkInfo && !flags.ForceNoLinkInfo;
+    if (linkInfoUsable && linkInfo.resolvedLocal) {
+      candidates.push({ source: 'linkinfo-local', value: linkInfo.resolvedLocal });
+    }
+    if (linkInfoUsable && linkInfo.resolvedUnc) {
+      candidates.push({ source: 'linkinfo-unc', value: linkInfo.resolvedUnc });
+    }
+    if (envBlock) {
+      // The EXPANDED form is the primary candidate (round-2 blocker 1):
+      // COM's TargetPath is always an expanded, usable path, never a raw
+      // '%VAR%' string, so a parser whose actual output is the raw form
+      // disagrees with COM even when a secondary candidate happens to
+      // match. The raw form is kept as a lower-priority diagnostic
+      // candidate -- still available to callers that want it (the
+      // benchmark's raw-vs-expanded report, the env-var snapshot) -- it
+      // simply no longer outranks the expanded form for what this parser
+      // resolves the shortcut to.
+      if (envBlock.targetUnicode) {
+        candidates.push({ source: 'env-expanded', value: expandEnvVars(envBlock.targetUnicode) });
+        candidates.push({ source: 'env-raw', value: envBlock.targetUnicode });
+      } else if (envBlock.targetAnsi) {
+        candidates.push({ source: 'env-expanded-ansi', value: expandEnvVars(envBlock.targetAnsi) });
+        candidates.push({ source: 'env-raw-ansi', value: envBlock.targetAnsi });
+      }
+    }
+
+    const resolvedTargetPath = candidates.length > 0 ? candidates[0].value : null;
+
+    const category = {
+      envVar: flags.HasExpString,
+      unc: !!(linkInfo && linkInfo.resolvedUnc),
+      msiAdvertised: flags.HasDarwinID,
+      idListOnly: flags.HasLinkTargetIDList && !flags.HasLinkInfo,
+    };
+
+    return {
+      valid: true,
+      rejectReason: null,
+      flags,
+      linkInfo,
+      strings,
+      envBlock,
+      extraDataBlockSignatures: blockSignaturesSeen,
+      candidates,
+      resolvedTargetPath,
+      category,
+    };
+  } catch (err) {
+    if (err instanceof LnkBoundsError) {
+      return invalidResult(err.message);
+    }
+    // Not a bounds issue -- an actual bug in this parser. Do not hide it
+    // behind a generic rejectReason; let it propagate so the caller (the
+    // benchmark) can record it as a parser exception, distinct from both
+    // an I/O failure and a structurally-rejected file (round-2 finding 4).
+    throw err;
   }
-
-  const resolvedTargetPath = candidates.length > 0 ? candidates[0].value : null;
-
-  const category = {
-    envVar: flags.HasExpString,
-    unc: !!(linkInfo && linkInfo.resolvedUnc),
-    msiAdvertised: flags.HasDarwinID,
-    idListOnly: flags.HasLinkTargetIDList && !flags.HasLinkInfo,
-  };
-
-  return {
-    valid: true,
-    rejectReason: null,
-    flags,
-    linkInfo,
-    strings,
-    envBlock,
-    candidates,
-    resolvedTargetPath,
-    category,
-  };
 }
