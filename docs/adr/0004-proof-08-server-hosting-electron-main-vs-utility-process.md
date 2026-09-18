@@ -441,12 +441,33 @@
 > were actually captured, and each one carries its own inline note saying
 > not to re-run it that way (see the Round-10 revision note below, and the
 > per-line "PRE-round-10 script" / "same `| tee` caveat" annotations in
-> the Appendix itself). Separately, `crash-timeline.mjs`'s own `| tee`
-> lines (`crash-timeline-inprocess-run1.txt`/`run4.txt`) are unaffected by
-> any of this and needed no fix: that script never checkpoints its own
-> output file the way `run.mjs` now does, so there is nothing for `tee` to
-> race or truncate — the destructive pattern described here is specific to
-> `run.mjs`'s old self-write mechanism, not to `| tee` as a tool.
+> the Appendix itself). **This fix is scoped to `run.mjs`; it does not
+> reach `crash-timeline.mjs`.** `crash-timeline.mjs` writes its own
+> heartbeat/log file into a per-run `mkdtemp` scratch directory (deleted
+> with the temp dir, never a committed path), so there was never a
+> self-write race on `crash-timeline-inprocess-run1.txt`/`run4.txt` for
+> the round-10 `checkNoClobber` mechanism to apply to — but that is a
+> narrower claim than "safe," not a substitute for it. The Appendix's
+> Round-6 and Round-7 additions blocks each still hold a live
+> `node measure/windows/proof-08/crash-timeline.mjs inprocess ... | tee
+> crash-timeline-inprocess-run{1,4}.txt` line, and those two carry **no
+> no-clobber guard at all**: unlike `run.mjs`, `crash-timeline.mjs` never
+> calls `checkNoClobber()`, so re-running either line verbatim does not
+> refuse — it truncates the committed `.txt` to 0 bytes at pipeline setup
+> (same `tee` mechanics as this note's opening paragraph, verified again
+> here: `tee` truncated a 27-byte file to 0 bytes even though the piped
+> command printed nothing and exited non-zero) and then overwrites it with
+> a different run's timestamps. That is not a hypothetical: §5.1 cites
+> `crash-timeline-inprocess-run1.txt` by exact heartbeat content
+> (`hb.t=1789708712846`, read in `(t+2960ms, t+2968ms]`), and those
+> numbers are unrecoverable once that Round-6 Appendix line is re-run. Both
+> lines are now annotated in the Appendix with the same "do not re-run to
+> reproduce" intent the Round-8/Round-9 `run.mjs` lines already carry —
+> worded here as *destroys*, not *refuses*, since no guard exists on this
+> script to refuse. The sentence above — "No `run.mjs` line a reader would
+> run today ... uses `| tee` any longer" — is therefore exactly what it
+> says: scoped to `run.mjs`'s reproduce path, not a claim that the whole
+> Appendix is `tee`-safe.
 > **Disclosure this fix itself requires:** the
 > three `.txt` files already committed under round 8/9
 > (`round8-run-output.txt`, `round9fixverifn1-run-output.txt`,
@@ -2137,12 +2158,12 @@ node measure/windows/proof-08/decode-windows.mjs   # ACTUALLY decodes titleB64/c
 node measure/windows/proof-08/crash-timeline.mjs inprocess   # re-run needed after both round-5 fixes (interval timestamps, finding #1; GetClassNameW charset, finding #2) — §5's box and §6's finding-#4/#1 entries are re-derived from this exact re-run, not carried over
 
 # Round-6 additions:
-node measure/windows/proof-08/crash-timeline.mjs inprocess 2>&1 | tee measure/windows/proof-08/crash-timeline-inprocess-run1.txt   # captures raw stdout to a committed .txt (NOT .log — the repo root .gitignore's blanket `*.log` rule would silently drop it; see .gitignore:3) — repeated 3x this round for run1/run2/run3, closing round-6 blocker finding #1 (the round-5 "Re-run post-fix" run was never actually archived despite the prose claiming it was)
+node measure/windows/proof-08/crash-timeline.mjs inprocess 2>&1 | tee measure/windows/proof-08/crash-timeline-inprocess-run1.txt   # captures raw stdout to a committed .txt (NOT .log — the repo root .gitignore's blanket `*.log` rule would silently drop it; see .gitignore:3) — repeated 3x this round for run1/run2/run3, closing round-6 blocker finding #1 (the round-5 "Re-run post-fix" run was never actually archived despite the prose claiming it was). Do NOT re-run this line to "reproduce" the committed file: crash-timeline.mjs has no no-clobber guard (unlike run.mjs), so this DESTROYS the committed run1.txt — tee truncates it to 0 bytes at pipeline setup, before crash-timeline.mjs even starts — and overwrites it with a fresh run's different timestamps. §5.1 cites this exact file's content by value (hb.t=1789708712846); that provenance is unrecoverable once this line is re-run.
 powershell.exe -NoProfile -NonInteractive -File measure/windows/proof-08/enum-windows.ps1   # standalone: CharSet=Unicode/GetWindowTextW fix applied to GetWindowText this round (round-6's minor finding, matching GetClassName's round-5 major-finding-#2 fix) so accented/non-ASCII titles decode correctly instead of mangling under the platform-default ANSI marshal
 node measure/windows/proof-08/decode-windows.mjs   # post-CharSet-fix verification re-run; output archived at measure/windows/proof-08/decode-windows-round6.txt
 
 # Round-7 additions:
-node measure/windows/proof-08/crash-timeline.mjs inprocess 2>&1 | tee measure/windows/proof-08/crash-timeline-inprocess-run4.txt   # same capture method as run1-3; landed the dialog in iteration 2 on the first attempt (round-7 major finding #2 — closes the round-6 gap where an iteration-2-aligned run was only ever cited in prose, never archived), added to §5's cross-alignment table as run4
+node measure/windows/proof-08/crash-timeline.mjs inprocess 2>&1 | tee measure/windows/proof-08/crash-timeline-inprocess-run4.txt   # same capture method as run1-3; landed the dialog in iteration 2 on the first attempt (round-7 major finding #2 — closes the round-6 gap where an iteration-2-aligned run was only ever cited in prose, never archived), added to §5's cross-alignment table as run4. Do NOT re-run this line to "reproduce" the committed file: same unguarded-tee hazard as run1's line above — crash-timeline.mjs has no no-clobber guard, so this DESTROYS the committed run4.txt instead of refusing.
 
 # Round-8 additions:
 node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3 --out-tag round8 2>&1 | tee measure/windows/proof-08/results/round8-run-output.txt   # ROUND-8 ORIGIN of this committed pair, run under the PRE-round-10 script: closes round-8 blocker finding #1 (aggregate JSON previously lived only in a per-run mkdtemp scratch dir). Every "this round" figure in §4/§4.1/§4.2/§5.1/§5.2/§6/§8 is re-derived from these two committed files. ROUND-10 NOTE: this exact `| tee` invocation is what destroyed round8-run-output.txt when a round-10 reviewer re-ran it verbatim against round-9's code — see the Round-10 revision note and the Round-10 additions block below for the fix and its re-verification. Do NOT re-run this line to "reproduce" the committed files: against the current script it now correctly REFUSES (both files already exist, see below), and even at a fresh tag the self-written `.txt` is a different shape than this `tee`-captured one (gains its own `[checkpoint]`/`raw console capture` lines) — it was never going to be byte-identical either way.
