@@ -7,8 +7,8 @@ com o commit que a fez, para que esta linha não volte a inverter a ordem numa p
 de um self-advisory pass em 2026-09-17 22:40 (commit `7daf52b`, não um round de review numerado —
 citado à parte porque o número 533,8ms desta revisão vem dele, ver "Por que o pool PowerShell
 não vence"); round 3 em 2026-09-17 23:39 (commit `349a3fd`); round 4 em 2026-09-18 00:23 (commit
-`4287998`); round 5 em 2026-09-18 00:47 (commit `770b5d8`); round 6 em 2026-09-18, nesta
-revisão — ver "Revisão round 2", "Revisão round 3", "Revisão round 4", "Revisão round 5" e
+`4287998`); round 5 em 2026-09-18 00:47 (commit `770b5d8`); round 6 em 2026-09-18 01:02 (commit
+`8d3ab77`) — ver "Revisão round 2", "Revisão round 3", "Revisão round 4", "Revisão round 5" e
 "Revisão round 6" abaixo.
 **Requisito:** PROOF-01 (`.maxvision/REQUIREMENTS.md`, Fase 0)
 **Máquina de medição:** Windows 11 Pro 10.0.22631, x64, Node v25.5.0, VS Build Tools 2022
