@@ -5,11 +5,12 @@ import { join } from "node:path";
 import { createPlatform, PlatformNotImplementedError } from "../platform/index.js";
 import { realIconService, listInstalledApps } from "../apps.js";
 import { listInstalledApps as win32ListInstalledApps } from "../platform/windows/apps.js";
-import { makeWindowsIconService } from "../platform/windows/icon.js";
+import { makeWindowsIconService, WIN_ICON_MAX_PX } from "../platform/windows/icon.js";
 import {
   listAppProcesses as win32ListAppProcesses,
   activateApp as win32ActivateApp,
 } from "../platform/windows/actions.js";
+import { createWindowsAppearanceTracker } from "../platform/windows/theme.js";
 
 const CONTRACT_MEMBERS = ["listInstalledApps", "listAppProcesses", "activateApp", "openWebsite", "iconService"];
 
@@ -261,4 +262,72 @@ test("PLAT-07: createPlatform(\"win32\") sem overrides NUNCA chama start() no tr
   });
   assert.equal(startCalls, 0);
   assert.equal(typeof platform.iconService.getIconPng, "function");
+});
+
+// --- PLAT-07 Round-2 (finding 1, bloqueador) --------------------------------
+// A diferença crítica deste bloco pros testes acima: todos eles injetam um
+// objeto de tracker FEITO À MÃO (`{token: () => ..., start() {}, stop() {}}`)
+// — nenhum deles usa a máquina REAL de createWindowsAppearanceTracker
+// (platform/windows/theme.js), então nenhum deles conseguiria detectar que
+// o token wireado pela fábrica era estruturalmente incapaz de mudar (o
+// achado do reviewer). Este teste usa o `createWindowsAppearanceTracker`
+// DE VERDADE — só `read`/`startWatcher` são fakes, exatamente como
+// test/windows-theme-appearance.test.mjs já faz pro próprio tracker isolado
+// — só que aqui ele passa pela fábrica inteira (win32Platform ->
+// makeWindowsIconService) igual à produção. `scan`/`fs`/`extract` também são
+// fakes (sem isso o `makeIconService` default chamaria PowerShell/addon
+// nativo de verdade — mesmo motivo do teste PLAT-03+09 acima).
+function fakeIconFs() {
+  const files = new Map();
+  return {
+    readFile: async (p) => { if (!files.has(p)) { const e = new Error("ENOENT"); e.code = "ENOENT"; throw e; } return files.get(p); },
+    writeFile: async (p, buf) => { files.set(p, buf); },
+    mkdir: async () => {},
+    stat: async () => ({ mtimeMs: 1 }), // constante — só a aparência deve mudar a chave neste teste
+    unlink: async (p) => { files.delete(p); },
+    readdir: async () => [...files.keys()].map(p => p.split(/[\\/]/).pop()),
+  };
+}
+
+test("PLAT-07 Round-2: o token wireado pela fábrica (tracker REAL, não um objeto fake) muda sozinho quando o watch dispara — a próxima getIconPng() reextrai em vez de servir a variante congelada", async () => {
+  let extractions = 0;
+  let appearance = "apps=dark";
+  let onChangeCb;
+  let spawnCount = 0;
+
+  const platform = createPlatform("win32", {
+    makeIconService: (deps) => makeWindowsIconService({
+      ...deps,
+      scan: async () => [{ name: "A", path: "C:\\Apps\\A.exe", kind: "win32" }],
+      fs: fakeIconFs(),
+      extract: () => { extractions++; return new Uint8Array(WIN_ICON_MAX_PX * WIN_ICON_MAX_PX * 4).fill(extractions); },
+    }),
+    // A ÚNICA diferença estrutural pros outros testes deste arquivo: o
+    // tracker devolvido aqui é o createWindowsAppearanceTracker REAL
+    // (importado de platform/windows/theme.js), não um objeto hand-rolled.
+    // `read`/`startWatcher` são as únicas partes fakes — o mesmo padrão que
+    // test/windows-theme-appearance.test.mjs já usa pra testar o tracker
+    // isolado, agora atravessando a fábrica inteira.
+    resolveWindowsAppearanceTracker: () => createWindowsAppearanceTracker({
+      read: async () => appearance,
+      startWatcher: (keyPath, { onChange }) => { spawnCount++; onChangeCb = onChange; return { kill() {} }; },
+    }),
+  });
+
+  const before = await platform.iconService.getIconPng("A");
+  assert.equal(extractions, 1);
+  assert.equal(spawnCount, 1, "a PRIMEIRA getIconPng() (via resolveAppearanceToken -> token()) já deve ter lazy-startado o watch sozinha — sem start() explícito de ninguém, nem da fábrica nem deste teste");
+
+  const beforeAgain = await platform.iconService.getIconPng("A");
+  assert.equal(extractions, 1, "sem evento nenhum, mesmo token -> mesma chave -> cache hit");
+  assert.equal(Buffer.compare(before, beforeAgain), 0);
+
+  // "o usuário trocou o tema do Windows": o valor muda E o watcher (real,
+  // via RegNotifyChangeKeyValue) dispara o evento — onChangeCb() é
+  // exatamente o que startThemeWatcher chamaria.
+  appearance = "apps=light";
+  onChangeCb();
+  const after = await platform.iconService.getIconPng("A");
+  assert.equal(extractions, 2, "PLAT-07 critério 5: o token wireado pela fábrica mudou -> cache invalidado -> reextraiu. Antes do fix do Round-2, isto ficava travado em 1 (ver discrimination_proof) porque nada nunca chamava start() no tracker construído por win32Platform().");
+  assert.notEqual(Buffer.compare(before, after), 0, "PNG pós-troca de tema deve ser diferente do PNG pré-troca");
 });

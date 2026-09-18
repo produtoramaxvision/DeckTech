@@ -18,6 +18,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { EventEmitter } from "node:events";
 
 import {
   readWindowsIconAppearance,
@@ -66,7 +67,15 @@ test("readWindowsIconAppearance: nunca usa um shell — execFn recebe (cmd, args
 
 test("createWindowsAppearanceTracker: token() é preguiçoso — read() só roda na primeira chamada, não na construção", async () => {
   let reads = 0;
-  const tracker = createWindowsAppearanceTracker({ read: async () => { reads++; return "apps=dark"; } });
+  // startWatcher injetado (nunca o default real): desde o Round-2 fix,
+  // token() lazy-starta o watch na primeira chamada (ver "PLAT-07 Round-2"
+  // abaixo) — sem este stub, este teste chamaria o startThemeWatcher REAL e
+  // spawnaria um powershell.exe de verdade, nunca parado, como efeito
+  // colateral de um teste que só quer provar o cache de leitura.
+  const tracker = createWindowsAppearanceTracker({
+    read: async () => { reads++; return "apps=dark"; },
+    startWatcher: () => ({ kill() {} }),
+  });
   assert.equal(reads, 0, "construir o tracker não deve ler nada");
   assert.equal(await tracker.token(), "apps=dark");
   assert.equal(reads, 1);
@@ -129,8 +138,35 @@ test("createWindowsAppearanceTracker: onExit inesperado do watcher NÃO reinicia
   assert.equal(spawnCount, 1);
   onExitCb(1); // watcher morreu sozinho (ex.: powershell.exe bloqueado por política)
   // dar tempo pro event loop não é necessário aqui: onExit é síncrono no design do tracker.
-  assert.equal(spawnCount, 1, "sem auto-restart — um watcher morto não deve virar um segundo processo sozinho");
+  assert.equal(spawnCount, 1, "sem auto-restart IMEDIATO — um watcher morto não deve virar um segundo processo sozinho, dentro do próprio handler de exit");
   assert.equal(await tracker.token(), "apps=dark", "token() continua respondendo (via leitura avulsa), mesmo com o watcher morto");
+});
+
+// Segunda revisão do Round-2 (finding 2, achado do advisor sobre a primeira
+// versão desta correção): a versão inicial deixava `autoStartAttempted`
+// travado em `true` pra sempre depois de QUALQUER morte do watcher — a
+// MESMA forma estrutural do bug original que o Round-2 corrigiu (um
+// gatilho de disparo único que nunca reabre), só que documentado como
+// "KNOWN GAP" em vez de fechado. Este teste prova que uma `.token()`
+// chamada DEPOIS da morte espontânea religa o watcher na PRÓXIMA vez —
+// sem loop apertado (só quando alguém de qualquer jeito já ia chamar
+// token()), sem reabrir enquanto o processo antigo ainda existisse.
+test("createWindowsAppearanceTracker: token() chamado DEPOIS de um onExit espontâneo religa o watch na PRÓXIMA vez — o lazy-trigger não fica travado pra sempre (Round-2 finding 2, revisão)", async () => {
+  let spawnCount = 0;
+  let onExitCb;
+  const tracker = createWindowsAppearanceTracker({
+    read: async () => "apps=dark",
+    startWatcher: (keyPath, { onExit }) => { spawnCount++; onExitCb = onExit; return { kill() {} }; },
+  });
+
+  await tracker.token(); // lazy-start dispara a primeira vez
+  assert.equal(spawnCount, 1);
+
+  onExitCb(1); // watcher morreu sozinho
+  await tracker.token(); // sem isto religar, spawnCount ficaria travado em 1 pro resto da vida do tracker
+  assert.equal(spawnCount, 2, "token() depois da morte do watcher deveria ter religado o watch — sem isso, o lazy-trigger de disparo único vira permanentemente inerte após a PRIMEIRA morte, mesmo padrão do bug que o Round-2 corrigiu");
+
+  tracker.stop();
 });
 
 test("createWindowsAppearanceTracker: stop() mata o processo e start() depois de stop() é no-op", () => {
@@ -144,6 +180,71 @@ test("createWindowsAppearanceTracker: stop() mata o processo e start() depois de
   assert.equal(killed, true);
   tracker.start(); // depois de stop() — não deve religar
   assert.equal(spawnCount, 1, "start() após stop() não deve spawnar de novo");
+});
+
+// --- PLAT-07 Round-2 (finding 1, hardening): token() é a única porta de
+// entrada do lazy-start, então ele NUNCA pode propagar uma exceção do
+// startWatcher — icon.js:312 faz `String(await appearanceToken())` sem
+// try/catch próprio; sem esta garantia, um startWatcher que lança
+// SINCRONAMENTE (mkdtempSync/writeFileSync reais podem lançar — ex.: %TEMP%
+// sem permissão de escrita) viraria um 500 em getIconPng em vez de degradar
+// pra "leitura avulsa, sem watch".
+
+test("createWindowsAppearanceTracker: token() (lazy-start) nunca lança mesmo se startWatcher lançar SÍNCRONO — degrada pra leitura avulsa", async () => {
+  const tracker = createWindowsAppearanceTracker({
+    read: async () => "apps=dark",
+    startWatcher: () => { throw new Error("mkdtempSync: EACCES, permission denied"); },
+  });
+  await assert.doesNotReject(async () => {
+    assert.equal(await tracker.token(), "apps=dark");
+  });
+});
+
+// --- PLAT-07 Round-2 (finding 2): startThemeWatcher precisa de um handler
+// 'error', não só 'exit' — um spawn que falha (powershell.exe ausente/
+// bloqueado por política, o cenário que o próprio JSDoc do onExit já cita)
+// emite 'error', confirmado contra a referência oficial do Node.js via
+// context7 (/nodejs/node, "Handling failed spawn errors with
+// child_process.spawn"). `spawnFn` é fake (devolve um EventEmitter
+// controlado por este teste) mas `startThemeWatcher` ainda roda
+// mkdtempSync/writeFileSync DE VERDADE — só o processo em si é fake, então
+// estes testes também prova que a limpeza do workDir roda no caminho de
+// erro, cross-platform (nenhum código aqui é win32-only).
+
+function fakeChildProcess() {
+  const child = new EventEmitter();
+  child.stdout = new EventEmitter();
+  child.stdout.setEncoding = () => {};
+  child.kill = () => {};
+  return child;
+}
+
+test("startThemeWatcher: evento 'error' do child (spawn falhou) aciona onExit com code=null — sem handler, isto seria uma exceção não tratada e derrubaria o processo (Round-2 finding 2)", () => {
+  const child = fakeChildProcess();
+  let onExitCalls = 0;
+  let lastCode = "unset";
+  const returned = startThemeWatcher("Software\\Unused", {
+    onChange: () => {},
+    onExit: (code) => { onExitCalls++; lastCode = code; },
+    spawnFn: () => child,
+  });
+  assert.equal(returned, child);
+  child.emit("error", Object.assign(new Error("spawn powershell.exe ENOENT"), { code: "ENOENT" }));
+  assert.equal(onExitCalls, 1, "onExit deveria ter sido chamado exatamente uma vez a partir do evento 'error'");
+  assert.equal(lastCode, null, "sem processo real de fato rodando, não há exit code — null, a mesma forma que o JSDoc do onExit já documenta (code: number|null)");
+});
+
+test("startThemeWatcher: 'error' seguido de 'exit' (Node não garante exclusividade entre os dois) só aciona onExit UMA vez — settle guard", () => {
+  const child = fakeChildProcess();
+  let onExitCalls = 0;
+  startThemeWatcher("Software\\Unused", {
+    onChange: () => {},
+    onExit: () => { onExitCalls++; },
+    spawnFn: () => child,
+  });
+  child.emit("error", new Error("boom"));
+  child.emit("exit", 1);
+  assert.equal(onExitCalls, 1, "'error' e 'exit' disparando os dois não deve chamar onExit duas vezes nem tentar limpar o workDir duas vezes");
 });
 
 // --- Real machine: o watcher de verdade, contra uma chave descartável -----

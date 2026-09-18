@@ -89,19 +89,24 @@ function win32Platform(deps = {}) {
     // PLAT-07: mesmo padrão de darwinPlatform's resolveMacIconHelper —
     // resolvido explicitamente AQUI, na fábrica, e passado pra
     // makeIconService, em vez de ficar implícito num default dentro de
-    // icon.js. `createWindowsAppearanceTracker()` em si é barato e sem
-    // efeito colateral: SÓ constrói o objeto (cache vazio, nenhum
-    // powershell.exe spawnado). Deliberadamente NUNCA chama `.start()`
-    // aqui — createPlatform("win32") não tem chamador de produção hoje
-    // (grep confirma: só test/*.mjs), e cada teste que chama
-    // createPlatform("win32") nesta máquina Windows real spawnaria um
-    // processo real toda vez que a fábrica rodasse se start() fosse
-    // automático aqui. Quem QUISER o watch event-driven ligado (produção
-    // futura, ou o script de prova do critério 5) chama
-    // `.start()`/`.stop()` no tracker devolvido por
-    // `resolveWindowsAppearanceTracker()` explicitamente — o mesmo
-    // "sinal emitido, ninguém liga ainda" que ROADMAP.md:167 pré-declara
-    // como esperado pra esta fase (consumidor real é a Fase 6/D11).
+    // icon.js. `createWindowsAppearanceTracker()` em si continua barato e
+    // sem efeito colateral: SÓ constrói o objeto (cache vazio, nenhum
+    // powershell.exe spawnado) — a fábrica em si NUNCA chama `.start()`,
+    // então `createPlatform("win32")` sozinho ainda não spawna processo
+    // nenhum. Round-2 finding 1 (bloqueador): antes desta correção, como
+    // nada aqui chamava `.start()` e o tracker não era exposto além da
+    // construção, `appearanceTracker.token` ficava CONGELADO no valor da
+    // primeira leitura pra sempre — um AppsUseLightTheme real nunca
+    // invalidava o cache de platform/windows/icon.js, apesar de
+    // `appearance` já entrar na chave de cache (icon.js:516) desde a
+    // primeira versão desta ticket. A correção não mudou este arquivo: fica
+    // em platform/windows/theme.js — `appearanceTracker.token()` agora
+    // liga o watch sozinho na SUA PRÓPRIA primeira chamada (lazy-start, ver
+    // JSDoc de createWindowsAppearanceTracker), então o consumidor real
+    // (icon.js's resolveAppearanceToken, chamado de getIconPng) já é o
+    // gatilho — sem precisar de um `.start()` explícito aqui nem de uma
+    // segunda API na fábrica. `token` continua passado por referência (não
+    // chamado aqui) exatamente como antes.
     resolveWindowsAppearanceTracker = createWindowsAppearanceTracker,
   } = deps;
   const appearanceTracker = resolveWindowsAppearanceTracker();

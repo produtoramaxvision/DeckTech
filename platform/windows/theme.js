@@ -27,8 +27,20 @@
 //     persistent `powershell.exe` blocked in RegNotifyChangeKeyValue) and
 //     exposes `.token()` (what makeWindowsIconService's `appearanceToken`
 //     dep calls), `.start()` and `.stop()`. Nothing here starts a process
-//     merely by being constructed — see platform/index.js#win32Platform's
-//     comment on why `start()` is never called from the factory today.
+//     merely by being CONSTRUCTED (createWindowsAppearanceTracker() itself
+//     stays free of side effects) — but `.token()` DOES lazily start the
+//     watcher on its own first call (Round-2 finding 1). Before this round,
+//     platform/index.js#win32Platform() built the tracker but never called
+//     `.start()` and never exposed it past construction, so the token was
+//     structurally incapable of ever changing — the wired appearanceToken
+//     stayed frozen at whatever the first read returned, and a real
+//     AppsUseLightTheme flip never invalidated platform/windows/icon.js's
+//     cache. Lazy-start on first `.token()` call fixes that without adding
+//     a construction-time side effect: the watcher only spins up once
+//     something (icon.js's resolveAppearanceToken, called from
+//     getIconPng) actually asks for a token, exactly the same "constructed
+//     cheap, active on demand" shape this file already had — see
+//     ensureToken() below.
 
 import { execFile, spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -188,9 +200,35 @@ export function startThemeWatcher(keyPath, { onChange, onExit, spawnFn = spawn }
       if (line === CHANGED_LINE) onChange();
     }
   });
-  child.on("exit", (code) => {
+
+  // Round-2 finding 2: a spawn failure (powershell.exe missing, blocked by
+  // policy — the exact scenario the JSDoc above and onExit's own comment
+  // already cite) emits 'error', not 'exit' — confirmed against the
+  // official Node.js child_process reference via context7 (/nodejs/node,
+  // "Handling failed spawn errors with child_process.spawn": "Listens for
+  // the 'error' event ... to detect when a command fails to spawn"), not
+  // recalled. Without a listener that 'error' is unhandled and crashes the
+  // whole process — the crash landed here BEFORE this fix, reproduced with
+  // a scratch script swapping spawnFn for a non-existent binary (see
+  // discrimination_proof). 'error' and 'exit' are not guaranteed mutually
+  // exclusive by Node's own docs, so `settled` makes cleanup + onExit fire
+  // exactly once no matter which one (or both) arrive.
+  let settled = false;
+  function settle(code) {
+    if (settled) return;
+    settled = true;
     try { rmSync(workDir, { recursive: true, force: true }); } catch { /* best-effort */ }
     onExit(code);
+  }
+  child.on("error", () => {
+    // Same "no auto-restart" posture as a normal exit (see onExit's own
+    // comment in createWindowsAppearanceTracker below) — a process that
+    // never spawned has no exit code, so `code` is null, the same shape
+    // JSDoc already documents for onExit (`code: number|null`).
+    settle(null);
+  });
+  child.on("exit", (code) => {
+    settle(code);
   });
 
   return child;
@@ -198,19 +236,23 @@ export function startThemeWatcher(keyPath, { onChange, onExit, spawnFn = spawn }
 
 /**
  * Dono do watch persistente e do cache de token que ele invalida. Nada
- * aqui spawna processo na CONSTRUÇÃO — só `start()` faz isso,
- * explicitamente. `createPlatform("win32")` não tem chamador de produção
- * hoje (grep confirma: só test/*.mjs) — o caso "PLAT-07 emite um sinal que
- * ainda ninguém consome" que ROADMAP.md:167 pré-declara como esperado, não
- * defeito. Por isso platform/index.js#win32Platform() CONSTRÓI o tracker
- * mas nunca chama start(): sem isso, todo teste que chama
- * createPlatform("win32") nesta máquina Windows real spawnaria um
- * powershell.exe de verdade como efeito colateral de construção —
- * exatamente a classe de processo órfão que este projeto rejeita (ver
- * comentário de createIconQueue em icon.js). `.token()` funciona mesmo sem
- * start() ter sido chamado (lê sob demanda, uma vez, e fica com esse valor
- * até start() ligar o watch de verdade) — nunca cai pra um poll por TTL
- * como fallback.
+ * aqui spawna processo na CONSTRUÇÃO — só `start()` faz isso (chamado
+ * explicitamente, OU preguiçosamente pela primeira chamada de `.token()` —
+ * ver `ensureToken()`/`maybeAutoStart()` abaixo, Round-2 finding 1).
+ * `createWindowsAppearanceTracker()` sozinho continua barato e sem efeito
+ * colateral (nenhum powershell.exe nasce só de CONSTRUIR o tracker —
+ * platform/index.js#win32Platform() ainda depende disso pra não spawnar um
+ * processo real toda vez que `createPlatform("win32")` roda numa suite de
+ * teste). O que mudou nesta rodada: antes, `.token()` sozinho NUNCA ligava
+ * o watch — só um `.start()` explícito fazia isso, e platform/index.js não
+ * tinha (nem tem, propositalmente — ver seu próprio comentário) um
+ * consumidor que chamasse `.start()`. Resultado: o token ficava congelado
+ * pra sempre no valor da primeira leitura, e um AppsUseLightTheme real
+ * nunca invalidava o cache de ícone (achado do Round-2). Agora a PRIMEIRA
+ * chamada de `.token()` (não a construção) também liga o watch — o
+ * primeiro consumidor real (icon.js's resolveAppearanceToken, chamado de
+ * getIconPng) já é, por construção, o gatilho certo: só liga o processo
+ * quando alguém de fato pede um token, nunca antes disso.
  * @param {object} [deps]
  * @param {() => Promise<string>} [deps.read]
  * @param {string} [deps.keyPath]
@@ -229,8 +271,10 @@ export function createWindowsAppearanceTracker(deps = {}) {
   let inflight = null;
   let child = null;
   let stopped = false;
+  let autoStartAttempted = false; // trava o lazy-start pra rodar no máximo 1x
 
   function ensureToken() {
+    maybeAutoStart();
     if (cached !== null) return Promise.resolve(cached);
     if (inflight) return inflight;
     inflight = Promise.resolve()
@@ -247,42 +291,98 @@ export function createWindowsAppearanceTracker(deps = {}) {
     return inflight;
   }
 
+  /**
+   * Round-2 finding 1: dispara na PRIMEIRA `.token()` — não na construção
+   * do tracker (deixaria de ser "barato por construção") nem a cada
+   * chamada (start() já é idempotente, mas não há motivo pra pagar a
+   * checagem de novo sempre enquanto o watcher segue de pé). Normalmente
+   * roda só uma vez na vida do tracker, mas `autoStartAttempted` pode
+   * voltar pra false por `onWatcherExit` depois de uma morte espontânea
+   * do watcher (ver seu comentário) — então uma PRÓXIMA `.token()` depois
+   * disso re-arma o lazy-start, não fica travada pra sempre. `token()`
+   * nunca pode lançar por causa disto: `startInternal()` (chamada abaixo)
+   * já embrulha qualquer exceção SÍNCRONA de `startWatcher`
+   * (mkdtempSync/writeFileSync podem lançar — ex.: %TEMP% sem permissão de
+   * escrita) — aqui só existe pra documentar QUANDO o gatilho dispara, não
+   * pra tratar erro de novo.
+   */
+  function maybeAutoStart() {
+    if (autoStartAttempted || stopped) return;
+    autoStartAttempted = true;
+    startInternal();
+  }
+
+  function onWatcherChange() {
+    // Nunca infere o token novo do próprio evento — o evento só diz "algo
+    // mudou sob esta chave" (qualquer valor, não só AppsUseLightTheme;
+    // RegNotifyChangeKeyValue não filtra por nome de valor). Quem decide o
+    // token novo é sempre `read()` na PRÓXIMA chamada de token() — mesmo
+    // espírito de resolveAppearanceToken em apps.js, que relê TUDO de
+    // `defaults -g` em qualquer mudança em vez de tentar interpretar o
+    // evento.
+    cached = null;
+    log.debug("icon.win.theme_changed", {});
+  }
+
+  function onWatcherExit(code) {
+    // Sem auto-restart IMEDIATO: nada aqui religa o watcher síncrono/na
+    // hora — reiniciar sozinho DENTRO deste handler arriscaria um
+    // crash-loop se o motivo da morte for persistente (ex.: powershell.exe
+    // removido/bloqueado por política) — um defeito pior que um token
+    // atrasado. Mas `autoStartAttempted` VOLTA pra false aqui (revisão do
+    // Round-2: a primeira versão desta correção deixava o lazy-trigger
+    // consumido pra sempre depois de qualquer morte do watcher — mesma
+    // forma estrutural do bug original, "gatilho de disparo único que
+    // nunca reabre", só que documentado como gap em vez de corrigido).
+    // Sem isso, um watcher que morre uma vez (ex.: powershell.exe
+    // temporariamente bloqueado por política, depois liberado) deixaria o
+    // token congelado pro resto da vida do tracker, mesmo com token()
+    // continuando a ser chamado — nenhum start() explícito existe na
+    // wiring de produção pra reabrir. Resetar `autoStartAttempted` faz a
+    // PRÓXIMA chamada de token() tentar `startInternal()` de novo — não é
+    // polling (só tenta quando ALGUÉM já ia chamar token() de qualquer
+    // jeito) nem reinício imediato (`child || stopped` em startInternal()
+    // já impede um segundo processo enquanto o antigo ainda existisse, e
+    // `stopped` continua bloqueando reabertura depois de um stop()
+    // intencional).
+    log.warn("icon.win.theme_watch_exited", { code });
+    child = null;
+    autoStartAttempted = false;
+  }
+
+  /**
+   * Liga o watch persistente — idempotente (uma segunda chamada com um
+   * processo já de pé, ou depois de stop(), é no-op). Chamado tanto pelo
+   * `.start()` explícito abaixo quanto pelo lazy-start de `maybeAutoStart()`.
+   * `startWatcher` pode lançar SINCRONAMENTE (mkdtempSync/writeFileSync —
+   * ex.: diretório temp sem permissão de escrita); sem o try/catch aqui,
+   * essa exceção subiria através de `.token()` e viraria um 500 em vez de
+   * um ícone servido (icon.js:312 faz `String(await appearanceToken())`
+   * sem try/catch próprio) — degrada pra "leitura avulsa, não mais
+   * event-driven" em vez de derrubar o chamador, mesma postura de
+   * onWatcherExit's "sem auto-restart" pra uma morte assíncrona.
+   */
+  function startInternal() {
+    if (child || stopped) return;
+    try {
+      child = startWatcher(keyPath, { onChange: onWatcherChange, onExit: onWatcherExit });
+    } catch (err) {
+      log.warn("icon.win.theme_watch_start_failed", { message: err?.message ?? String(err) });
+    }
+  }
+
   return {
     /** @returns {Promise<string>} */
     token: () => ensureToken(),
     /**
      * Liga o watch persistente — idempotente (uma segunda chamada com um
-     * processo já de pé é no-op). Nunca chamado por padrão pela fábrica de
-     * plataforma — ver JSDoc da função acima.
+     * processo já de pé é no-op). Chamado explicitamente por quem quiser
+     * o watch de pé sem esperar a primeira `.token()`, OU implicitamente
+     * pela primeira `.token()` via `maybeAutoStart()` acima.
      */
     start() {
-      if (child || stopped) return;
-      child = startWatcher(keyPath, {
-        onChange: () => {
-          // Nunca infere o token novo do próprio evento — o evento só diz
-          // "algo mudou sob esta chave" (qualquer valor, não só
-          // AppsUseLightTheme; RegNotifyChangeKeyValue não filtra por
-          // nome de valor). Quem decide o token novo é sempre `read()` na
-          // PRÓXIMA chamada de token() — mesmo espírito de
-          // resolveAppearanceToken em apps.js, que relê TUDO de `defaults
-          // -g` em qualquer mudança em vez de tentar interpretar o
-          // evento.
-          cached = null;
-          log.debug("icon.win.theme_changed", {});
-        },
-        onExit: (code) => {
-          // Sem auto-restart: um watcher morto deixa o token
-          // potencialmente atrasado (não errado — só não mais
-          // event-driven) até o próximo start(). Reiniciar sozinho aqui
-          // arriscaria um crash-loop se o motivo da morte for
-          // persistente (ex.: powershell.exe removido/bloqueado por
-          // política) — um defeito pior que um token atrasado. KNOWN
-          // GAP, não fechado aqui, mesmo padrão de disclosure do resto do
-          // arquivo (ver comentários "Round-2/3/4" em icon.js).
-          log.warn("icon.win.theme_watch_exited", { code });
-          child = null;
-        },
-      });
+      autoStartAttempted = true; // start() explícito também consome o lazy-trigger
+      startInternal();
     },
     /** Mata o watcher, se algum estiver de pé, e marca o tracker como
      * parado (start() depois de stop() é no-op — sem essa trava, um
