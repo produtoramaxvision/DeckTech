@@ -13,7 +13,6 @@ import { deflateSync } from "node:zlib";
 import { createLogger } from "../log.js";
 import { startServer, ensureUserDataDir, logBootstrapFailure } from "../server.js";
 import { realIconService } from "../apps.js";
-import { ActionError } from "../actions.js";
 import { readPinFile, SESSION_COOKIE } from "../auth.js";
 
 function capture(opts = {}) {
@@ -189,7 +188,14 @@ test("W3: falha de foco vira log com código tipado e contexto do request, não 
   const { port, close } = await startServer({
     port: 0,
     log: logger,
-    actions: { activateApp: async () => { throw new ActionError("FOCUS_RESTRICTED", 'focus restricted for "Chrome", opened new instance'); } },
+    actions: { activateApp: async () => {
+      // server.js:917 só lê `.code` (typeof err?.code === "string" ? err.code : null) —
+      // não depende da classe ActionError (PLAT-06, ../actions.js), então o teste
+      // constrói o erro tipado inline pra não acoplar OBS-01 a trabalho não commitado.
+      const e = new Error('focus restricted for "Chrome", opened new instance');
+      e.code = "FOCUS_RESTRICTED";
+      throw e;
+    } },
   });
   try {
     const r = await fetch(`http://127.0.0.1:${port}/api/apps/Chrome/activate`, {
