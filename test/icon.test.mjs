@@ -8,10 +8,16 @@ import { convertToPng, findIconFile, normalizePngIcon, realIconService, scanApps
 
 // PROOF-07: monogramPng (apps.js) chama o binário `sips`, exclusivo do macOS,
 // para rasterizar o SVG de fallback (ver PLAT-04 — ainda pendente, Fase 3).
-// Sem exec injetado, esses testes exercitam o exec real e falham em qualquer
-// SO sem `sips`. Mocar o exec aqui esconderia a lacuna real (Windows fica sem
-// ícone nenhum hoje) em vez de provar que ela foi corrigida — por isso o gate,
-// e não um fallback simulado.
+// Este gate cobre APENAS o teste "realIconService gera monograma para app
+// desconhecido" (busque pelo nome, não pelo número de linha — ele desloca),
+// cujo assunto é o PNG rasterizado em si: sem exec injetado,
+// aquele teste exercita o exec real e falha em qualquer SO sem `sips`. Mocar
+// o exec ali esconderia a lacuna real (Windows fica sem ícone nenhum hoje) em
+// vez de provar que ela foi corrigida — por isso o gate, e não um fallback
+// simulado.
+// NÃO usar este gate em outros testes cujo assunto não seja a rasterização em
+// si (ex.: contadores de scan, cache em memória) — esses são plataforma-
+// -neutros e devem rodar com um exec mockado, como o resto do arquivo faz.
 const macOnlyMonogramRasterizer = process.platform === "darwin"
   ? {}
   : { skip: "monogramPng rasteriza via `sips` (macOS-only); Windows depende de PLAT-04 (rasterizador JS puro), ainda pendente" };
@@ -146,8 +152,11 @@ test("realIconService converte icns via exec e cacheia no segundo chamado", asyn
 });
 
 test("realIconService prioriza NSWorkspace pelo path do bundle e cacheia o resultado", async () => {
-  // espaço no prefixo é deliberado: pega regressão de separador/regex hardcoded
-  // (ver PROOF-07 — a asserção original quebrava em paths com "\" no Windows).
+  // espaço no prefixo é deliberado (CLAUDE.md regra 5): exercita o path
+  // completo — mkdtemp -> join -> args do exec — com um espaço nele, de ponta
+  // a ponta. Quem pega a regressão de regex/separador hardcoded é a asserção
+  // abaixo em si (startsWith com path.join + path.sep, sem "/" hardcoded), não
+  // o espaço: um espaço não é metacaractere de regex.
   const dir = await mkdtemp(join(tmpdir(), "j5-icon native-"));
   const appPath = join(dir, "Native.app");
   const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
@@ -307,22 +316,64 @@ test("realIconService faz um único scan no TTL (N getIconPng)", async () => {
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test("realIconService miss em memória não rescaneia a cada miss", macOnlyMonogramRasterizer, async () => {
-  let scans = 0;
-  const svc = realIconService({
-    scan: async () => {
-      scans++;
-      return [];
-    },
-    cacheDir: join(tmpdir(), "j5-miss-cache"),
-    ttlMs: 60_000,
-  });
-  const buf1 = await svc.getIconPng("Fantasma");
-  const buf2 = await svc.getIconPng("Fantasma");
-  assert.ok(Buffer.isBuffer(buf1), "primeira chamada retorna monograma");
-  assert.ok(Buffer.isBuffer(buf2), "segunda chamada retorna monograma cached");
-  assert.deepEqual([...buf1], [...buf2], "deve retornar o mesmo monograma cached");
-  assert.equal(scans, 1, "scan deve rodar apenas uma vez");
+test("realIconService sem app correspondente cai no monograma e cacheia com um único scan", async () => {
+  // Assunto deste teste é o fallback pra monograma quando o scan não acha o
+  // app (não a rasterização em si) e o cache em memória do resultado —
+  // roda em qualquer plataforma com um exec mockado, igual ao teste de poda
+  // de cache logo acima.
+  const dir = await mkdtemp(join(tmpdir(), "j5-miss-cache-"));
+  try {
+    let scans = 0;
+    const exec = async (cmd, args) => {
+      const out = args[args.indexOf("--out") + 1] ?? args[args.length - 1];
+      await writeFile(out, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    };
+    const svc = realIconService({
+      scan: async () => {
+        scans++;
+        return [];
+      },
+      exec,
+      cacheDir: dir,
+      ttlMs: 60_000,
+    });
+    const buf1 = await svc.getIconPng("Fantasma");
+    const buf2 = await svc.getIconPng("Fantasma");
+    assert.ok(Buffer.isBuffer(buf1), "primeira chamada retorna monograma");
+    assert.ok(Buffer.isBuffer(buf2), "segunda chamada retorna monograma cached");
+    assert.deepEqual([...buf1], [...buf2], "deve retornar o mesmo monograma cached");
+    assert.equal(scans, 1, "scan deve rodar apenas uma vez");
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("realIconService miss em memória não rescaneia a cada miss", async () => {
+  // Assunto real deste teste é o branch de cache negativo em apps.js
+  // (memMiss.has(cacheKey) -> return null, apps.js:700): quando NEM o app é
+  // encontrado NEM o monograma consegue ser rasterizado, getIconPng deve
+  // devolver null nas duas chamadas sem rodar um segundo scan. exec é um
+  // no-op deliberado (não escreve o PNG de saída) para que monogramPng caia
+  // no catch{return null} de forma determinística em qualquer plataforma —
+  // reproduz exatamente o que acontece hoje no Windows sem `sips`, sem
+  // depender do binário real nem mockar sucesso onde a produção falha.
+  const dir = await mkdtemp(join(tmpdir(), "j5-miss-null-"));
+  try {
+    let scans = 0;
+    const exec = async () => {};
+    const svc = realIconService({
+      scan: async () => {
+        scans++;
+        return [];
+      },
+      exec,
+      cacheDir: dir,
+      ttlMs: 60_000,
+    });
+    const buf1 = await svc.getIconPng("Fantasma");
+    const buf2 = await svc.getIconPng("Fantasma");
+    assert.equal(buf1, null, "sem app e sem monograma rasterizável, deve devolver null");
+    assert.equal(buf2, null, "segunda chamada deve continuar null (cache negativo em memória)");
+    assert.equal(scans, 1, "scan deve rodar apenas uma vez, mesmo com dois misses");
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
 test("scanAppsDirs com includeSystemApps adiciona Finder de CoreServices com ícone real", async (t) => {
