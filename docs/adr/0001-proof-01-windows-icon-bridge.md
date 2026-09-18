@@ -1488,14 +1488,16 @@ procediam quando verificados; nenhum foi contestado.
    ```
    `existsSync` verdadeiro + `readdirSync` falhando com `EPERM` é exatamente o ramo raiz-ilegível
    (não o ramo raiz-ausente, que teria `existsSync` falso). Run do `list-apps.mjs` real com
-   `APPDATA` apontando para essa árvore:
+   `APPDATA` apontando para essa MESMA árvore (`proof01-round8-scratch2` — a mesma que o
+   `probe-root-readability.mjs` acima acabou de verificar, não uma árvore diferente; as duas
+   citações deste bloco agora nomeiam a mesma construção):
    ```
    $ $env:APPDATA = "$scratch\FakeAppData"; node scripts/list-apps.mjs; echo "EXIT=$LASTEXITCODE"
-   [list-apps] enumerated 123 .lnk files in 5.0 ms
-   [list-apps] roots: C:\ProgramData\Microsoft\Windows\Start Menu\Programs ; C:\Users\MaxVision\AppData\Local\Temp\claude\proof01-round8-scratch\FakeAppData\Microsoft\Windows\Start Menu\Programs
+   [list-apps] enumerated 123 .lnk files in 5.3 ms
+   [list-apps] roots: C:\ProgramData\Microsoft\Windows\Start Menu\Programs ; C:\Users\MaxVision\AppData\Local\Temp\claude\proof01-round8-scratch2\FakeAppData\Microsoft\Windows\Start Menu\Programs
    [list-apps] unreadable directories encountered during enumeration: 1 (path/code recorded in apps.json.unreadableDirs)
    [list-apps] FATAL: 1 Start Menu root(s) exist but could not be read:
-     - C:\Users\MaxVision\AppData\Local\Temp\claude\proof01-round8-scratch\FakeAppData\Microsoft\Windows\Start Menu\Programs (EPERM)
+     - C:\Users\MaxVision\AppData\Local\Temp\claude\proof01-round8-scratch2\FakeAppData\Microsoft\Windows\Start Menu\Programs (EPERM)
    [list-apps] same reasoning as a missing root (round-7 review finding 1): proceeding on a partial read would silently guess the population. Refusing to proceed.
    EXIT=1
    ```
@@ -1513,17 +1515,22 @@ procediam quando verificados; nenhum foi contestado.
    Processados com sucesso 1 arquivos; falha no processamento de 0 arquivos
    $ Remove-Item Env:\APPDATA; $env:APPDATA = "C:\Users\MaxVision\AppData\Roaming"
    $ node scripts/list-apps.mjs; echo "EXIT=$LASTEXITCODE"
-   [list-apps] enumerated 182 .lnk files in 10.0 ms
+   [list-apps] enumerated 182 .lnk files in 19.4 ms
    [list-apps] unreadable directories encountered during enumeration: 0
-   [list-apps] resolved 182 .lnk targets via single PowerShell/WScript.Shell process in 535.2 ms (2.94 ms/lnk amortized)
+   [list-apps] resolved 182 .lnk targets via single PowerShell/WScript.Shell process in 1059.6 ms (5.82 ms/lnk amortized)
    [list-apps] resolved 140 apps total (all extensions); extension histogram: {"exe":115,"msc":9,"txt":2,"pdf":1,"url":6,"html":3,"htm":3,"chm":1}
    [list-apps] unresolved .lnk count (resolution itself failed/empty): 4
    [list-apps] resolved-but-excluded count (uninstaller/dedup/missing file): 38
    [list-apps] wrote 115 .exe-only deduped apps to ...\data\apps.json (25 non-.exe targets excluded ...)
    [list-apps] at least one path contains a space: true
+   [list-apps] populationComplete: true
    EXIT=0
    ```
-   182 → 178 → 140 → 115, idêntico ao já citado no ADR: a cadeia de proveniência não mudou.
+   182 → 178 → 140 → 115, idêntico ao já citado no ADR: a cadeia de proveniência não mudou (a
+   variação em `enumMs`/`resolveMs` frente a runs anteriores desta mesma revisão é ruído de
+   I/O/PowerShell entre execuções, não uma mudança na população — nenhuma contagem, app ou motivo
+   de exclusão mudou; `git diff` do `apps.json` resultante confirma isso, só timings e
+   `generatedAt` mudam).
 
 2. **[major] O achado do round 7 estava só meio fechado: uma SUBPASTA ilegível ainda encolhia
    silenciosamente a população benchmarcada até dentro do benchmark. `list-apps.mjs` sai com
