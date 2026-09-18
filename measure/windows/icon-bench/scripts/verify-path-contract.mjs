@@ -55,6 +55,24 @@ if (!app) {
 
 const canonical = app.targetPath; // absolute, backslash — what list-apps.mjs / the benchmark actually feeds
 
+// Round-5 review fix (finding 4, minor): the standalone must-succeed branch
+// below used to print bgra.length as if it were evidence, without ever
+// asserting it — a buffer of any size (including empty) would still print
+// "extraction OK" and pass. 256x256 BGRA (4 bytes/pixel, no row padding —
+// same layout png.mjs/bgraToRgba already assume elsewhere in this repo) is
+// exactly 262144 bytes; anything else means the bridge returned a
+// wrong-sized or truncated buffer and must fail the script, not just log a
+// number nobody checks.
+const PROBE_ICON_SIZE = 256;
+const EXPECTED_BGRA_BYTES = PROBE_ICON_SIZE * PROBE_ICON_SIZE * 4;
+
+// Cross-bridge buffers for standalone forms, so that after both bridges run
+// we can assert addon and koffi extracted byte-identical pixels for the SAME
+// fixed target — a real content check for the row whose whole point is
+// proving the must-fail neighbor is discriminating, restoring the assertion
+// strength pixel-identity gives every non-standalone row (see finding 4).
+const standaloneBuffers = {}; // { [formName]: { addon?: Buffer, koffi?: Buffer } }
+
 function bufEqual(a, b) {
   if (a.length !== b.length) return false;
   return Buffer.compare(a, b) === 0;
@@ -134,10 +152,19 @@ function testBridge(bridgeName, extractFn) {
         if (f.standalone) {
           // standalone rows probe a fixed target (notepad.exe), not the
           // canonical app (Adobe Acrobat here) — pixel identity to
-          // canonicalBgra is meaningless for them (different file). "no
-          // throw" is the whole assertion.
-          console.log(`[verify-path-contract] ${bridgeName} / ${key}: extraction OK (standalone target, not compared to canonical), ${bgra.length} bytes`);
-          rowResults.forms[key][bridgeName] = { outcome: "succeeded", standalone: true };
+          // canonicalBgra is meaningless for them (different file). Round-5
+          // review fix (finding 4): "no throw" alone is NOT the whole
+          // assertion anymore — an empty or wrong-sized buffer must fail
+          // this row, not just print a number nobody checks.
+          const sizeOk = bgra.length === EXPECTED_BGRA_BYTES;
+          console.log(`[verify-path-contract] ${bridgeName} / ${key}: extraction OK (standalone target, not compared to canonical), ${bgra.length} bytes (expected ${EXPECTED_BGRA_BYTES})`);
+          rowResults.forms[key][bridgeName] = { outcome: "succeeded", standalone: true, bytes: bgra.length, expectedBytes: EXPECTED_BGRA_BYTES, sizeOk };
+          if (!sizeOk) {
+            console.error(`[verify-path-contract] ${bridgeName} / ${key}: FAIL — expected ${EXPECTED_BGRA_BYTES} bytes (${PROBE_ICON_SIZE}x${PROBE_ICON_SIZE} BGRA), got ${bgra.length}`);
+            failures++;
+          }
+          standaloneBuffers[key] = standaloneBuffers[key] || {};
+          standaloneBuffers[key][bridgeName] = bgra;
         } else {
           const matches = bufEqual(canonicalBgra, bgra);
           console.log(`[verify-path-contract] ${bridgeName} / ${key}: extraction OK, pixel-identical to canonical: ${matches}`);
@@ -167,9 +194,31 @@ function testBridge(bridgeName, extractFn) {
   }
 }
 
-testBridge("addon", (p) => addon.extractIconBgra(p, 256));
-testBridge("koffi", (p) => koffiExtract(p, 256).bgra);
+testBridge("addon", (p) => addon.extractIconBgra(p, PROBE_ICON_SIZE));
+testBridge("koffi", (p) => koffiExtract(p, PROBE_ICON_SIZE).bgra);
 comUninitialize();
+
+// Round-5 review fix (finding 4): for each standalone must-succeed form,
+// assert addon and koffi extracted BYTE-IDENTICAL pixels from the SAME
+// fixed target. This is the real content check the finding asked for —
+// pixel identity against each other, since there is no canonical
+// same-bridge extraction to compare a standalone form against.
+console.log("\n[verify-path-contract] === standalone form addon/koffi byte-equality ===");
+for (const f of forms) {
+  if (!f.standalone || !f.mustSucceed) continue;
+  const pair = standaloneBuffers[f.name];
+  if (!pair || !pair.addon || !pair.koffi) {
+    console.log(`[verify-path-contract]   ${f.name}: skipped (one or both bridges did not produce a buffer to compare)`);
+    continue;
+  }
+  const identical = bufEqual(pair.addon, pair.koffi);
+  console.log(`[verify-path-contract]   ${f.name}: addon vs koffi byte-identical: ${identical}`);
+  rowResults.forms[f.name].crossBridgeByteIdentical = identical;
+  if (!identical) {
+    console.error(`[verify-path-contract]   ${f.name}: FAIL — addon and koffi extracted different bytes from the same standalone target`);
+    failures++;
+  }
+}
 
 // Report any divergence between the two bridges on the same form — the
 // whole origin of round-2 finding 3 was addon and koffi doing UNEQUAL work

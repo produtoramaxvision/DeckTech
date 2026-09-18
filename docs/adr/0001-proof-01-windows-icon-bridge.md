@@ -1,8 +1,14 @@
 # ADR 0001: Ponte Node -> `IShellItemImageFactory` para ícones 256px no Windows
 
 **Status:** Aceita
-**Data:** 2026-09-18 (revisada 2026-09-17, round 2 de review; revisada novamente round 3; revisada
-novamente round 4 — ver "Revisão round 2", "Revisão round 3" e "Revisão round 4" abaixo)
+**Data:** Criada 2026-09-17 22:00 (commit `2ffab25`). Revisões em ordem cronológica, cada uma
+com o commit que a fez, para que esta linha não volte a inverter a ordem numa próxima revisão
+(round 5 review, finding 5): round 2 em 2026-09-17 22:33 (commit `2c8cc99`); correção pós-round-2
+de um self-advisory pass em 2026-09-17 22:40 (commit `7daf52b`, não um round de review numerado —
+citado à parte porque o número 533,8ms desta revisão vem dele, ver "Por que o pool PowerShell
+não vence"); round 3 em 2026-09-17 23:39 (commit `349a3fd`); round 4 em 2026-09-18 00:23 (commit
+`4287998`); round 5 em 2026-09-18, nesta revisão — ver "Revisão round 2", "Revisão round 3",
+"Revisão round 4" e "Revisão round 5" abaixo.
 **Requisito:** PROOF-01 (`.maxvision/REQUIREMENTS.md`, Fase 0)
 **Máquina de medição:** Windows 11 Pro 10.0.22631, x64, Node v25.5.0, VS Build Tools 2022
 (17.14.37411.7) com componente C++ x64, Windows SDK 10.0.26100.0, Python 3.13.13, locale pt-BR
@@ -290,7 +296,7 @@ Resultado bruto completo: [`measure/windows/icon-bench/results.json`](../../meas
   addon / trailing space: extraction OK, pixel-identical to canonical: true
   addon / trailing dot: extraction OK, pixel-identical to canonical: true
   addon / %SystemRoot% (env var, must fail — not expanded): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070002
-  addon / %SystemRoot% control (hand-expanded, must succeed): extraction OK (standalone target, not compared to canonical), 262144 bytes
+  addon / %SystemRoot% control (hand-expanded, must succeed): extraction OK (standalone target, not compared to canonical), 262144 bytes (expected 262144)
   addon / surrounding quotes (must fail — not stripped): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070057
   addon / ,0 icon-index suffix (must fail — not stripped): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070002
   koffi / forward-slash: extraction OK, pixel-identical to canonical: true
@@ -298,9 +304,13 @@ Resultado bruto completo: [`measure/windows/icon-bench/results.json`](../../meas
   koffi / trailing space: extraction OK, pixel-identical to canonical: true
   koffi / trailing dot: extraction OK, pixel-identical to canonical: true
   koffi / %SystemRoot% (env var, must fail — not expanded): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070002 for C:\Users\MaxVision\Desktop\cursor-oficial\decktech\measure\windows\icon-bench\%SystemRoot%\System32\notepad.exe
-  koffi / %SystemRoot% control (hand-expanded, must succeed): extraction OK (standalone target, not compared to canonical), 262144 bytes
+  koffi / %SystemRoot% control (hand-expanded, must succeed): extraction OK (standalone target, not compared to canonical), 262144 bytes (expected 262144)
   koffi / surrounding quotes (must fail — not stripped): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070057 for C:\Users\MaxVision\Desktop\cursor-oficial\decktech\measure\windows\icon-bench\"C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe"
   koffi / ,0 icon-index suffix (must fail — not stripped): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070002 for C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe,0
+
+  [verify-path-contract] === standalone form addon/koffi byte-equality ===
+    %SystemRoot% control (hand-expanded, must succeed): addon vs koffi byte-identical: true
+
   [verify-path-contract] === addon vs koffi outcome per form ===
     forward-slash: addon=succeeded koffi=succeeded (agree)
     relative: addon=succeeded koffi=succeeded (agree)
@@ -314,6 +324,19 @@ Resultado bruto completo: [`measure/windows/icon-bench/results.json`](../../meas
   0 divergências entre addon e koffi em qualquer uma das 8 formas (o script só imprime a linha
   `NOTE: N form(s) diverging` quando `divergences > 0` — ausente aqui porque não houve nenhuma,
   não porque foi omitida).
+
+  **Round 5 review fix (finding 4, minor):** o `262144 bytes` acima era só impresso, nunca
+  comparado a nada — um buffer vazio ou do tamanho errado ainda teria impresso "extraction OK" e
+  passado. Corrigido de duas formas, ambas visíveis na saída acima: (a) o script agora afirma
+  `bgra.length === EXPECTED_BGRA_BYTES` (256×256×4 = 262144) no ramo standalone must-succeed e
+  incrementa `failures` em caso de divergência — por isso a saída agora diz
+  `(expected 262144)` ao lado do tamanho medido; (b) depois que os dois bridges rodam, o script
+  extrai o MESMO alvo fixo duas vezes (uma por bridge) e compara os bytes com
+  `Buffer.compare` — a nova seção `=== standalone form addon/koffi byte-equality ===` acima —
+  restaurando um check de conteúdo real sem depender de um app canônico. Reproduzido nesta
+  máquina: `node scripts/verify-path-contract.mjs` continua terminando com
+  `PASS: both bridges accept...` depois da mudança, e a comparação cross-bridge imprime
+  `byte-identical: true`.
   O worker PowerShell (.NET `SHCreateItemFromParsingName` via P/Invoke direto, não via
   `WScript.Shell`) foi testado à parte com o mesmo path de barra normal e **também falhou**
   (`SHCreateItemFromParsingName hr=0x80070057`) até receber a forma com barra invertida — ou
@@ -495,8 +518,14 @@ invocações independentes, o gap addon-vs-koffi na mediana-das-medianas foi 1,9
 execuções chegou a 6,07ms (round 3) e 3,37ms (round 4), sempre maior que o gap da mesma rodada.
 O spread entre execuções é consistentemente ≥ o gap entre candidatas em ambas as rodadas: **ms/
 ícone não distingue addon de koffi nesta máquina**, com qualquer número de casas decimais — e o
-padrão se manteve em duas invocações independentes deste benchmark, semanas de sessões diferentes
-uma da outra, não só uma vez. Isso é esperado: as duas chamam exatamente a mesma API COM
+padrão se manteve em duas re-execuções independentes do mesmo comando comitado
+(`bench-repeat.mjs --runs 5`, que invoca `bench.mjs` 5 vezes internamente — o mesmo `bench.mjs`
+citado acima), ~1h de intervalo dentro da mesma sessão de trabalho (`generatedAt`
+2026-09-18T02:22:09.968Z em `349a3fd` e 2026-09-18T03:17:16.617Z em `4287998`, delta de 55,1 min),
+com números diferentes mas a mesma ordenação qualitativa — não semanas nem sessões distintas.
+**Não executada nesta revisão: uma re-execução cross-sessão/cross-reboot; nenhuma robustez
+cross-sessão é afirmada.** Isso é esperado: as duas chamam exatamente
+a mesma API COM
 (`IShellItemImageFactory::GetImage`) e o grosso do tempo é gasto dentro do shell do Windows, não
 na travessia FFI/N-API. O discriminador real não é ms/ícone — é risco de manutenção e forma de
 falha, que os dois bugs abaixo tornam concreto, não hipotético:
@@ -531,11 +560,14 @@ Electron com addons nativos.
   **Round 4 finding 2 (major):** a v3 deste ADR citava um ponto fixo aqui (~530ms) que já não
   batia com o `results.json` daquela mesma revisão (584,8ms) nem foi reprodutível por um
   reviewer independente (426–579ms em 5 rodadas dele). Em vez de mais um ponto fixo fadado a
-  ficar obsoleto na próxima re-execução, o argumento agora cita a FAIXA observada em
-  `bench-repeat-results.json` através de duas rodadas independentes deste benchmark: 533,8ms
-  (round 3, execução única) e 554,9–1386,0ms (round 4, 5 execuções — ver "Resultados medidos").
-  A ordem de grandeza — centenas de ms, não dezenas — é o que sustenta a rejeição, não o ponto
-  exato, e essa ordem de grandeza se manteve estável nas duas rodadas.
+  ficar obsoleto na próxima re-execução, o argumento agora cita a FAIXA observada em dois
+  artefatos comitados de rodadas independentes: **533,8ms** (round 2, execução única,
+  `git show 7daf52b:measure/windows/icon-bench/results.json` → `startupMs: 533.8` — este número
+  NÃO vem de `bench-repeat-results.json`, que só passou a agregar `startupMs` nesta revisão,
+  round 5) e **554,9–1386,0ms** (round 4, 5 execuções, `bench-repeat-results.json` comitado em
+  `4287998` — ver "Resultados medidos"). A ordem de grandeza — centenas de ms, não dezenas — é o
+  que sustenta a rejeição, não o ponto exato, e essa ordem de grandeza se manteve estável entre
+  os dois artefatos.
 - O throughput agregado do pool vem de **paralelismo de 4 processos**, algo que addon/koffi não
   tiveram chance de exibir aqui — não foram testados sob paralelismo equivalente (ex.:
   `worker_threads`, múltiplos `utilityProcess`). Isso não foi medido; não reivindico que
@@ -590,8 +622,8 @@ cd measure/windows/icon-bench
 npm install
 node scripts/list-apps.mjs                          # gera data/apps.json a partir desta máquina (115 apps .exe-only)
 cd addon-icon && ../node_modules/.bin/node-gyp clean && ../node_modules/.bin/node-gyp configure build && cd ..
-node scripts/probe-addon.mjs                         # prova de 1 ícone via addon
-node scripts/probe-koffi.mjs                         # prova de 1 ícone via koffi
+node scripts/probe-addon.mjs                         # prova de 1 ícone via addon; alvo notepad.exe derivado de lib/probe-target.mjs, argv[2] (1º argumento) sobrescreve (round 5 finding 3)
+node scripts/probe-koffi.mjs                         # prova de 1 ícone via koffi; alvo notepad.exe derivado de lib/probe-target.mjs, argv[2] (1º argumento) sobrescreve (round 5 finding 3)
 node scripts/bench-repeat.mjs --runs 5 -- --passes 2 --pool 4   # 5 invocações independentes, grava bench-repeat-results.json — round 4 finding 3: agora também agrega startupMs e aggregateThroughputMsPerIcon por rodada, não só medianMs (a última rodada grava results.json também)
 node scripts/verify.mjs                              # verificação independente pós-benchmark, grava verify-results.json
 node scripts/verify-path-contract.mjs                # as 8 formas do contrato de path (round 3 finding 6, %VAR% par discriminador do round 4 finding 1), addon E koffi
@@ -931,8 +963,9 @@ citou como evidência.
    valores medidos diferentes para a mesma grandeza, no mesmo documento, nenhum deles citado
    corretamente. Corrigido de duas formas: (a) a seção "Decisão" agora argumenta pela ORDEM DE
    GRANDEZA (centenas de ms de startup; throughput agregado de um dígito de ms/ícone) em vez de
-   um ponto fixo, citando a faixa observada nas rodadas comitadas (533,8ms no round 3;
-   554,9–1386,0ms nas 5 execuções desta rodada — ver "Por que o pool PowerShell não vence"); (b)
+   um ponto fixo, citando a faixa observada nos artefatos comitados (533,8ms no round 2,
+   `7daf52b:results.json`, execução única; 554,9–1386,0ms no round 4, `bench-repeat-results.json`,
+   5 execuções — ver "Por que o pool PowerShell não vence"); (b)
    "Resultados medidos" foi re-executado nesta máquina (`bench-repeat.mjs --runs 5 -- --passes 2
    --pool 4`, mesmo comando documentado) e todo número derivado de `results.json`/
    `bench-repeat-results.json` no documento foi requotado a partir da execução NOVA, não deixado
@@ -955,11 +988,20 @@ citou como evidência.
    `node:path`, zero outros imports, zero efeito colateral (`verify-com-apartment-clash.mjs`
    depende de controlar a PRIMEIRA chamada `CoInitializeEx` deste processo; um import
    transitivo de koffi/addon nesse módulo invalidaria o cenário que o script existe pra
-   reproduzir). Os quatro scripts que citam um alvo `.exe` fixo importam do mesmo lugar agora:
-   `verify-path-contract.mjs`, `verify-pwsh-failure-modes.mjs` e
-   `verify-com-apartment-clash.mjs`. **Reproduzido**: os três scripts continuam passando depois
-   da troca (saída completa nas seções "Método"/"Reprodutibilidade" acima), confirmando que a
-   substituição de string literal por `probeTargetPath` não mudou o comportamento observado.
+   reproduzir). **Round 5 review (finding 3) apontou que a contagem "quatro" acima estava errada
+   — só três scripts importavam `probeTargetPath`, e `probe-addon.mjs`/`probe-koffi.mjs` ainda
+   tinham o literal `C:\Windows\System32\notepad.exe` hardcoded**, apesar de citados na sequência
+   de "Reprodutibilidade" deste ADR. Corrigido migrando os dois: agora **cinco** scripts importam
+   o mesmo `probeTargetPath` de `lib/probe-target.mjs` — `verify-path-contract.mjs`,
+   `verify-pwsh-failure-modes.mjs`, `verify-com-apartment-clash.mjs`, `probe-addon.mjs` e
+   `probe-koffi.mjs` (`grep -rln "probe-target" measure/windows/icon-bench/scripts
+   measure/windows/icon-bench/lib` lista os cinco). `probe-addon.mjs`/`probe-koffi.mjs` mantêm o
+   argv override (`process.argv[2] || probeTargetPath`) deliberadamente — são smoke probes de uso
+   manual, não o discriminador de contrato de path — e o comentário no código agora diz isso
+   explicitamente. **Reproduzido**: `node scripts/probe-addon.mjs` e `node scripts/probe-koffi.mjs`
+   continuam imprimindo `PASS` depois da troca (extract 113,6ms/60,2ms, decode independente
+   `256x256` nos dois), confirmando que a substituição de string literal por `probeTargetPath`
+   não mudou o comportamento observado.
 5. **[minor] Um bloco do ADR rotulado "Saída real desta execução" continha uma linha resumida à
    mão que o script nunca imprime, e elidia saída real com "for ...".** Corrigido: o bloco na
    seção "Método"/"Contrato de path" agora cola as linhas reais de
@@ -970,3 +1012,162 @@ citou como evidência.
 
 Todos os cinco têm evidência colada nesta revisão (comando executado + saída real). Nenhum
 achado foi contestado.
+
+## Revisão round 5
+
+Um quinto reviewer rigoroso rejeitou a v4 deste ADR com 5 achados (1 blocker, 2 major, 2 minor).
+Todos os cinco foram corrigidos nesta máquina, com comando executado e saída colada. Todos
+procediam quando verificados — nenhum foi contestado.
+
+1. **[blocker] A seção "Decisão" afirmava que o empate addon-vs-koffi tinha sido reproduzido
+   "semanas de sessões diferentes ... não só uma vez", enquanto as duas execuções citadas
+   (`349a3fd` e `4287998`) são 55,1 minutos apart, no mesmo dia UTC, dentro da MESMA sessão de
+   trabalho — o próprio documento já admitia isso em outro trecho ("a própria sessão de trabalho
+   aqueceu o cache..."), uma contradição interna.** Verificado e confirmado:
+   ```
+   $ git show 349a3fd:measure/windows/icon-bench/bench-repeat-results.json | grep generatedAt
+     "generatedAt": "2026-09-18T02:22:09.968Z",
+   $ git show 4287998:measure/windows/icon-bench/bench-repeat-results.json | grep generatedAt
+     "generatedAt": "2026-09-18T03:17:16.617Z",
+   $ git log -1 --format="%H %ai" 349a3fd
+   349a3fdb43ed27332eabad3780d7779cb00f0f95 2026-09-17 23:39:27 -0300
+   $ git log -1 --format="%H %ai" 4287998
+   42879987d0d37df03495ff700a51bca8909187c4 2026-09-18 00:23:05 -0300
+   ```
+   Delta = 55,1 min, mesmo dia UTC, mesma sessão — a frase "semanas de sessões diferentes" era
+   falsa sob qualquer leitura. Corrigido removendo a cláusula de separação temporal e afirmando
+   exatamente o que a evidência sustenta: duas re-execuções independentes do mesmo comando
+   comitado (`bench-repeat.mjs --runs 5`), ~1h de intervalo NA MESMA sessão, com números
+   diferentes mas a mesma ordenação qualitativa — e uma hedge explícita de que não há medição
+   cross-sessão/cross-reboot deste ponto (ver "Decisão" acima). Nenhuma nova medição foi
+   inventada para simular robustez cross-sessão: uma re-execução de `bench-repeat.mjs` depois de
+   um reboot, em outra sessão, não foi executada nesta revisão; nenhuma robustez cross-sessão é
+   afirmada — registrado como limitação, não preenchido com plausibilidade.
+2. **[major] O número 533,8ms — âncora da rejeição do pool PowerShell — estava atribuído à
+   rodada errada (round 3) e a um artefato que nunca teve esse campo (`bench-repeat-results.json`
+   do round 3), com o ADR se contradizendo entre "round 3" (duas ocorrências) e "round 2" (uma
+   terceira).** Verificado:
+   ```
+   $ git show 349a3fd:measure/windows/icon-bench/bench-repeat-results.json | grep -c 'startupMs\|extra\|aggregateThroughput'
+   0
+   $ git show 349a3fd:measure/windows/icon-bench/results.json | grep -i startupMs
+         "startupMs": 0,
+         "startupMs": 2.1,
+         "note": "in-process N-API; startupMs is one-time module load (measured during the cold-baseline phase above); per-icon stats here are warm-cache steady-state"
+         "startupMs": 10.5,
+         "startupMs": 584.8,
+         "perWorkerStartupMs": [
+   $ git show 7daf52b:measure/windows/icon-bench/results.json | grep -i "startupMs\|aggregateThroughput"
+         "startupMs": 0,
+         "startupMs": 2.7,
+         "note": "in-process N-API; startupMs is one-time module load (measured during the cold-baseline phase above); per-icon stats here are warm-cache steady-state"
+         "startupMs": 8.1,
+         "startupMs": 533.8,
+         "perWorkerStartupMs": [
+         "aggregateThroughputMsPerIcon": 6.98,
+         "note": "median/p95 are PER-REQUEST round-trip latency at concurrency=4, EXCLUDING timed-out requests (a timeout measures the timeout constant, not the bridge); successRate's denominator is total attempts (successes+failures incl. timeouts), not sample count; aggregateThroughputMsPerIcon is wall-clock/app-count and is the number comparable to a single-icon-at-a-time cost"
+   ```
+   Confirma a leitura do reviewer: 533,8ms mora em `7daf52b:results.json` (round 2, execução
+   única), não em `349a3fd` (round 3) nem em `bench-repeat-results.json` (que só ganhou
+   `startupMs` agregado nesta revisão, round 5). Corrigido nos dois call sites ("Por que o pool
+   PowerShell não vence" e "Revisão round 4" finding 2): ambos agora dizem "533,8ms (round 2,
+   `7daf52b:results.json`, execução única)" e nomeiam explicitamente qual artefato comitado
+   sustenta cada ponta do range (533,8ms round 2 / 554,9–1386,0ms round 4).
+3. **[major] "Revisão round 4" finding 4 afirmava que quatro scripts importavam
+   `probeTargetPath`, listava três, dizia "os três scripts" duas frases depois, e dois outros
+   scripts (`probe-addon.mjs`, `probe-koffi.mjs`) ainda tinham o literal hardcoded que o finding
+   existia pra eliminar — apesar de citados na sequência de "Reprodutibilidade" deste ADR.**
+   Verificado antes do fix (saída colada verbatim, não resumida):
+   ```
+   $ grep -rn 'probe-target' measure/windows/icon-bench/scripts measure/windows/icon-bench/lib
+   measure/windows/icon-bench/scripts/verify-com-apartment-clash.mjs:19:import { probeTargetPath } from "../lib/probe-target.mjs";
+   measure/windows/icon-bench/scripts/verify-path-contract.mjs:24:// hand-expanded form succeeds. See lib/probe-target.mjs.
+   measure/windows/icon-bench/scripts/verify-path-contract.mjs:39:import { probeTargetPath } from "../lib/probe-target.mjs";
+   measure/windows/icon-bench/scripts/verify-pwsh-failure-modes.mjs:24:import { probeTargetPath } from "../lib/probe-target.mjs";
+
+   $ grep -rn 'notepad' measure/windows/icon-bench/scripts
+   measure/windows/icon-bench/scripts/probe-addon.mjs:14:const target = process.argv[2] || "C:\\Windows\\System32\\notepad.exe";
+   measure/windows/icon-bench/scripts/probe-koffi.mjs:13:const target = process.argv[2] || "C:\\Windows\\System32\\notepad.exe";
+   measure/windows/icon-bench/scripts/verify-path-contract.mjs:22:// %SystemRoot%\System32\notepad.exe target): one asserting the literal
+   measure/windows/icon-bench/scripts/verify-path-contract.mjs:87:    // always-present target (System32\notepad.exe) independent of which
+   measure/windows/icon-bench/scripts/verify-path-contract.mjs:93:    build: () => "%SystemRoot%\\System32\\notepad.exe",
+   measure/windows/icon-bench/scripts/verify-path-contract.mjs:99:    // could be failing for an unrelated reason, e.g. notepad.exe missing).
+   measure/windows/icon-bench/scripts/verify-path-contract.mjs:135:          // standalone rows probe a fixed target (notepad.exe), not the
+   ```
+   Só 3 importadores reais de `probeTargetPath`, e o literal sobrevivia em `probe-addon.mjs:14`
+   e `probe-koffi.mjs:13`, exatamente como o reviewer apontou. O resto dos hits em
+   `verify-path-contract.mjs` (linhas 22, 87, 99, 135) são comentários — mas a linha 93
+   (`build: () => "%SystemRoot%\\System32\\notepad.exe"`) É um literal vivo, não comentário: é a
+   forma `%SystemRoot%` não-expandida que a linha must-fail existe pra testar, e ela PRECISA
+   continuar literal (não virar `probeTargetPath`) para a linha significar algo — trocá-la
+   quebraria o próprio teste que ela implementa. Nenhum desses cinco hits é o `target` (a
+   variável) de `probe-addon.mjs`/`probe-koffi.mjs`, que é o que este finding corrige.
+   Corrigido migrando os dois scripts para `probeTargetPath` (com fallback `argv[2] ||
+   probeTargetPath`, mantendo o override deliberado — são smoke probes de uso manual, não o
+   discriminador de path-contract). Reproduzido depois da migração — os dois greps de novo, e os
+   dois scripts rodados:
+   ```
+   $ grep -rn 'probe-target' measure/windows/icon-bench/scripts measure/windows/icon-bench/lib
+   measure/windows/icon-bench/scripts/probe-addon.mjs:9:import { probeTargetPath } from "../lib/probe-target.mjs";
+   measure/windows/icon-bench/scripts/probe-koffi.mjs:11:import { probeTargetPath } from "../lib/probe-target.mjs";
+   measure/windows/icon-bench/scripts/verify-com-apartment-clash.mjs:19:import { probeTargetPath } from "../lib/probe-target.mjs";
+   measure/windows/icon-bench/scripts/verify-path-contract.mjs:24:// hand-expanded form succeeds. See lib/probe-target.mjs.
+   measure/windows/icon-bench/scripts/verify-path-contract.mjs:39:import { probeTargetPath } from "../lib/probe-target.mjs";
+   measure/windows/icon-bench/scripts/verify-pwsh-failure-modes.mjs:24:import { probeTargetPath } from "../lib/probe-target.mjs";
+
+   $ grep -rnc 'notepad' measure/windows/icon-bench/scripts/probe-addon.mjs measure/windows/icon-bench/scripts/probe-koffi.mjs
+   measure/windows/icon-bench/scripts/probe-addon.mjs:0
+   measure/windows/icon-bench/scripts/probe-koffi.mjs:0
+   ```
+   O escopo do grep "depois" é só os dois arquivos migrados (não o diretório `scripts/` inteiro
+   como "antes") de propósito: o grep largo continua batendo em `verify-path-contract.mjs`
+   legitimamente (linha 93, o literal vivo explicado acima), então o grep estreito isola só os
+   dois arquivos que este finding migrou, sem ruído dos hits legítimos de outro script.
+   ```
+   $ node scripts/probe-addon.mjs
+   [probe-addon] extracting 256x256 from: C:\Windows\System32\notepad.exe
+   [probe-addon] extract=113.6ms encode=7.7ms size=67187B -> C:\Users\MaxVision\Desktop\cursor-oficial\decktech\measure\windows\icon-bench\.tmp\probe-addon.png
+   [probe-addon] independent decode check: 256x256
+   [probe-addon] PASS
+   $ node scripts/probe-koffi.mjs
+   [probe-koffi] extracting 256x256 from: C:\Windows\System32\notepad.exe
+   [probe-koffi] extract=60.2ms encode=6.8ms size=67187B -> C:\Users\MaxVision\Desktop\cursor-oficial\decktech\measure\windows\icon-bench\.tmp\probe-koffi.png
+   [probe-koffi] independent decode check: 256x256
+   [probe-koffi] PASS
+   ```
+   Agora **cinco** scripts importam `probeTargetPath` (6 hits no grep acima — 5 imports + 1
+   comentário em `verify-path-contract.mjs`), contagem corrigida no texto (ver "Revisão round 4"
+   finding 4 acima). O mesmo alvo `notepad.exe` continua nomeado nas linhas de
+   `node scripts/probe-addon.mjs` / `node scripts/probe-koffi.mjs` na seção "Reprodutibilidade"
+   deste ADR (não citando número de linha de propósito, pra não repetir o defeito deste próprio
+   finding numa futura revisão que desloque o texto), agora corretamente descrito como derivado
+   de `lib/probe-target.mjs` em todos os scripts que aparecem naquela sequência, incluindo
+   `probe-addon.mjs`/`probe-koffi.mjs`.
+4. **[minor] O controle pareado `%SystemRoot%` — a linha cujo propósito inteiro é provar que a
+   linha must-fail discrimina — só afirmava "não lançou exceção"; o tamanho de 262144 bytes que
+   o ADR cita como prova nunca era comparado a nada.** Corrigido em
+   [`scripts/verify-path-contract.mjs`](../../measure/windows/icon-bench/scripts/verify-path-contract.mjs):
+   (a) `EXPECTED_BGRA_BYTES = PROBE_ICON_SIZE * PROBE_ICON_SIZE * 4` agora é afirmado contra
+   `bgra.length` no ramo standalone must-succeed, incrementando `failures` em caso de divergência
+   — e `PROBE_ICON_SIZE` (256) é a MESMA constante passada pra `addon.extractIconBgra(p,
+   PROBE_ICON_SIZE)`/`koffiExtract(p, PROBE_ICON_SIZE)`, não um segundo literal `256`
+   independente do tamanho pedido de fato (o `size * size * 4` que o próprio finding pediu); (b)
+   depois dos dois bridges rodarem, o script extrai o mesmo alvo fixo via addon E koffi e compara
+   os bytes com `Buffer.compare` — um check de conteúdo real sem depender de um app canônico,
+   como sugerido pelo finding. Reproduzido nesta máquina depois de trocar os dois literais `256`
+   pela constante (`node scripts/verify-path-contract.mjs`, saída completa na seção
+   "Método"/"Contrato de path" acima, byte-idêntica à saída antes da troca): `262144 bytes
+   (expected 262144)` para os dois bridges, `byte-identical: true` na nova seção
+   `=== standalone form addon/koffi
+   byte-equality ===`, e o script termina com `PASS` — o comportamento observado não mudou, a
+   força da asserção mudou.
+5. **[minor] O cabeçalho do ADR listava "Data: 2026-09-18 (revisada 2026-09-17 ...)" — a data de
+   criação aparecendo DEPOIS da data de revisão no texto, invertido em relação à ordem real
+   (criado 2026-09-17 22:00:23, última revisão então 2026-09-18 00:23:05).** Corrigido
+   substituindo a linha livre por entradas datadas explícitas em ordem cronológica direta, cada
+   uma com o commit que a fez (ver linha "Data" no topo deste documento) — para que a próxima
+   revisão (esta, round 5) não possa reintroduzir a inversão sem também reordenar uma lista
+   explícita de commits, não uma frase de prosa solta.
+
+Todos os cinco têm evidência colada nesta revisão (comando executado + saída real). Todos os
+cinco procediam. Nenhum achado foi contestado.

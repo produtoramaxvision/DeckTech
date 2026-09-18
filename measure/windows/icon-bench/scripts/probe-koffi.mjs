@@ -8,9 +8,13 @@ import { writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+import { probeTargetPath } from "../lib/probe-target.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const target = process.argv[2] || "C:\\Windows\\System32\\notepad.exe";
+// argv override is intentional: this is a standalone smoke probe, not the
+// path-contract discriminator (verify-path-contract.mjs), so callers may
+// still point it at an arbitrary .exe on the command line.
+const target = process.argv[2] || probeTargetPath;
 const outDir = path.join(__dirname, "..", ".tmp");
 mkdirSync(outDir, { recursive: true });
 const outFile = path.join(outDir, "probe-koffi.png");
