@@ -16,11 +16,28 @@
 // timer callback exactly like crash-injector.mjs would have. The idle/cold-start
 // sub-test still forks server.js directly (see main-utility.mjs), matching the
 // task literally ("utilityProcess.fork pointing at server.js").
+// ROUND-2 FIX (blocker #2): PROOF08_INSTALL_UNCAUGHT_HANDLER, when set,
+// installs an explicit `process.on('uncaughtException', ...)` here instead
+// of relying on Node's own default behavior for an uncaught exception in a
+// plain (non-Electron-GUI) process — stack to stderr, exit 1. This is the
+// "matched handler policy" arm: it lets the ADR compare A and B with the
+// SAME explicit handler installed in whichever process actually takes the
+// throw, instead of comparing Node's default (this process, a utility
+// process — print + exit) against Electron's GUI default (main-inprocess.mjs
+// — modal dialog, no exit), which is a different confound than "hosting
+// location". See ADR §5.
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const serverPath = join(here, "..", "..", "..", "server.js");
+
+if (process.env.PROOF08_INSTALL_UNCAUGHT_HANDLER) {
+  process.on("uncaughtException", (err) => {
+    console.error(err?.stack || String(err));
+    process.exit(1);
+  });
+}
 
 const { startServer } = await import(pathToFileURL(serverPath).href);
 const port = Number(process.env.PORT);

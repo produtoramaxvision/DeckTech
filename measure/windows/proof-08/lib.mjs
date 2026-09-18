@@ -54,8 +54,22 @@ function chromiumRole(commandLine) {
   return type; // gpu-process, renderer, crashpad-handler, etc.
 }
 
-/** One PowerShell round-trip snapshotting every OS process (pid, parent pid,
- * name, role, working-set bytes). Used to build the tree under a given root pid. */
+// ROUND-2 FIX (blocker #1): the previous version piped raw CommandLine text
+// straight through `Select-Object ...,CommandLine | ConvertTo-Json -Compress`.
+// Windows PowerShell 5.1's ConvertTo-Json does not reliably escape every
+// control character (bare 0x0A/0x0B/etc. that can legitimately appear inside
+// a process's own command line) when it serializes a string — it emits the
+// raw byte inside the JSON string literal, which is not valid JSON and makes
+// `JSON.parse` throw `SyntaxError: Bad control character in string literal`.
+// With 100+ concurrent processes on this machine, some process's CommandLine
+// containing a stray control character is a when-not-if, so this reliably
+// broke the ENTIRE battery on the first `processTree()` call it hit,
+// regardless of which of our own processes was the root being queried.
+//
+// Fix: never round-trip free-form CommandLine text through ConvertTo-Json.
+// PowerShell base64-encodes it (Base64 is pure ASCII by construction, so
+// ConvertTo-Json cannot mis-serialize it no matter what bytes it started as)
+// and this file decodes it back on the JS side before deriving the role.
 function snapshotAllProcesses() {
   return new Promise((resolve, reject) => {
     execFile(
@@ -64,7 +78,15 @@ function snapshotAllProcesses() {
         "-NoProfile",
         "-NonInteractive",
         "-Command",
-        "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,WorkingSetSize,CommandLine | ConvertTo-Json -Compress",
+        "Get-CimInstance Win32_Process | ForEach-Object { " +
+          "[PSCustomObject]@{ " +
+          "ProcessId = $_.ProcessId; " +
+          "ParentProcessId = $_.ParentProcessId; " +
+          "Name = $_.Name; " +
+          "WorkingSetSize = $_.WorkingSetSize; " +
+          "CommandLineB64 = if ($_.CommandLine) { [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($_.CommandLine)) } else { $null } " +
+          "} " +
+          "} | ConvertTo-Json -Compress",
       ],
       { maxBuffer: 64 * 1024 * 1024 },
       (err, stdout) => {
@@ -73,13 +95,18 @@ function snapshotAllProcesses() {
         try { data = JSON.parse(stdout); } catch (e) { return reject(e); }
         if (!Array.isArray(data)) data = [data];
         resolve(
-          data.map((p) => ({
-            pid: p.ProcessId,
-            ppid: p.ParentProcessId,
-            name: p.Name,
-            role: chromiumRole(p.CommandLine),
-            workingSetBytes: p.WorkingSetSize ?? 0,
-          }))
+          data.map((p) => {
+            const commandLine = p.CommandLineB64
+              ? Buffer.from(p.CommandLineB64, "base64").toString("utf8")
+              : null;
+            return {
+              pid: p.ProcessId,
+              ppid: p.ParentProcessId,
+              name: p.Name,
+              role: chromiumRole(commandLine),
+              workingSetBytes: p.WorkingSetSize ?? 0,
+            };
+          })
         );
       }
     );
@@ -108,23 +135,46 @@ async function processTreeOnce(rootPid) {
 /** Depth-first process tree rooted at rootPid, each node annotated with depth
  * and workingSetBytes. Returns [] if rootPid is genuinely gone.
  *
- * Retries once on an empty result: a `Get-CimInstance Win32_Process` snapshot
- * that comes back with zero nodes for a root we otherwise expect to be alive
- * is, on this machine, usually a transient WMI hiccup under load (this box
- * runs 100+ concurrent node.exe processes from unrelated sessions) rather
- * than a real "the process is gone" — confirmed by an immediate re-query
- * finding it present. A caller that genuinely expects the process to be gone
- * (e.g. right after an OS-level kill) still gets a correct [] once the retry
- * also comes back empty. */
-export async function processTree(rootPid, { retries = 1, retryDelayMs = 250 } = {}) {
-  let out = await processTreeOnce(rootPid);
-  let attempt = 0;
-  while (out.length === 0 && attempt < retries) {
-    await new Promise((r) => setTimeout(r, retryDelayMs));
-    out = await processTreeOnce(rootPid);
-    attempt++;
+ * Retries on an empty result AND on a thrown error from the snapshot itself
+ * (e.g. a PowerShell/JSON hiccup) — up to `retries` times. An empty snapshot
+ * for a root we otherwise expect to be alive is, on this machine, usually a
+ * transient WMI hiccup under load (this box runs 100+ concurrent node.exe
+ * processes from unrelated sessions) rather than a real "the process is
+ * gone" — confirmed by an immediate re-query finding it present. A caller
+ * that genuinely expects the process to be gone (e.g. right after an
+ * OS-level kill) still gets a correct [] once the retries are exhausted with
+ * only empty (not erroring) results.
+ *
+ * ROUND-2 FIX (blocker #1): the previous version only retried on
+ * `out.length === 0` — a thrown `SyntaxError` from `processTreeOnce()`
+ * propagated straight past the retry and killed the whole battery (see the
+ * comment on `snapshotAllProcesses` for the root cause, now fixed there
+ * too). This loop now catches thrown errors the same way it handles empty
+ * results, and only rethrows once retries are exhausted on an erroring
+ * attempt.
+ *
+ * Default `retries` raised from 1 to 3 after observing, live on this
+ * machine (791 concurrent processes from other sessions at the time), that
+ * `Get-CimInstance` can genuinely fail (a real nonzero-exit PowerShell
+ * error, not just malformed output) two attempts in a row under sustained
+ * load — not the JSON bug (already fixed), a separate, load-induced
+ * transient. 3 attempts with a 250ms backoff absorbs that without masking a
+ * real "process is gone" (still resolved correctly once retries exhaust on
+ * empty, non-erroring results — see below). */
+export async function processTree(rootPid, { retries = 3, retryDelayMs = 250 } = {}) {
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, retryDelayMs));
+    try {
+      const out = await processTreeOnce(rootPid);
+      lastErr = null;
+      if (out.length > 0 || attempt === retries) return out;
+    } catch (e) {
+      lastErr = e;
+    }
   }
-  return out;
+  if (lastErr) throw lastErr;
+  return [];
 }
 
 export function sumRss(tree) {
@@ -135,9 +185,24 @@ export function mb(bytes) {
   return bytes / (1024 * 1024);
 }
 
-export async function isPidAlive(pid) {
-  const all = await snapshotAllProcesses();
-  return all.some((p) => p.pid === pid);
+// ROUND-2 FIX: this had NO retry at all — a single transient
+// `Get-CimInstance` failure under this machine's heavy concurrent load (see
+// processTree's comment above) would throw straight out of here uncaught.
+// crash-timeline.mjs calls this every ~300ms inside its main polling loop —
+// exactly the load-bearing data blocker #1 was about — so it gets the same
+// retry protection as processTree, not a bare single attempt.
+export async function isPidAlive(pid, { retries = 3, retryDelayMs = 250 } = {}) {
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, retryDelayMs));
+    try {
+      const all = await snapshotAllProcesses();
+      return all.some((p) => p.pid === pid);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr;
 }
 
 export function fmtTree(tree) {

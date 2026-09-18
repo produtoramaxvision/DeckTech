@@ -9,8 +9,16 @@
 // observation (never assumed):
 //   - cold start: wall-clock time from process spawn to the first HTTP 200 on /health
 //   - idle RSS of every process in the tree, snapshotted twice per rep (t+3s, t+8s)
-//   - crash behavior: what happens to the window/app/server when the process
-//     hosting the server hits an unhandled, uncaught exception
+//   - crash behavior, in TWO handler-policy configurations (ROUND-2, finding #2):
+//       "default"  — no process.on('uncaughtException') anywhere probe code
+//                    controls; whatever Node/Electron do out of the box in
+//                    whichever process actually takes the throw.
+//       "matched"  — an explicit, identical process.on('uncaughtException')
+//                    handler (stack to stderr, exit 1) installed in whichever
+//                    process actually takes the throw in each arm, so the
+//                    comparison isn't confounded by "which default a
+//                    utility process gets vs. which default a GUI main
+//                    process gets".
 //
 // Usage: node measure/windows/proof-08/run.mjs [--reps N] [--crash-reps N]
 import { spawn } from "node:child_process";
@@ -33,6 +41,14 @@ const BASE_PORT = 15900;
 let portCounter = 0;
 const nextPort = () => BASE_PORT + portCounter++;
 
+// ROUND-2 FIX (minor #9): named, explicit sample points instead of an
+// unnamed `delayMs === 3000 ? 3000 : 5000` ternary that silently re-derived
+// the sleep duration from the label. Each sample's ACTUAL elapsed-since-ready
+// time (which includes drift from the previous sample's own CIM round trip)
+// is now recorded alongside the nominal target, and the wait before each
+// sample is computed from that actual drift, not a hardcoded constant.
+const IDLE_SAMPLE_POINTS_MS = [3000, 8000];
+
 const runsScratch = mkdtempSync(join(tmpdir(), "decktech-proof08-run-"));
 
 function readJsonLines(file) {
@@ -51,11 +67,16 @@ function readHeartbeat(file) {
 /**
  * Runs one Electron process for the given approach and returns measured facts.
  * @param {"utility"|"inprocess"} approach
- * @param {{crashAfterMs?: number}} opts
+ * @param {{crashAfterMs?: number, installHandler?: boolean}} opts
  */
-async function runOnce(approach, { crashAfterMs = 0 } = {}) {
+async function runOnce(approach, { crashAfterMs = 0, installHandler = false } = {}) {
   const mainFile = approach === "utility" ? join(here, "main-utility.mjs") : join(here, "main-inprocess.mjs");
   const port = nextPort();
+  // Fresh isolated dir PER REP (not just per approach) — this is also what
+  // makes finding #4/#5's shared-warm-cache bias impossible now that
+  // main-utility.mjs/main-inprocess.mjs redirect Electron's own userData
+  // (GPU/shader caches included) into a subdirectory of this same per-rep
+  // dir via app.setPath('userData', ...). Every rep, both arms, starts cold.
   const appDataDir = isolatedAppData(`${approach}-${port}`);
   const logFile = join(runsScratch, `${approach}-${port}.log.jsonl`);
   const heartbeatFile = join(runsScratch, `${approach}-${port}.heartbeat.json`);
@@ -79,6 +100,7 @@ async function runOnce(approach, { crashAfterMs = 0 } = {}) {
     PROOF08_LOG_FILE: logFile,
     PROOF08_HEARTBEAT_FILE: heartbeatFile,
     PROOF08_QUIT_AFTER_MS: String(quitAfterMs),
+    PROOF08_INSTALL_UNCAUGHT_HANDLER: installHandler ? "1" : "",
   };
   if (crashAfterMs) env.PROOF08_CRASH_AFTER_MS = String(crashAfterMs);
 
@@ -97,9 +119,11 @@ async function runOnce(approach, { crashAfterMs = 0 } = {}) {
 
   let coldStartMs = null;
   let healthError = null;
+  let readyTs = null;
   try {
     await waitForHttp200(port, { timeoutMs: 25000 });
-    coldStartMs = Date.now() - spawnTs;
+    readyTs = Date.now();
+    coldStartMs = readyTs - spawnTs;
   } catch (e) {
     healthError = e.message;
   }
@@ -117,7 +141,7 @@ async function runOnce(approach, { crashAfterMs = 0 } = {}) {
   };
 
   if (!healthError && !crashAfterMs) {
-    // Two idle snapshots (t+3s, t+8s after health-200) to show stability, same
+    // Sample points (t+3s, t+8s after health-200) to show stability, same
     // methodology as WINDOWS-STACK.md's own RSS measurements. Only taken on
     // non-crash reps: a crash rep must not spend 8s here first, or the
     // crash — scheduled relative to the main process's OWN server-ready
@@ -126,25 +150,36 @@ async function runOnce(approach, { crashAfterMs = 0 } = {}) {
     // get around to observing it. Found the hard way: an earlier version of
     // this script did exactly that and reported a bogus "main process died"
     // for approach A that was actually just a mistimed observation window.
-    for (const delayMs of [3000, 8000]) {
-      await new Promise((r) => setTimeout(r, delayMs === 3000 ? 3000 : 5000)); // 3s then +5s = 8s
+    for (const pointMs of IDLE_SAMPLE_POINTS_MS) {
+      const waitMs = Math.max(0, pointMs - (Date.now() - readyTs));
+      await new Promise((r) => setTimeout(r, waitMs));
       const tree = await processTree(mainPid);
-      result.idle.push({ atMsAfterReady: delayMs, tree, totalMB: mb(sumRss(tree)) });
+      const actualElapsedMs = Date.now() - readyTs;
+      result.idle.push({ atMsAfterReady: pointMs, actualElapsedMs, tree, totalMB: mb(sumRss(tree)) });
     }
   }
 
   if (!healthError && crashAfterMs) {
     // Observe shortly before the crash (for a like-for-like idle reading)
     // and generously after it, so the process has had time to either exit
-    // cleanly (approach A) or reveal that it hasn't (approach B).
-    await new Promise((r) => setTimeout(r, Math.max(0, crashAfterMs - 1000)));
+    // cleanly (approach A / matched-handler B) or reveal that it hasn't
+    // (default-behavior B). Waits are computed from actual elapsed-since-
+    // ready, same fix as the idle sampler above.
+    const preWaitMs = Math.max(0, (crashAfterMs - 1000) - (Date.now() - readyTs));
+    await new Promise((r) => setTimeout(r, preWaitMs));
     const preCrashTree = await processTree(mainPid);
-    await new Promise((r) => setTimeout(r, 1000 + 5000)); // past the crash instant, then settle
+    const preCrashElapsedMs = Date.now() - readyTs;
+    const postWaitMs = Math.max(0, (crashAfterMs + 5000) - (Date.now() - readyTs));
+    await new Promise((r) => setTimeout(r, postWaitMs));
     const postCrashTree = await processTree(mainPid);
+    const postCrashElapsedMs = Date.now() - readyTs;
     const mainAlive = await isPidAlive(mainPid);
     const heartbeat = readHeartbeat(heartbeatFile);
     result.crash = {
       crashAfterMs,
+      installHandler,
+      preCrashElapsedMs,
+      postCrashElapsedMs,
       preCrashTotalMB: mb(sumRss(preCrashTree)),
       mainAlive,
       heartbeat,
@@ -153,9 +188,12 @@ async function runOnce(approach, { crashAfterMs = 0 } = {}) {
     };
   }
 
-  // Let the main process quit itself (QUIT_AFTER_MS) or die from the crash;
-  // hard-kill as a watchdog if it doesn't exit on its own.
-  const watchdog = setTimeout(() => { try { child.kill(); } catch {} }, 15000);
+  // Let the main process quit itself (QUIT_AFTER_MS), die from the crash, or
+  // (matched-handler reps) exit itself immediately on the injected throw;
+  // hard-kill as a watchdog if it doesn't exit on its own within 20s of this
+  // point (default-behavior in-process crash reps are EXPECTED to hit this —
+  // that non-self-terminating hang is itself the finding, see ADR §5).
+  const watchdog = setTimeout(() => { try { child.kill(); } catch {} }, 20000);
   await exited;
   clearTimeout(watchdog);
   result.exitInfo = exitInfo;
@@ -166,25 +204,39 @@ async function runOnce(approach, { crashAfterMs = 0 } = {}) {
 
 function fmtMs(ms) { return ms === null ? "N/A" : `${ms.toFixed(0)} ms`; }
 
+function stats(nums) {
+  if (!nums.length) return null;
+  const sorted = [...nums].sort((a, b) => a - b);
+  return {
+    n: sorted.length,
+    min: sorted[0],
+    median: sorted[Math.floor(sorted.length / 2)],
+    max: sorted[sorted.length - 1],
+    spread: sorted[sorted.length - 1] - sorted[0],
+  };
+}
+
 function summarize(label, reps) {
   const cold = reps.map((r) => r.coldStartMs).filter((x) => x !== null);
   const idle8 = reps.map((r) => r.idle.find((i) => i.atMsAfterReady === 8000)?.totalMB).filter((x) => x !== undefined);
+  const idle8Elapsed = reps.map((r) => r.idle.find((i) => i.atMsAfterReady === 8000)?.actualElapsedMs).filter((x) => x !== undefined);
   console.log(`\n=== ${label} ===`);
   console.log(`cold start (launch -> first /health 200), n=${cold.length}:`);
   cold.forEach((c, i) => console.log(`  rep ${i + 1}: ${fmtMs(c)}`));
-  if (cold.length) {
-    const sorted = [...cold].sort((a, b) => a - b);
-    console.log(`  min=${fmtMs(sorted[0])} median=${fmtMs(sorted[Math.floor(sorted.length / 2)])} max=${fmtMs(sorted[sorted.length - 1])}`);
+  const coldStats = stats(cold);
+  if (coldStats) {
+    console.log(`  min=${fmtMs(coldStats.min)} median=${fmtMs(coldStats.median)} max=${fmtMs(coldStats.max)} spread=${fmtMs(coldStats.spread)}`);
   }
-  console.log(`idle RSS (whole process tree, t+8s after ready), n=${idle8.length}:`);
-  idle8.forEach((v, i) => console.log(`  rep ${i + 1}: ${v.toFixed(1)} MB`));
-  if (idle8.length) {
-    const sorted = [...idle8].sort((a, b) => a - b);
-    console.log(`  min=${sorted[0].toFixed(1)} MB median=${sorted[Math.floor(sorted.length / 2)].toFixed(1)} MB max=${sorted[sorted.length - 1].toFixed(1)} MB`);
+  console.log(`idle RSS (whole process tree, nominal t+8s after ready — see actual elapsed below), n=${idle8.length}:`);
+  idle8.forEach((v, i) => console.log(`  rep ${i + 1}: ${v.toFixed(1)} MB (actual elapsed: ${idle8Elapsed[i]} ms)`));
+  const idleStats = stats(idle8);
+  if (idleStats) {
+    console.log(`  min=${idleStats.min.toFixed(1)} MB median=${idleStats.median.toFixed(1)} MB max=${idleStats.max.toFixed(1)} MB spread=${idleStats.spread.toFixed(1)} MB`);
   }
-  console.log(`\nfull process tree, last idle rep, t+8s:`);
+  console.log(`\nfull process tree, last idle rep, nominal t+8s:`);
   const lastTree = reps[reps.length - 1]?.idle.find((i) => i.atMsAfterReady === 8000)?.tree;
   if (lastTree) console.log(fmtTree(lastTree));
+  return { coldStats, idleStats };
 }
 
 function summarizeCrash(label, reps) {
@@ -193,13 +245,14 @@ function summarizeCrash(label, reps) {
     const c = r.crash;
     console.log(`rep ${i + 1}:`);
     if (!c) { console.log("  (no crash data — health check failed before crash phase)"); return; }
+    console.log(`  handler policy: ${c.installHandler ? "matched (explicit process.on('uncaughtException') installed)" : "default (no handler installed by this probe)"}`);
     console.log(`  main process (pid ${r.mainPid}) alive after injected crash: ${c.mainAlive}`);
     console.log(`  heartbeat at/after crash: ${JSON.stringify(c.heartbeat)}`);
-    console.log(`  process tree after crash (${c.postCrashTotalMB.toFixed(1)} MB total):`);
+    console.log(`  process tree after crash (${c.postCrashTotalMB.toFixed(1)} MB total, actual elapsed ${c.postCrashElapsedMs} ms since ready):`);
     console.log(c.postCrashTree.length ? fmtTree(c.postCrashTree).replace(/^/gm, "    ") : "    (empty — root process gone)");
     console.log(`  electron exit: code=${r.exitInfo?.code} signal=${r.exitInfo?.signal}`);
     const notable = r.logEvents.filter((e) =>
-      ["crash-scheduled", "server-exit", "main-uncaught-exception", "quitting", "window-all-closed"].includes(e.event)
+      ["crash-scheduled", "server-exit", "main-uncaught-exception", "main-uncaught-exception-handled", "heartbeat-write-failed", "server-close-failed", "quitting", "window-all-closed"].includes(e.event)
     );
     console.log(`  notable log events: ${JSON.stringify(notable)}`);
   });
@@ -212,29 +265,63 @@ async function main() {
   })()}`);
   console.log(`Node (this driver): ${process.version}`);
   console.log(`server.js: ${join(here, "..", "..", "..", "server.js")}`);
-  console.log(`repetitions: idle=${IDLE_REPS} crash=${CRASH_REPS}`);
+  console.log(`repetitions: idle=${IDLE_REPS} crash(default)=${CRASH_REPS} crash(matched-handler)=${CRASH_REPS}`);
+  console.log(`arm order: INTERLEAVED per rep index (utility, inprocess, utility, inprocess, ...) — fixes the fixed
+A-then-B ordering bias round-2 review flagged. Each rep also gets its own isolated
+Electron userData dir (app.setPath), so no rep inherits a warm GPU/shader cache
+from a previous rep or a previous arm.`);
 
-  const results = { utility: { idle: [], crash: [] }, inprocess: { idle: [], crash: [] } };
+  const results = {
+    utility: { idle: [], crashDefault: [], crashMatched: [] },
+    inprocess: { idle: [], crashDefault: [], crashMatched: [] },
+  };
 
-  for (const approach of ["utility", "inprocess"]) {
-    for (let i = 0; i < IDLE_REPS; i++) {
-      console.log(`\n[run] ${approach} idle rep ${i + 1}/${IDLE_REPS} ...`);
+  for (let i = 0; i < IDLE_REPS; i++) {
+    for (const approach of ["utility", "inprocess"]) {
+      console.log(`\n[run] ${approach} idle rep ${i + 1}/${IDLE_REPS} (interleaved) ...`);
       const r = await runOnce(approach, {});
       results[approach].idle.push(r);
       console.log(`[run] ${approach} idle rep ${i + 1}: coldStart=${fmtMs(r.coldStartMs)} healthError=${r.healthError}`);
     }
-    for (let i = 0; i < CRASH_REPS; i++) {
-      console.log(`\n[run] ${approach} crash rep ${i + 1}/${CRASH_REPS} ...`);
-      const r = await runOnce(approach, { crashAfterMs: 3000 });
-      results[approach].crash.push(r);
-      console.log(`[run] ${approach} crash rep ${i + 1}: coldStart=${fmtMs(r.coldStartMs)} mainAliveAfterCrash=${r.crash?.mainAlive}`);
+  }
+
+  for (let i = 0; i < CRASH_REPS; i++) {
+    for (const approach of ["utility", "inprocess"]) {
+      console.log(`\n[run] ${approach} crash(default) rep ${i + 1}/${CRASH_REPS} (interleaved) ...`);
+      const r = await runOnce(approach, { crashAfterMs: 3000, installHandler: false });
+      results[approach].crashDefault.push(r);
+      console.log(`[run] ${approach} crash(default) rep ${i + 1}: mainAliveAfterCrash=${r.crash?.mainAlive} exitCode=${r.exitInfo?.code} signal=${r.exitInfo?.signal}`);
     }
   }
 
-  summarize("A) utilityProcess.fork", results.utility.idle);
-  summarize("B) in-process (imported into main)", results.inprocess.idle);
-  summarizeCrash("A) utilityProcess.fork", results.utility.crash);
-  summarizeCrash("B) in-process (imported into main)", results.inprocess.crash);
+  for (let i = 0; i < CRASH_REPS; i++) {
+    for (const approach of ["utility", "inprocess"]) {
+      console.log(`\n[run] ${approach} crash(matched-handler) rep ${i + 1}/${CRASH_REPS} (interleaved) ...`);
+      const r = await runOnce(approach, { crashAfterMs: 3000, installHandler: true });
+      results[approach].crashMatched.push(r);
+      console.log(`[run] ${approach} crash(matched-handler) rep ${i + 1}: mainAliveAfterCrash=${r.crash?.mainAlive} exitCode=${r.exitInfo?.code} signal=${r.exitInfo?.signal}`);
+    }
+  }
+
+  const statsA = summarize("A) utilityProcess.fork", results.utility.idle);
+  const statsB = summarize("B) in-process (imported into main)", results.inprocess.idle);
+  summarizeCrash("A) utilityProcess.fork — DEFAULT handler policy", results.utility.crashDefault);
+  summarizeCrash("B) in-process — DEFAULT handler policy", results.inprocess.crashDefault);
+  summarizeCrash("A) utilityProcess.fork — MATCHED handler policy", results.utility.crashMatched);
+  summarizeCrash("B) in-process — MATCHED handler policy", results.inprocess.crashMatched);
+
+  if (statsA?.coldStats && statsB?.coldStats) {
+    const delta = Math.abs(statsA.coldStats.median - statsB.coldStats.median);
+    const maxSpread = Math.max(statsA.coldStats.spread, statsB.coldStats.spread);
+    console.log(`\n=== cold-start delta vs. within-arm spread ===`);
+    console.log(`median delta A vs B: ${delta.toFixed(0)} ms`);
+    console.log(`A spread: ${statsA.coldStats.spread.toFixed(0)} ms | B spread: ${statsB.coldStats.spread.toFixed(0)} ms`);
+    if (delta < maxSpread) {
+      console.log(`FLAG: median delta (${delta.toFixed(0)} ms) is SMALLER than at least one arm's own spread (${maxSpread.toFixed(0)} ms) — not a reproducible directional claim at this n.`);
+    } else {
+      console.log(`Median delta exceeds both arms' spread — directionally supported at this n.`);
+    }
+  }
 
   writeFileSync(join(runsScratch, "raw-results.json"), JSON.stringify(results, null, 2));
   console.log(`\nraw JSON results: ${join(runsScratch, "raw-results.json")}`);
