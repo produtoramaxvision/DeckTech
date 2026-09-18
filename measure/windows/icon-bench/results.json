@@ -1,0 +1,80 @@
+{
+  "generatedAt": "2026-09-18T00:56:29.526Z",
+  "appCount": 136,
+  "iconSize": 256,
+  "measurePasses": 2,
+  "poolSize": 4,
+  "candidates": {
+    "control": {
+      "n": 272,
+      "meanMs": 1.66,
+      "medianMs": 1.53,
+      "p95Ms": 2.19,
+      "minMs": 1.33,
+      "maxMs": 4.26,
+      "successRate": 1,
+      "startupMs": 0,
+      "note": "harness overhead baseline: no real icon extraction, fixed buffer",
+      "spotCheckDotNetVerified": true
+    },
+    "addon": {
+      "n": 272,
+      "meanMs": 11.66,
+      "medianMs": 10.82,
+      "p95Ms": 18.6,
+      "minMs": 6.78,
+      "maxMs": 29.5,
+      "successRate": 1,
+      "startupMs": 5.1,
+      "note": "in-process N-API; startupMs is one-time module load (measured during the cold-baseline phase above); per-icon stats here are warm-cache steady-state",
+      "spotCheckDotNetVerified": true
+    },
+    "koffi": {
+      "n": 272,
+      "meanMs": 12.81,
+      "medianMs": 12.07,
+      "p95Ms": 20.5,
+      "minMs": 7.2,
+      "maxMs": 36.4,
+      "successRate": 1,
+      "startupMs": 7.2,
+      "note": "in-process koffi FFI, dll-load+CoInitializeEx+first-call cost measured separately",
+      "spotCheckDotNetVerified": true
+    },
+    "pwsh": {
+      "n": 272,
+      "meanMs": 21.67,
+      "medianMs": 19.87,
+      "p95Ms": 36.74,
+      "minMs": 8.32,
+      "maxMs": 66.14,
+      "successRate": 1,
+      "startupMs": 414.1,
+      "perWorkerStartupMs": [
+        404.3,
+        414,
+        403.9,
+        404.2
+      ],
+      "poolSize": 4,
+      "aggregateThroughputMsPerIcon": 5.5,
+      "note": "median/p95 are PER-REQUEST round-trip latency at concurrency=4; aggregateThroughputMsPerIcon is wall-clock/app-count and is the number comparable to a single-icon-at-a-time cost",
+      "spotCheckDotNetVerified": true
+    }
+  },
+  "coldBaseline": {
+    "n": 136,
+    "meanMs": 26.7,
+    "medianMs": 23.07,
+    "p95Ms": 56.63,
+    "minMs": 11.68,
+    "maxMs": 91.25,
+    "successRate": 1,
+    "addonModuleLoadMs": 5.1,
+    "note": "bridge-agnostic: measured with the N-API addon exactly once, before any candidate loop, because Windows' thumbcache is keyed by file not by bridge"
+  },
+  "measuredBaselineComparison": {
+    "priorMeasuredIShellItemImageFactoryMsPerIcon": 43.2,
+    "source": ".maxvision/research/WINDOWS-STACK.md section 6.2 (Windows PowerShell 5.1, 20/20 success)"
+  }
+}

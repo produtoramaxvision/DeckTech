@@ -1,0 +1,18 @@
+{
+  "name": "decktech-icon-bench",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase 0 PROOF-01 scratch package: benchmarks three Node->IShellItemImageFactory bridges (N-API addon, koffi FFI, pooled PowerShell). Not part of the DeckTech app; isolated so the root package.json stays untouched.",
+  "scripts": {
+    "list-apps": "node scripts/list-apps.mjs",
+    "probe:addon": "node scripts/probe-addon.mjs",
+    "probe:koffi": "node scripts/probe-koffi.mjs",
+    "bench": "node scripts/bench.mjs"
+  },
+  "devDependencies": {
+    "koffi": "^3.3.0",
+    "node-addon-api": "^8.9.2",
+    "node-gyp": "^13.0.2"
+  }
+}
