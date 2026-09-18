@@ -430,9 +430,24 @@
 > `results/<tag>-run-output.txt`, checkpointed after every phase exactly
 > like the JSON already was, under the exact same `checkNoClobber()` guard —
 > which now takes the JSON **and** `.txt` paths together and blocks if
-> **either** already exists (unless `--force`). The Appendix no longer uses
-> `| tee` for any `run.mjs` line — the mechanism that destroyed evidence is
-> gone, not just discouraged. **Disclosure this fix itself requires:** the
+> **either** already exists (unless `--force`). No `run.mjs` line a reader
+> would run *today* to reproduce this ADR's evidence uses `| tee` any
+> longer — the mechanism that destroyed evidence is gone from the CURRENT
+> reproduce path, not just discouraged (see the Round-10 additions block
+> in the Appendix). Three pre-round-10 `run.mjs`+`| tee` lines are still
+> preserved, deliberately, in the Appendix's Round-8/Round-9 additions
+> blocks: they are the historical record of how `round8-run-output.txt`,
+> `round9fixverifn1-run-output.txt` and `round9review-n5-run-output.txt`
+> were actually captured, and each one carries its own inline note saying
+> not to re-run it that way (see the Round-10 revision note below, and the
+> per-line "PRE-round-10 script" / "same `| tee` caveat" annotations in
+> the Appendix itself). Separately, `crash-timeline.mjs`'s own `| tee`
+> lines (`crash-timeline-inprocess-run1.txt`/`run4.txt`) are unaffected by
+> any of this and needed no fix: that script never checkpoints its own
+> output file the way `run.mjs` now does, so there is nothing for `tee` to
+> race or truncate — the destructive pattern described here is specific to
+> `run.mjs`'s old self-write mechanism, not to `| tee` as a tool.
+> **Disclosure this fix itself requires:** the
 > three `.txt` files already committed under round 8/9
 > (`round8-run-output.txt`, `round9fixverifn1-run-output.txt`,
 > `round9review-n5-run-output.txt`) were captured by the OLD `| tee`
