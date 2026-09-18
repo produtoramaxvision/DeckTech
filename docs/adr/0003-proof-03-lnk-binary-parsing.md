@@ -885,11 +885,11 @@ findings.
    pointing into what is now this appendix, or "above" when pointing out
    of it toward the operative sections, was corrected for the new
    ordering; no other wording in the round-2 through round-5 narratives
-   was changed. The Status line now reads "Accepted (revised through
-   round 6 — see Revision history)" and nothing more.
+   was changed. The Status line now reads exactly `Accepted (revised
+   through round 6 — see "Revision history" below)` and nothing more.
 
 
-### Round-5 revision (this document)
+### Round-5 revision (round 5 — superseded by round 6 above)
 
 A rigorous reviewer rejected the round-4 version of this ADR on two
 findings, both about mislabeling commits already in this repository —
