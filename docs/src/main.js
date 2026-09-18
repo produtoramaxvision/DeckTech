@@ -1,8 +1,8 @@
 import "./style.css";
 
 const downloads = {
-  mac: "https://github.com/felipenalves/Dokke/releases/latest/download/Dokke-macOS.dmg",
-  android: "https://github.com/felipenalves/Dokke/releases/latest/download/dokke.apk",
+  mac: "https://github.com/produtoramaxvision/DeckTech/releases/latest/download/Dokke-macOS.dmg",
+  android: "https://github.com/produtoramaxvision/DeckTech/releases/latest/download/dokke.apk",
 };
 const communityUrl = "https://documenteclub.vercel.app/";
 const dokkeHeroIcon = `${import.meta.env.BASE_URL}dokke-hero.webp`;

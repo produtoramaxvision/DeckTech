@@ -79,26 +79,37 @@ function sameOrigin(req) {
   }
 }
 
+// BRAND-12 / D18 / RF-10: DeckTech has NO releases yet
+// (gh release list --repo produtoramaxvision/DeckTech returns empty), so repointing alone
+// aims the updater at an empty address. Keep the version check DISABLED behind an explicit
+// flag until the first release exists. PRD RF-10 states silent auto-update is not an MVP
+// requirement. Re-enabling the flag (setting ENABLE_VERSION_CHECK = true) is a first-class
+// step of the first release.
+export const ENABLE_VERSION_CHECK = false;
+
 // versão publicada no GitHub (releases/latest) — stale-while-revalidate; nunca bloqueia o request
 // usa redirect da URL pública (sem API → sem rate limit)
 const VERSION_CACHE_MS = 10 * 60 * 1000;
 const versionCache = { value: null, age: 0, refreshing: null };
-async function refreshVersion() {
+export async function refreshVersion(options = {}) {
+  const enabled = options.enableVersionCheck ?? ENABLE_VERSION_CHECK;
+  if (!enabled) return null;
   if (versionCache.refreshing) return versionCache.refreshing;
   versionCache.refreshing = (async () => {
     let timer = null;
     try {
       const ctrl = new AbortController();
       timer = setTimeout(() => ctrl.abort(), 5000);
-      const r = await fetch("https://github.com/felipenalves/Dokke/releases/latest",
+      const fetchImpl = options.fetch ?? fetch;
+      const r = await fetchImpl("https://github.com/produtoramaxvision/DeckTech/releases/latest",
         { redirect: "manual", signal: ctrl.signal });
       const loc = r.headers.get("location") || "";
       const m = loc.match(/\/releases\/tag\/([^/]+)$/);
       if (!m) return;
       versionCache.value = {
         tag: m[1],
-        htmlUrl: "https://github.com/felipenalves/Dokke/releases/tag/" + m[1],
-        apkUrl: "https://github.com/felipenalves/Dokke/releases/latest/download/dokke.apk",
+        htmlUrl: "https://github.com/produtoramaxvision/DeckTech/releases/tag/" + m[1],
+        apkUrl: "https://github.com/produtoramaxvision/DeckTech/releases/latest/download/dokke.apk",
       };
       versionCache.age = Date.now();
     } catch {
@@ -109,13 +120,23 @@ async function refreshVersion() {
   })();
   return versionCache.refreshing;
 }
-refreshVersion();
+if (ENABLE_VERSION_CHECK) {
+  refreshVersion();
+}
 
-function latestVersionSnapshot() {
+export function latestVersionSnapshot(options = {}) {
+  const enabled = options.enableVersionCheck ?? ENABLE_VERSION_CHECK;
+  if (!enabled) return null;
   if (!versionCache.age || Date.now() - versionCache.age >= VERSION_CACHE_MS) {
-    refreshVersion();
+    refreshVersion(options);
   }
   return versionCache.value;
+}
+
+export function resetVersionCacheForTest() {
+  versionCache.value = null;
+  versionCache.age = 0;
+  versionCache.refreshing = null;
 }
 
 const SEC_HEADERS = {
@@ -440,7 +461,10 @@ export function makeApp(deps = {}) {
         const raw = readFileSync(join(root, "version.json"), "utf8");
         local = JSON.parse(raw);
       } catch {}
-      ok({ ok: true, local, latest: latestVersionSnapshot() });
+      const getLatest = typeof deps.latestVersionSnapshot === "function"
+        ? deps.latestVersionSnapshot
+        : () => latestVersionSnapshot({ enableVersionCheck: deps.enableVersionCheck });
+      ok({ ok: true, local, latest: getLatest() });
       return;
     }
     // ---------- auth: pin de 4 dígitos (gate do kiosk da LAN) ----------

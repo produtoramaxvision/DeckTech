@@ -30,7 +30,7 @@ final class DokkeUpdateManager: ObservableObject {
 
   let currentVersion: String
 
-  private let repositoryAPI = URL(string: "https://api.github.com/repos/felipenalves/Dokke/releases/latest")!
+  private let repositoryAPI = URL(string: "https://api.github.com/repos/produtoramaxvision/DeckTech/releases/latest")!
   private let fileManager = FileManager.default
 
   init() {
