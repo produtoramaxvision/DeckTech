@@ -10,6 +10,7 @@ const testDir = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(testDir, '..');
 const scriptPath = path.join(projectRoot, 'mac', 'package-dmg.sh');
 const installScriptPath = path.join(projectRoot, 'mac', 'install.sh');
+const packageJsonPath = path.join(projectRoot, 'package.json');
 const backgroundSvgPath = path.join(projectRoot, 'mac', 'dmg-background.svg');
 const backgroundFileName = 'dmg-background.png';
 const macOnly = process.platform === 'darwin' ? {} : { skip: 'DMG packaging requires macOS' };
@@ -199,6 +200,26 @@ test('@spec:AC-343 install.sh verifica orçamento e runtime único no bundle Rel
   assert.match(script, /find .*node-bin\/node/);
   assert.match(script, /node_count.*-ne 1/);
   assert.match(script, /bundle_kib.*MAX_BUNDLE_SIZE_MB/);
+});
+
+test('ds-store permanece em optionalDependencies (nunca em dependencies/devDependencies)', () => {
+  const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  const why = 'ds-store pulls macos-alias@os:darwin which is not marked optional; a non-optional edge aborts npm ci on every non-darwin platform';
+
+  assert.ok(
+    Object.prototype.hasOwnProperty.call(pkg.optionalDependencies ?? {}, 'ds-store'),
+    why
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(pkg.dependencies ?? {}, 'ds-store'),
+    false,
+    why
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(pkg.devDependencies ?? {}, 'ds-store'),
+    false,
+    why
+  );
 });
 
 test('builder do DMG não usa appdmg nem image-size vulneráveis', () => {
