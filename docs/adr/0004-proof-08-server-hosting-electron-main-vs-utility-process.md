@@ -257,14 +257,17 @@
 > "every number in this section is from a fresh re-run" note at the top of
 > §4 is similarly re-labeled round-8, so it does not claim round-4
 > provenance for numbers that are now round-8's. The minor: two live
-> cross-references to a section numbered 8 dot 1 pointed at a subsection
-> that does not exist in this document's heading structure (`## 8.
-> Decision` has no `### 8.1`) — fixed by repointing both to `§8 reason
-> (1)`, the crash-isolation
+> `§8.1` cross-references pointed at a subsection that does not exist in
+> this document's heading structure (`## 8. Decision` has no `### 8.1`) —
+> fixed by repointing both to `§8 reason (1)`, the crash-isolation
 > reasoning they actually meant, per the reviewer's own sanctioned
 > alternative to adding the subsection; the whole document was then
 > grepped for every `§N.M` token to confirm each resolves to a real
-> heading (`§4.1`, `§4.2`, `§5.1`, `§5.2` do; nothing else does now). The decision
+> heading (`§4.1`, `§4.2`, `§5.1`, `§5.2` do; the only other match this
+> grep returns is this note's own two mentions of the token `§8.1` above,
+> quoted to name the retired defect, not left as a navigational
+> reference — the same disclosure round-6 used for the retracted
+> `t0=1789707326699` figure). The decision
 > is unchanged. See §4's note, §4.1, §4.2, §5.1, §5.2, §6 and the inline
 > "ROUND-8 FIX" comment in `measure/windows/proof-08/run.mjs` for the
 > mechanism of the fix, and `measure/windows/proof-08/results/` for the
