@@ -252,11 +252,131 @@ test("PLAT-03: carga de 122 ícones abandonada — a fila PARA de iniciar extra�
 
   const results = await Promise.all(promises);
 
+  // Round-2 finding 2 mudou o design: a promise PÚBLICA de cada chamador
+  // agora resolve assim que o PRÓPRIO signal dele é observado abortado —
+  // não mais só quando o trabalho COMPARTILHADO da fila termina de fato
+  // (é isso que deixa um chamador que nunca abortou continuar recebendo o
+  // resultado real — ver "PLAT-03 round2 finding2"). Por causa disso,
+  // `Promise.all(promises)` sozinho NÃO garante mais que a fila
+  // terminou de drenar em segundo plano — sem esperar a fila ficar
+  // ociosa de verdade, esta asserção pararia de discriminar um
+  // cancelamento quebrado (passaria mesmo se o abort não impedisse mais
+  // nada, só porque nunca esperou tempo suficiente pra ver a fila
+  // continuar rodando depois que os chamadores já haviam desistido).
+  const queueIdleDeadline = Date.now() + 5000;
+  while ((svc._queue.pendingCount > 0 || svc._queue.activeCount > 0) && Date.now() < queueIdleDeadline) {
+    await new Promise(r => setTimeout(r, 5));
+  }
+  assert.equal(svc._queue.pendingCount, 0, "sanity: fila deveria estar ociosa (nada pendente) antes da asserção final");
+  assert.equal(svc._queue.activeCount, 0, "sanity: fila deveria estar ociosa (nada ativo) antes da asserção final");
+
   assert.ok(started < N, `FALHA REAL: ${started}/${N} extrações rodaram — o abort não impediu a fila de continuar processando a cauda abandonada`);
   // A prova de discriminação (ver discrimination_proof) quebra exatamente
   // esta asserção comentando o check de signal.aborted dentro da fila.
   assert.equal(started, completed, "toda extração que começou (síncrona) deveria ter completado — nenhuma trava a meio");
   for (const r of results) assert.ok(r === null || Buffer.isBuffer(r) || r instanceof Uint8Array);
+});
+
+// --- Round 2 (code review): correções sobre a implementação acima --------
+
+test("PLAT-03 round2 finding1: cancelar não poisona memMiss — a cauda pulada de uma carga abandonada reextrai numa requisição FRESCA, sem signal", async () => {
+  const N = 20;
+  const CONCURRENCY = 4;
+  const apps = Array.from({ length: N }, (_, i) => makeApp(`App${i}`));
+
+  let started = 0;
+  function busyWaitMs(ms) { const end = Date.now() + ms; while (Date.now() < end) { /* simula custo síncrono */ } }
+
+  const svc = makeWindowsIconService({
+    scan: async () => apps,
+    fs: fakeFs(),
+    concurrency: CONCURRENCY,
+    onExtractStart: () => { started++; },
+    extract: (p, size) => { busyWaitMs(1); return new Uint8Array(size * size * 4).fill(9); },
+  });
+
+  const controller = new AbortController();
+  const promises = apps.map(app => svc.getIconPng(app.name, { signal: controller.signal }));
+
+  const pollDeadline = Date.now() + 5000;
+  while (started === 0 && Date.now() < pollDeadline) await new Promise(r => setTimeout(r, 2));
+  assert.ok(started > 0 && started < N, "sanity: precisa observar concorrência parcial real antes do abort");
+  controller.abort();
+
+  const results = await Promise.all(promises);
+  const skippedIndex = results.findIndex(r => r === null);
+  assert.ok(skippedIndex >= 0, "sanity: alguma requisição da carga abandonada deveria ter sido pulada (null) — senão o teste não exercita a cauda");
+
+  // `Promise.all(results)` só garante que a promise PÚBLICA de cada
+  // chamador original já resolveu (a corrida contra o próprio `signal`
+  // dele) — NÃO garante que a limpeza assíncrona da extração
+  // COMPARTILHADA (o `.then` que decide `memMiss.add`) já rodou pra cada
+  // app pulado. Espera essa limpeza assentar de propósito, senão este
+  // teste teria como passar mesmo se `memMiss` fosse escrito ANTES do
+  // dead-entry-check abaixo interceptar a requisição fresca por outro
+  // motivo — o que discriminaria a proteção errada.
+  await new Promise(r => setTimeout(r, 50));
+
+  // Este é EXATAMENTE o round-trip do critério de sucesso 2: navegar de
+  // volta e pedir de novo. Requisição FRESCA, SEM signal nenhum, pro MESMO
+  // nome que a carga abandonada pulou — nunca pode devolver null por causa
+  // do memMiss escrito pelo abort de outro chamador.
+  const freshName = apps[skippedIndex].name;
+  const fresh = await svc.getIconPng(freshName);
+  assert.ok(fresh && fresh.length > 0, `esperava um PNG real pra ${freshName} (pulado pelo abort), recebeu ${fresh}`);
+  assert.equal(fresh.readUInt32BE(0), 0x89504e47, "assinatura PNG");
+  assert.equal(fresh.readUInt32BE(16), WIN_ICON_MAX_PX);
+  assert.equal(fresh.readUInt32BE(20), WIN_ICON_MAX_PX);
+});
+
+test("PLAT-03 round2 finding2: dedupe em voo — o abort de UM chamador não derruba outro chamador concorrente que nunca abortou", async () => {
+  let callsA = 0;
+  function busyWaitMs(ms) { const end = Date.now() + ms; while (Date.now() < end) { /* ocupa o único slot de concorrência */ } }
+
+  const svc = makeWindowsIconService({
+    scan: async () => [makeApp("Blocker"), makeApp("A")],
+    fs: fakeFs(),
+    concurrency: 1, // força "A" a ficar ENFILEIRADO atrás de "Blocker", não já em execução
+    extract: (p, size) => {
+      if (p.includes("Blocker")) { busyWaitMs(150); return new Uint8Array(size * size * 4).fill(1); }
+      callsA++;
+      return new Uint8Array(size * size * 4).fill(2);
+    },
+  });
+
+  const blockerPromise = svc.getIconPng("Blocker"); // ocupa o único worker
+  await new Promise(r => setImmediate(r)); // dá tempo do Blocker realmente começar a rodar
+
+  const controllerA = new AbortController();
+  const pA = svc.getIconPng("A", { signal: controllerA.signal }); // enfileirado, ainda NÃO iniciado
+  const pB = svc.getIconPng("A"); // SEM signal — nunca abortado, junta o MESMO cacheKey
+
+  controllerA.abort(); // A desiste enquanto seu item ainda está esperando atrás do Blocker
+
+  const [blockerBuf, a, b] = await Promise.all([blockerPromise, pA, pB]);
+  assert.ok(blockerBuf && blockerBuf.length > 0, "sanity: o Blocker (não abortado) tem que ter completado normalmente");
+  assert.equal(a, null, "A desistiu — recebe null, mas não decide nada pelos outros");
+  assert.ok(b && b.length > 0, `B (nunca abortou) tem que receber o PNG real, não null — recebeu ${b}`);
+  assert.equal(b.readUInt32BE(0), 0x89504e47, "assinatura PNG");
+  assert.equal(callsA, 1, "extração de A rodou exatamente 1 vez, compartilhada entre A e B, apesar de A ter desistido");
+});
+
+test("PLAT-03+09 round2 finding3: addon nativo não compilado -> getIconPng REJEITA com ICON_ADDON_MISSING, nunca vira 404 genérico de 'app não encontrado'", async () => {
+  const svc = makeWindowsIconService({
+    scan: async () => [makeApp("A")],
+    fs: fakeFs(),
+    // addonPath aponta pra um arquivo que não existe — sem `extract`
+    // injetado, força o caminho real de loadNativeAddon(addonPath).
+    addonPath: join(tmpdir(), `nao-existe-icon-addon-${Date.now()}.node`),
+  });
+  await assert.rejects(
+    () => svc.getIconPng("A"),
+    err => {
+      assert.equal(err.name, "WindowsIconAddonError");
+      assert.equal(err.code, "ICON_ADDON_MISSING");
+      return true;
+    },
+  );
 });
 
 // --- Ponta a ponta real: addon nativo compilado + fixture com espaço -----
@@ -274,9 +394,17 @@ test("PLAT-03+09 (máquina real): extrai 256x256 de um .exe cujo path tem ESPAÇ
 
   const cacheDir = join(scratchRoot, "cache");
   const scan = async () => [{ name: "SampleApp", path: fixture, kind: "win32" }];
+  // Round-2 finding 4: a asserção original comparava relógio de parede
+  // (`afterMtimeMs > warmMs`), que passa VACUAMENTE em resolução de
+  // milissegundos (1 > 0 é verdade mesmo quando a carga pós-mtime serviu
+  // do cache em disco sem reextrair nada). Conta extrações de verdade via
+  // `onExtractStart` — identidade, não relógio — pra realmente discriminar
+  // "reextraiu" de "serviu do cache".
+  let extractStarts = 0;
+  const onExtractStart = () => { extractStarts++; };
 
   try {
-    const svc1 = realMake({ scan, cacheDir });
+    const svc1 = realMake({ scan, cacheDir, onExtractStart });
     const t0 = Date.now();
     const png1 = await svc1.getIconPng("SampleApp");
     const coldMs = Date.now() - t0;
@@ -284,28 +412,30 @@ test("PLAT-03+09 (máquina real): extrai 256x256 de um .exe cujo path tem ESPAÇ
     assert.equal(png1.readUInt32BE(0), 0x89504e47);
     assert.equal(png1.readUInt32BE(16), 256);
     assert.equal(png1.readUInt32BE(20), 256);
+    assert.equal(extractStarts, 1, "primeira carga (fria) deveria ter extraído exatamente 1 vez");
 
     // Nova instância (memória fria), mesmo cacheDir em disco — mede o
     // ganho real de PLAT-09, não um número inventado.
-    const svc2 = realMake({ scan, cacheDir });
+    const svc2 = realMake({ scan, cacheDir, onExtractStart });
     const t1 = Date.now();
     const png2 = await svc2.getIconPng("SampleApp");
     const warmMs = Date.now() - t1;
     assert.equal(Buffer.compare(png1, png2), 0, "cache em disco deveria devolver bytes idênticos");
     t.diagnostic(`cold=${coldMs}ms warm(disk, nova instância)=${warmMs}ms`);
-    assert.ok(warmMs < coldMs, "carga do cache em disco deveria ser visivelmente mais rápida que a extração fria");
+    assert.ok(warmMs < coldMs, "carga do cache em disco deveria ser visivelmente mais rápida que a extração fria (diagnóstico de performance, não a prova de invalidação)");
+    assert.equal(extractStarts, 1, "hit de disco NÃO deveria reextrair — ainda 1 extração no total");
 
     // Invalidação: muda o mtime do NOSSO fixture (nunca de um binário do
     // sistema), a próxima carga tem que reextrair.
     const now = new Date();
     await utimes(fixture, now, new Date(now.getTime() + 60_000));
-    const svc3 = realMake({ scan, cacheDir });
+    const svc3 = realMake({ scan, cacheDir, onExtractStart });
     const t2 = Date.now();
     const png3 = await svc3.getIconPng("SampleApp");
     const afterMtimeMs = Date.now() - t2;
     assert.ok(png3 && png3.length > 0);
-    t.diagnostic(`after mtime bump=${afterMtimeMs}ms (deveria se parecer com cold=${coldMs}ms, não com warm=${warmMs}ms)`);
-    assert.ok(afterMtimeMs > warmMs, "após mudar o mtime, a carga deveria reextrair (mais lenta que o hit de disco), não servir o PNG antigo");
+    t.diagnostic(`after mtime bump=${afterMtimeMs}ms (diagnóstico; a prova é extractStarts, não o relógio)`);
+    assert.equal(extractStarts, 2, "PROVA POR IDENTIDADE: mtime novo -> reextraiu de fato (2ª extração), não serviu o PNG antigo do cache");
   } finally {
     await rm(scratchRoot, { recursive: true, force: true }).catch(() => {});
   }

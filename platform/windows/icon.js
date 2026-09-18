@@ -106,6 +106,19 @@ export class WindowsIconAddonError extends Error {
   }
 }
 
+/**
+ * Round-2 finding 1+4 (code review): a queue item skipped because its
+ * (shared) signal was already aborted is NOT the same outcome as "this app
+ * genuinely has no icon" — conflating the two made `getIconPng` write an
+ * aborted load into `memMiss`, so a fresh, never-aborted request for the
+ * same app returned HTTP 404 for up to `WIN_ICON_APPS_TTL_MS` after any
+ * navigate-away. This sentinel makes the distinction explicit end to end
+ * (`createIconQueue` -> `loadPng` -> `getIconPng`) instead of inferring it
+ * from a bare `null`, which is exactly the kind of implicit coupling that
+ * produced the bug in the first place.
+ */
+const ICON_LOAD_ABORTED = Symbol("icon-load-aborted");
+
 let cachedAddon = null;
 /** Lazily requires + memoizes the native addon. Not called at module load
  * time: importing this file on a machine without the addon built yet (e.g.
@@ -191,7 +204,12 @@ function createIconQueue(concurrency) {
     while (active < concurrency && pending.length > 0) {
       const task = pending.shift();
       if (task.signal?.aborted) {
-        task.resolve(null);
+        // Round-2 finding 1+4: sentinela explícita, nunca `null` — `null`
+        // é (e precisa continuar sendo) um resultado legítimo e distinto
+        // de "abortado" em outras camadas; inferir abort de um `null`
+        // implícito foi exatamente o que gravou cancelamentos no
+        // `memMiss` como se fossem "app sem ícone" (ver icon.js:loadPng).
+        task.resolve(ICON_LOAD_ABORTED);
         continue;
       }
       active++;
@@ -207,7 +225,7 @@ function createIconQueue(concurrency) {
       // discriminação (ver "PLAT-03: cancelamento"), não por inspeção.
       setImmediate(() => {
         Promise.resolve()
-          .then(() => (task.signal?.aborted ? null : task.run()))
+          .then(() => (task.signal?.aborted ? ICON_LOAD_ABORTED : task.run()))
           .then(
             value => { active--; task.resolve(value); pump(); },
             err => { active--; task.reject(err); pump(); },
@@ -282,12 +300,41 @@ export function makeWindowsIconService(deps = {}) {
   const memMiss = new Set();
   const loadInflight = new Map();
 
-  async function resolveApps() {
+  /**
+   * Round-2 finding 5: o `signal` de UM chamador (o request HTTP que
+   * disparou este `getIconPng`) é repassado direto pro `scan()` recebido
+   * via deps — fecha o gap literal que o review apontou (PLAT-02 já
+   * suporta execFile-abort e a plumbing existia sem uso aqui).
+   *
+   * Deliberadamente NÃO existe aqui um segundo AbortController/refcount de
+   * "todos os waiters desistiram" (como o dedupe de `getIconPng` abaixo
+   * tem) controlando esse scan. Investigado antes de decidir: em produção
+   * `scan` é literalmente a MESMA instância singleton exportada por
+   * platform/windows/apps.js (`win32ListInstalledApps`, ver
+   * platform/index.js#win32Platform, `iconService: makeIconService({scan:
+   * win32ListInstalledApps})`) — a mesma que listInstalledApps()/`/api/
+   * apps` e `/api/apps/installed` (server.js) usam pro SEU PRÓPRIO
+   * `cache.promise` interno. Hoje NENHUMA rota HTTP passa signal pra
+   * `listInstalledApps` (grep em server.js: `/api/apps` e `/api/apps/
+   * installed` chamam sem opts) — então adicionar aqui um mecanismo que
+   * chama `.abort()` ativamente com base só nos waiters DESTE módulo
+   * derrubaria, via `WindowsAppScanError("ABORTED")` propagando pelo
+   * `cache.promise` compartilhado de apps.js, uma requisição `/api/apps`
+   * concorrente que não tem nada a ver com o ícone cancelado — uma
+   * regressão nova e pior do que a ausência de sinal que este finding
+   * descreve (que o próprio review classifica como não-crítica: o
+   * PowerShell filho é autoterminável e TTL-cacheado, nada fica órfão
+   * indefinidamente). Repassar o signal do chamador tal como ele é —
+   * sem um segundo controller construído aqui — é exatamente o mesmo
+   * padrão que uma chamada real a `/api/apps` com abort wiring própria já
+   * teria (PLAT-02), não um mecanismo novo.
+   */
+  async function resolveApps(signal) {
     const nowMs = now();
     if (appsByName && nowMs - appsAt < ttlMs) return appsByName;
     if (scanInflight) return scanInflight;
     scanInflight = Promise.resolve()
-      .then(() => scan())
+      .then(() => scan({ signal }))
       .then(apps => {
         const m = new Map();
         for (const a of apps) m.set(a.name, a);
@@ -304,7 +351,20 @@ export function makeWindowsIconService(deps = {}) {
     return scanInflight;
   }
 
-  async function loadPng(name, sourcePath, mtimeMs, cacheKey, signal) {
+  /**
+   * @returns {Promise<Buffer|null|typeof ICON_LOAD_ABORTED>} Um PNG real em
+   *   sucesso; `null` SÓ pra uma falha de extração GENUÍNA por app (ex.:
+   *   E_INVALIDARG) — a única forma segura de gravar em `memMiss`;
+   *   `ICON_LOAD_ABORTED` quando o item foi pulado porque o `signal`
+   *   COMPARTILHADO já estava abortado (round-2 finding 1: nunca deve
+   *   virar `memMiss`, ou uma requisição fresca e nunca abortada pro
+   *   mesmo app volta 404 por até WIN_ICON_APPS_TTL_MS). Rejeita com
+   *   `WindowsIconAddonError` quando o addon nativo em si não está
+   *   disponível — falha de configuração do processo inteiro, nunca
+   *   escondida atrás de um "app não encontrado" por app (round-2
+   *   finding 3).
+   */
+  async function loadPng(name, sourcePath, cacheKey, signal) {
     const diskPath = join(cacheDir, `win-${cacheKey}-z${maxPx}.png`);
 
     try {
@@ -315,10 +375,10 @@ export function makeWindowsIconService(deps = {}) {
 
     if (signal?.aborted) {
       log.debug("icon.win.extract_skipped_aborted", { name });
-      return null;
+      return ICON_LOAD_ABORTED;
     }
 
-    let buf = null;
+    let buf;
     try {
       buf = await queue.enqueue(async () => {
         onExtractStart?.(name);
@@ -327,15 +387,28 @@ export function makeWindowsIconService(deps = {}) {
         return encodePng(rgba, maxPx, maxPx);
       }, signal);
     } catch (err) {
+      if (err instanceof WindowsIconAddonError) {
+        // Round-2 finding 3: isto não é "este app não tem ícone" — é o
+        // addon nativo inteiro faltando pro PROCESSO. Propaga em vez de
+        // virar buf=null (que o catch de baixo transformaria em 404
+        // idêntico ao de um app sem ícone, escondendo exatamente o que o
+        // JSDoc de WindowsIconAddonError promete nunca esconder).
+        log.warn("icon.win.extract_addon_missing", { name, code: err.code, message: err.message });
+        throw err;
+      }
       log.warn("icon.win.extract_failed", {
         name, code: err?.code ?? null, message: err?.message ?? String(err),
       });
-      buf = null;
+      buf = null; // falha de extração genuína PARA ESTE app — cacheável em memMiss.
     }
 
-    if (!buf) {
-      log.debug("icon.win.extract_none", { name, aborted: !!signal?.aborted });
-      return null;
+    // `queue.enqueue` só resolve com o sentinel quando o item foi pulado
+    // por abort (ver createIconQueue) — uma extração que de fato rodou
+    // sempre devolve um Buffer ou lança. Preserva essa distinção até
+    // getIconPng, que é quem decide se pode gravar em `memMiss`.
+    if (buf === ICON_LOAD_ABORTED) {
+      log.debug("icon.win.extract_skipped_aborted", { name });
+      return ICON_LOAD_ABORTED;
     }
 
     try {
@@ -359,7 +432,20 @@ export function makeWindowsIconService(deps = {}) {
      */
     async getIconPng(name, opts = {}) {
       const { signal } = opts;
-      const apps = await resolveApps();
+
+      let apps;
+      try {
+        apps = await resolveApps(signal);
+      } catch (err) {
+        // Round-2 finding 5: se o scan que ESTE chamador acabou disparando
+        // (ou se juntou a) foi cancelado pelo signal DELE mesmo, isso é
+        // "desisti", não uma falha de verdade — devolve null quieto em vez
+        // de propagar pro fail(res, err) genérico do server.js. Qualquer
+        // outro código de erro (falha real de scan) continua propagando,
+        // igual já propagava antes desta mudança.
+        if (err?.code === "ABORTED") return null;
+        throw err;
+      }
       const app = apps.get(name);
       if (!app) return null;
 
@@ -388,17 +474,64 @@ export function makeWindowsIconService(deps = {}) {
         return hit;
       }
       if (memMiss.has(cacheKey)) return null;
-      if (loadInflight.has(cacheKey)) return loadInflight.get(cacheKey);
 
-      const p = loadPng(name, sourcePath, mtimeMs, cacheKey, signal)
-        .then(buf => {
-          if (buf) lruSet(memPng, cacheKey, buf, memMax);
-          else memMiss.add(cacheKey);
-          return buf;
-        })
-        .finally(() => loadInflight.delete(cacheKey));
-      loadInflight.set(cacheKey, p);
-      return p;
+      // Round-2 finding 2: o dedupe em voo (loadInflight) usava só o
+      // signal do PRIMEIRO chamador pra controlar a extração inteira — um
+      // 2º chamador concorrente (nunca abortado) era derrubado pelo abort
+      // de um chamador não relacionado. Agora o trabalho compartilhado
+      // (`entry.promise`) roda sob um AbortController PRÓPRIO desta
+      // extração, e só é abortado quando TODOS os chamadores atuais
+      // (`entry.waiters`) já desistiram — cada chamador individual "corre"
+      // seu próprio signal contra o trabalho compartilhado sem conseguir
+      // decidir o destino de ninguém além de si mesmo.
+      let entry = loadInflight.get(cacheKey);
+      // Uma entrada cujo controller JÁ foi abortado é uma entrada MORTA: o
+      // último waiter que a segurava desistiu e chamou `entry.controller
+      // .abort()`, mas a limpeza (`.then` abaixo, que remove de
+      // `loadInflight`) ainda não rodou — é assíncrona. Se um chamador
+      // NOVO (sem relação nenhuma com quem abortou) se juntasse a ela
+      // agora, herdaria um resultado ICON_LOAD_ABORTED por um abort que
+      // não foi dele, mesmo sem `signal` nenhum — a mesma classe de bug
+      // do finding 2, só que numa janela mais estreita (entre o abort do
+      // último waiter e a limpeza da entrada). Tratar como se não
+      // existisse força a criação de uma entrada nova e não-abortada.
+      if (entry && entry.controller.signal.aborted) entry = undefined;
+      if (!entry) {
+        if (signal?.aborted) return null; // ninguém rodando ainda e este chamador já desistiu — não inicia trabalho por ninguém.
+        const controller = new AbortController();
+        const shared = loadPng(name, sourcePath, cacheKey, controller.signal).then(
+          buf => {
+            if (loadInflight.get(cacheKey) === entry) loadInflight.delete(cacheKey);
+            if (buf === ICON_LOAD_ABORTED) return buf; // nunca grava memMiss por causa de abort — finding 1
+            if (buf) lruSet(memPng, cacheKey, buf, memMax);
+            else memMiss.add(cacheKey); // só aqui: falha genuína, nunca abort
+            return buf;
+          },
+          err => {
+            if (loadInflight.get(cacheKey) === entry) loadInflight.delete(cacheKey);
+            throw err; // WindowsIconAddonError etc. propaga pros chamadores ainda vivos — finding 3
+          },
+        );
+        entry = { promise: shared, controller, waiters: 0 };
+        loadInflight.set(cacheKey, entry);
+      }
+
+      entry.waiters++;
+      try {
+        if (!signal) {
+          const buf = await entry.promise;
+          return buf === ICON_LOAD_ABORTED ? null : buf;
+        }
+        const giveUp = new Promise(resolve => {
+          if (signal.aborted) { resolve(ICON_LOAD_ABORTED); return; }
+          signal.addEventListener("abort", () => resolve(ICON_LOAD_ABORTED), { once: true });
+        });
+        const buf = await Promise.race([entry.promise, giveUp]);
+        return buf === ICON_LOAD_ABORTED ? null : buf;
+      } finally {
+        entry.waiters--;
+        if (entry.waiters <= 0) entry.controller.abort();
+      }
     },
     // Exposto só pra teste determinístico da fila (ver "PLAT-03: cancelamento").
     _queue: queue,

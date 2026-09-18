@@ -145,6 +145,11 @@ const ACTION_ERROR_MESSAGES = {
   FOCUS_RESTRICTED: "Não consegui trazer o app pra frente — abri uma nova instância",
   APP_NOT_FOUND: "Esse app não está mais instalado",
   LAUNCH_FAILED: "Não consegui abrir o app",
+  // PLAT-03+09 round-2 finding 3: falha de configuração do PROCESSO inteiro
+  // (addon nativo de ícone não compilado) — nunca deve virar o mesmo 404
+  // "app não encontrado" de um ícone individual sem imagem (ver
+  // platform/windows/icon.js's WindowsIconAddonError).
+  ICON_ADDON_MISSING: "Extração de ícones do Windows indisponível — addon nativo não compilado",
 };
 
 /** Detalhe fica no log do servidor; o cliente recebe mensagem genérica —
