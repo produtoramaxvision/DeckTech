@@ -107,24 +107,38 @@ function MaxAbsDelta($a, $b) {
     }
 }
 
-$req = Get-Content -Raw -Path $InputJson | ConvertFrom-Json
+# Round-3 review fix (finding 3, MAJOR): same defect class as list-apps.mjs
+# finding 2 — Get-Content -Raw with no -Encoding decodes with PS 5.1's ANSI
+# default, not UTF-8, while scripts/verify.mjs writes $InputJson as UTF-8
+# with no BOM. Any non-ASCII byte in a path this script is asked to decode
+# (e.g. a cache directory under a non-ASCII account name, or a redirected
+# %LOCALAPPDATA%) was mangled before [System.Drawing.Bitmap]::FromFile ever
+# saw it, producing a decode error that verify.mjs's own bug (finding 1)
+# then silently dropped instead of failing. Fixed by passing -Encoding UTF8
+# explicitly, matching how the caller actually writes the file.
+$req = Get-Content -Raw -Encoding UTF8 -Path $InputJson | ConvertFrom-Json
 $results = @()
 
 foreach ($item in $req.items) {
     $entry = [ordered]@{ index = $item.index; label = $item.label }
     $decoded = @{}
-    $decodeError = $null
+    # Round-3 fix: this used to be a single $decodeError string that a LATER
+    # failing bridge silently overwrote, so if e.g. both koffi and pwsh
+    # failed to decode for the same app, only pwsh's message survived in the
+    # output and koffi's failure vanished without a trace. Collect one error
+    # per failing bridge instead.
+    $decodeErrors = @()
     foreach ($prop in $item.files.PSObject.Properties) {
         $bridge = $prop.Name
         $filePath = $prop.Value
         try {
             $decoded[$bridge] = Decode-Bgra $filePath
         } catch {
-            $decodeError = "$bridge decode failed: $($_.Exception.Message)"
+            $decodeErrors += "$bridge decode failed: $($_.Exception.Message)"
         }
     }
-    if ($decodeError) {
-        $entry.error = $decodeError
+    if ($decodeErrors.Count -gt 0) {
+        $entry.error = ($decodeErrors -join ' | ')
         $results += [PSCustomObject]$entry
         continue
     }

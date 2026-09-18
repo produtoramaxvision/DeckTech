@@ -52,7 +52,17 @@ import { encodePng } from "../lib/png.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, "..");
-const cacheDir = path.join(rootDir, ".tmp", "cache");
+// Round-3 fix (finding 3): overridable so this same script can be pointed at
+// a cache tree under a non-ASCII path (see scripts/verify-nonascii-cache.mjs)
+// to prove the pwsh/verify.ps1 encoding fix actually works there, not just
+// on this machine's default ASCII TEMP-adjacent path.
+const cacheDir = process.env.ICON_BENCH_CACHE_DIR ? path.resolve(process.env.ICON_BENCH_CACHE_DIR) : path.join(rootDir, ".tmp", "cache");
+// Round-3 fix: same override for the output report path, so a non-ASCII-cache
+// probe run does not clobber the canonical verify-results.json committed to
+// the repo.
+const outputReportFile = process.env.ICON_BENCH_VERIFY_REPORT
+  ? path.resolve(process.env.ICON_BENCH_VERIFY_REPORT)
+  : path.join(rootDir, "verify-results.json");
 const ICON_SIZE = 256;
 
 const appsFile = path.join(rootDir, "data", "apps.json");
@@ -109,6 +119,16 @@ function main() {
 
   const results = runVerifyPs1(items);
 
+  // Round-3 fix (finding 1, part of the same defect class): a row MISSING
+  // from verify.ps1's output entirely (not even an {error: ...} entry — e.g.
+  // ConvertTo-Json truncation, a crashed iteration) is quieter than a decode
+  // error and was not checked for at all. Fail loudly instead of silently
+  // treating "fewer results than apps" as "fewer errors than apps".
+  if (results.length !== apps.length) {
+    console.error(`\n[verify] FATAL: verify.ps1 returned ${results.length} result row(s) for ${apps.length} apps — ${apps.length - results.length} row(s) are MISSING entirely, not even reported as a decode error. Cannot verify.`);
+    process.exit(1);
+  }
+
   let agreeCount = 0;
   let disagreeCount = 0;
   let errorCount = 0;
@@ -163,7 +183,7 @@ function main() {
     perBridgeMaxDelta[bridge] = bridgeDeltas.length ? Math.max(...bridgeDeltas.map((d) => d.maxAbsDelta)) : null;
   }
 
-  console.log(`[verify] cross-bridge pixel agreement (max per-channel delta <= ${AGREEMENT_MAX_DELTA}): ${agreeCount}/${results.length - errorCount} apps agree across all bridges`);
+  console.log(`[verify] cross-bridge pixel agreement (max per-channel delta <= ${AGREEMENT_MAX_DELTA}): ${agreeCount}/${apps.length} apps agree across all bridges (${errorCount} decode error(s), ${disagreeCount} disagreement(s) beyond threshold)`);
   console.log(`[verify] decode errors: ${errorCount}/${results.length}`);
   console.log(`[verify] GLOBAL max per-channel delta observed (across all apps x all bridge comparisons): ${globalMaxDelta}`);
   console.log(`[verify] per-bridge max delta vs ${REFERENCE_BRIDGE}: ${JSON.stringify(perBridgeMaxDelta)}`);
@@ -181,6 +201,13 @@ function main() {
   console.log("\n[verify] === negative control (a): cross-comparing TWO DIFFERENT real apps (must disagree) ===");
   const idxA = 0;
   const idxB = Math.min(1, apps.length - 1);
+  // Round-3 fix (finding 1): these used to be HARDCODED to `true` / derived
+  // from index arithmetic in the report below, instead of the actually
+  // MEASURED outcome of each control. Populated from the real result as each
+  // control runs; a control that is skipped (< 2 apps) or whose measurement
+  // never completes stays `null`, not silently `true`.
+  let negativeControlA = null;
+  let negativeControlB = null;
   if (idxA === idxB) {
     console.log("[verify] SKIPPED negative control (a): app set has < 2 apps");
   } else {
@@ -195,6 +222,7 @@ function main() {
     const crossResult = runVerifyPs1(crossItems)[0];
     const delta = crossResult.deltasVsReference.koffi;
     const disagrees = delta.maxAbsDelta > AGREEMENT_MAX_DELTA;
+    negativeControlA = { appA: apps[idxA].name, appB: apps[idxB].name, maxAbsDelta: delta.maxAbsDelta, meanAbsDelta: delta.meanAbsDelta, correctlyDisagreed: disagrees };
     console.log(`[verify] ${apps[idxA].name} vs ${apps[idxB].name}: maxAbsDelta=${delta.maxAbsDelta} meanAbsDelta=${delta.meanAbsDelta} -> agreement check says "agree": ${!disagrees}`);
     if (!disagrees) {
       console.error("[verify] FATAL: negative control (a) FAILED — two different apps' icons were reported as agreeing. The verification check cannot discriminate and must not be trusted.");
@@ -220,6 +248,7 @@ function main() {
   const noiseResult = runVerifyPs1(noiseItems)[0];
   const noiseDelta = noiseResult.deltasVsReference.noise;
   const noiseDisagrees = noiseDelta.maxAbsDelta > AGREEMENT_MAX_DELTA;
+  negativeControlB = { app: apps[0].name, maxAbsDelta: noiseDelta.maxAbsDelta, meanAbsDelta: noiseDelta.meanAbsDelta, correctlyDisagreed: noiseDisagrees };
   console.log(`[verify] noise vs real ${apps[0].name}: maxAbsDelta=${noiseDelta.maxAbsDelta} meanAbsDelta=${noiseDelta.meanAbsDelta} -> agreement check says "agree": ${!noiseDisagrees}`);
   console.log(`[verify] (for comparison, the OLD self-referential check would have printed "independently decodes to 256x256: true" for this exact noise PNG — dimensions alone do not detect garbage content)`);
   if (!noiseDisagrees) {
@@ -246,22 +275,41 @@ function main() {
     lowAlphaVarianceApps,
     worstDeltas: worstDeltas.slice(0, 20),
     negativeControls: {
-      differentAppsCorrectlyDisagree: idxA !== idxB,
-      noiseVsRealCorrectlyDisagrees: true,
+      differentApps: negativeControlA,
+      noiseVsReal: negativeControlB,
     },
     sanityChecksAreDiagnosticOnly:
       "alphaVariance and bboxFillFraction (noContentCount/lowAlphaVarianceCount/noContentApps/lowAlphaVarianceApps) are REPORTED, not gated — they do not affect the pass/fail exit code, only cross-bridge pixel agreement (disagreeCount) does. A low-variance/low-fill icon is not necessarily wrong (a fully-opaque square icon has near-zero alpha variance by construction); these are for manual follow-up, not automated rejection.",
     whatThisCannotCatch:
       "If IShellItemImageFactory itself returns the SAME generic/fallback icon for every app, all three bridges call the identical Win32 API and would all agree on that generic icon. Cross-bridge agreement proves bridge equivalence, not per-app icon correctness. That guarantee comes from manual visual inspection of a named subset (see ADR), not from this script.",
   };
-  writeFileSync(path.join(rootDir, "verify-results.json"), JSON.stringify(report, null, 2));
-  console.log(`\n[verify] wrote verify-results.json`);
+  writeFileSync(outputReportFile, JSON.stringify(report, null, 2));
+  console.log(`\n[verify] wrote ${outputReportFile}`);
 
-  if (disagreeCount > 0) {
-    console.error(`\n[verify] FATAL: ${disagreeCount} app(s) disagree across bridges beyond the ${AGREEMENT_MAX_DELTA}-per-channel threshold — see disagreements above and in verify-results.json`);
+  // Round-3 fix (finding 1, BLOCKER): the old gate was `disagreeCount > 0`
+  // ONLY. A bridge that produced NO decodable output at all for some apps
+  // (errorCount) was counted neither as agreeing nor disagreeing — it was
+  // dropped from the denominator entirely (see the `continue` in the loop
+  // above) and did NOT fail the run. That is the same defect class as the
+  // round-2 blocker this script was written to close: the check reports
+  // stronger than it measured. A missing/undecodable bridge output is a
+  // verification FAILURE, not a silently-skipped row.
+  const negControlsOk =
+    (negativeControlA === null || negativeControlA.correctlyDisagreed) &&
+    (negativeControlB === null || negativeControlB.correctlyDisagreed);
+  if (disagreeCount > 0 || errorCount > 0 || !negControlsOk) {
+    if (disagreeCount > 0) {
+      console.error(`\n[verify] FATAL: ${disagreeCount} app(s) disagree across bridges beyond the ${AGREEMENT_MAX_DELTA}-per-channel threshold — see disagreements above and in ${outputReportFile}`);
+    }
+    if (errorCount > 0) {
+      console.error(`\n[verify] FATAL: ${errorCount} app(s) had a bridge that produced NO decodable output — see the DECODE ERROR lines above and errorCount in ${outputReportFile}`);
+    }
+    if (!negControlsOk) {
+      console.error(`\n[verify] FATAL: a negative control did not disagree as required — see negativeControls in ${outputReportFile}`);
+    }
     process.exit(1);
   }
-  console.log(`\n[verify] ALL ${apps.length} apps agree across all bridges within the stated threshold, and both negative controls correctly failed. Verification PASSED.`);
+  console.log(`\n[verify] ALL ${agreeCount}/${apps.length} apps agree across all bridges within the stated threshold (0 decode errors), and both negative controls correctly failed. Verification PASSED.`);
 }
 
 main();

@@ -392,6 +392,14 @@ async function main() {
       `${name.padEnd(15)} ${String(c.n).padEnd(5)} ${String(c.medianMs).padEnd(11)} ${String(c.p95Ms).padEnd(8)} ${(c.successRate * 100).toFixed(1).padEnd(10)} ${startupStr}`
     );
   }
+  // Success criteria (PROOF-01): "prints ms/icon and success rate for each
+  // candidate against the measured 43.2 ms/icon IShellItemImageFactory
+  // baseline". report.measuredBaselineComparison already carries this; this
+  // line is what actually PRINTS it, closing the gap between "written to
+  // results.json" and "printed" that the criteria literally asks for.
+  console.log(
+    `[bench] baseline comparison: prior measured IShellItemImageFactory cost = ${report.measuredBaselineComparison.priorMeasuredIShellItemImageFactoryMsPerIcon} ms/icon (${report.measuredBaselineComparison.source})`
+  );
 }
 
 main().catch((err) => {

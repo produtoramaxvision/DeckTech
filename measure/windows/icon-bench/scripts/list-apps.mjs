@@ -28,10 +28,10 @@
 //
 // Output: measure/windows/icon-bench/data/apps.json
 
-import { spawnSync } from "node:child_process";
-import { readdirSync, statSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { readdirSync, statSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveLnkTargets } from "../lib/lnk-resolve.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const outDir = path.join(__dirname, "..", "data");
@@ -86,69 +86,27 @@ if (lnkFiles.length === 0) {
 // WScript.Shell instance reused across the loop), matching the method
 // WINDOWS-STACK.md measured. Paths are passed via a temp JSON file, not argv,
 // so spaces and special characters in paths never touch shell quoting.
-const tmpDir = path.join(__dirname, "..", ".tmp");
-mkdirSync(tmpDir, { recursive: true });
-const inputFile = path.join(tmpDir, "lnk-input.json");
-const resultFile = path.join(tmpDir, "lnk-resolved.json");
-writeFileSync(inputFile, JSON.stringify(lnkFiles), "utf8");
-
-// Round-2 review fix (finding 6): the previous version set
-// $ErrorActionPreference = 'SilentlyContinue' for the WHOLE script, which
-// makes even TERMINATING errors inside the per-item try/catch below
-// non-terminating — they get swallowed instead of hitting the catch block,
-// so a resolution failure produced neither a target nor a recorded reason.
-// Fixed: 'Stop' so the per-item try/catch (already present) actually fires,
-// and $resolveError distinguishes "threw" from "resolved to an empty
-// TargetPath" (the latter does NOT throw — WScript.Shell returns "" for a
-// .lnk that points at a URL or a virtual shell folder, e.g. "This PC",
-// rather than a file path; confirmed by making the failure mode explicit
-// below instead of silently treating an empty string the same as a real
-// path).
 //
-// Also renamed $input -> $lnkList: $input is a PowerShell AUTOMATIC
-// VARIABLE (the pipeline input enumerator), so assigning it clobbers
-// pipeline machinery in a way that "worked" here only by accident.
-const psScript = `
-$ErrorActionPreference = 'Stop'
-$lnkList = Get-Content -Raw -Path '${inputFile.replace(/'/g, "''")}' | ConvertFrom-Json
-$wsh = New-Object -ComObject WScript.Shell
-$results = @()
-foreach ($lnk in $lnkList) {
-  $name = [System.IO.Path]::GetFileNameWithoutExtension($lnk)
-  try {
-    $sc = $wsh.CreateShortcut($lnk)
-    $target = $sc.TargetPath
-    if ([string]::IsNullOrEmpty($target)) {
-      $results += [PSCustomObject]@{ lnk = $lnk; target = $null; name = $name; resolveError = 'TargetPath resolved to empty string (shortcut targets a URL, a virtual shell folder, or is broken)' }
-    } else {
-      $results += [PSCustomObject]@{ lnk = $lnk; target = $target; name = $name; resolveError = $null }
-    }
-  } catch {
-    $results += [PSCustomObject]@{ lnk = $lnk; target = $null; name = $name; resolveError = $_.Exception.Message }
-  }
-}
-$results | ConvertTo-Json -Depth 3 | Out-File -FilePath '${resultFile.replace(/'/g, "''")}' -Encoding utf8
-`;
-
-const t1 = performance.now();
-const psResult = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", psScript], {
-  encoding: "utf8",
-  maxBuffer: 64 * 1024 * 1024,
-});
-const resolveMs = performance.now() - t1;
-
-if (psResult.status !== 0) {
+// Round-3 review fix (finding 2, BLOCKER): the resolution logic itself now
+// lives in lib/lnk-resolve.mjs (shared with scripts/verify-lnk-encoding.mjs,
+// the non-ASCII regression case), fixed there to pass `-Encoding UTF8` to
+// `Get-Content -Raw` — without it, Windows PowerShell 5.1 decodes the
+// (UTF-8, no-BOM) input JSON with the ANSI system codepage, mangling any
+// non-ASCII byte in a .lnk path before WScript.Shell ever opens it, so the
+// path CreateShortcut() receives does not exist on disk and TargetPath comes
+// back empty. This silently dropped every non-ASCII .lnk on this pt-BR
+// locale (4/182, confirmed by the resolvedCount before/after this fix).
+const tmpDir = path.join(__dirname, "..", ".tmp");
+let rows, resolveMs;
+try {
+  ({ rows, resolveMs } = resolveLnkTargets(lnkFiles, { tmpDir }));
+} catch (err) {
   console.error("[list-apps] PowerShell resolution failed");
-  console.error(psResult.stderr);
+  console.error(err.message);
   process.exit(1);
 }
 
 console.log(`[list-apps] resolved ${lnkFiles.length} .lnk targets via single PowerShell/WScript.Shell process in ${resolveMs.toFixed(1)} ms (${(resolveMs / lnkFiles.length).toFixed(2)} ms/lnk amortized)`);
-
-let resultText = readFileSync(resultFile, "utf8");
-if (resultText.charCodeAt(0) === 0xfeff) resultText = resultText.slice(1); // strip UTF-8 BOM from PowerShell Out-File
-const raw = JSON.parse(resultText);
-const rows = Array.isArray(raw) ? raw : [raw];
 
 // Finding 6 fix: every .lnk that did not produce a usable target (resolution
 // itself failed — WScript.Shell threw, or TargetPath came back empty because
@@ -172,7 +130,11 @@ for (const row of rows) {
   }
   const target = String(row.target).trim();
   if (!target) {
-    unresolvedLnks.push({ lnk: row.lnk, name: row.name, reason: "TargetPath resolved to empty string (shortcut targets a URL, a virtual shell folder, or is broken)" });
+    // Defensive only — the PS side above already routes an empty TargetPath
+    // through row.resolveError, so row.target is non-empty by the time it
+    // reaches here in practice. Kept factual (round-3 fix, finding 2): no
+    // guessed cause, just what was observed (target trimmed to nothing).
+    unresolvedLnks.push({ lnk: row.lnk, name: row.name, reason: "TargetPath (after trim) is an empty string" });
     continue;
   }
   const base = path.basename(target);
