@@ -37,6 +37,14 @@
 // §5's decision rests on.
 //
 // Usage: node measure/windows/proof-08/run.mjs [--reps N] [--crash-reps N]
+//        [--out-tag <safe-filename-component>] [--force]
+// ROUND-9 FIX (follow-up to major finding #1's required fix, flagged in
+// advisor review): this header previously listed only --reps/--crash-reps,
+// two rounds after --out-tag was added and one round after --force was —
+// the same "header comment claims behavior the code doesn't document"
+// pattern this file was already rejected for once (round-8's --out-tag
+// comment claiming a protection nothing enforced, closed above). Both
+// flags are load-bearing for evidence provenance, so both are listed here.
 import { spawn, execFile } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -99,23 +107,50 @@ const args = process.argv.slice(2);
 const RESULTS_DIR = join(here, "results");
 const outTagFlagIndex = args.indexOf("--out-tag");
 const FORCE = args.includes("--force");
+// ROUND-9 FOLLOW-UP FIX (advisor review, finding #3): a flag-shaped value
+// like `--out-tag --force` (the next arg happens to start with "-") was
+// previously ACCEPTED as the literal tag "--force" — `-` is inside the
+// character class, so `SAFE_TAG_RE` alone let it through, writing
+// `raw-results---force.json`. Not a traversal risk (provenance survives),
+// but it is the same "flag last, value missing/misread" family this
+// finding was raised against. A leading `-` is now rejected explicitly, so
+// a missing --out-tag value can never silently swallow the next flag.
 const SAFE_TAG_RE = /^[A-Za-z0-9_-]+$/;
 let OUT_TAG;
 if (outTagFlagIndex >= 0) {
   const raw = args[outTagFlagIndex + 1];
-  if (typeof raw !== "string" || raw.length === 0 || !SAFE_TAG_RE.test(raw)) {
-    console.error(`FATAL: invalid --out-tag value: ${JSON.stringify(raw)} — expected a non-empty single filename component matching ${SAFE_TAG_RE} (no "/", "\\", ":", "." or ".." — nothing that can escape RESULTS_DIR).`);
+  const looksLikeAnotherFlag = typeof raw === "string" && raw.startsWith("-");
+  if (typeof raw !== "string" || raw.length === 0 || looksLikeAnotherFlag || !SAFE_TAG_RE.test(raw)) {
+    console.error(`FATAL: invalid --out-tag value: ${JSON.stringify(raw)} — expected a non-empty single filename component matching ${SAFE_TAG_RE} and not starting with "-" (no "/", "\\", ":", "." or ".." — nothing that can escape RESULTS_DIR or be mistaken for another flag).`);
     process.exit(1);
   }
   OUT_TAG = raw;
 } else {
   // Timestamp-derived, not a fixed literal: two default-tag runs, even on
   // the same day, get two different filenames — a bare invocation can
-  // never land on a previous round's committed evidence.
+  // never land on a previous round's committed evidence. Verified for real
+  // (advisor review, finding #2): `node run.mjs --reps 1 --crash-reps 1`
+  // (no --out-tag) → checkpoint line
+  // `wrote ...raw-results-run-2026-09-18T06-58-46-583Z.json`, a filename
+  // that itself matches SAFE_TAG_RE (the else branch never runs that
+  // check, so this was confirmed from the real produced filename, not
+  // from reading the expression) — artifact deleted after verification,
+  // `git status --short` clean; see the Round-9 revision note above.
   OUT_TAG = `run-${new Date().toISOString().replace(/[:.]/g, "-")}`;
 }
 const COMMITTED_RESULTS_FILE = join(RESULTS_DIR, `raw-results-${OUT_TAG}.json`);
-if (existsSync(COMMITTED_RESULTS_FILE) && !FORCE) {
+// ROUND-9 FOLLOW-UP FIX (advisor review, finding #1): `--force` overwrites
+// committed evidence but the resulting file carried no record that it had
+// done so — reproducing, inside this round's own fix for minor finding #3,
+// the exact defect major finding #1 was raised against ("the orphan file
+// has neither a valid name nor any in-band record of which run produced
+// it"). Captured here, before the guard below can exit, and written
+// unconditionally into `results.meta` (see main()) so any committed file
+// says in-band whether it replaced a prior one — not just that --force was
+// typed, but the fact that actually matters: whether a file already
+// existed at this exact path when this run started.
+const COMMITTED_FILE_PREEXISTED = existsSync(COMMITTED_RESULTS_FILE);
+if (COMMITTED_FILE_PREEXISTED && !FORCE) {
   console.error(`FATAL: ${COMMITTED_RESULTS_FILE} already exists — refusing to overwrite committed evidence.`);
   console.error(`  Pass a different --out-tag <tag>, or --force to overwrite it deliberately.`);
   process.exit(1);
@@ -580,6 +615,19 @@ position.`);
       idleReps: IDLE_REPS,
       crashReps: CRASH_REPS,
       outTag: OUT_TAG,
+      // ROUND-9 FOLLOW-UP FIX (advisor review, finding #1): both booleans
+      // are unconditional (never `undefined`, so `JSON.stringify` can never
+      // silently drop them). `forced` records that the flag was typed;
+      // `overwroteExistingFile` records the fact that actually matters — a
+      // file already existed at COMMITTED_RESULTS_FILE's exact path when
+      // this run started, so this run's write replaced it. `forced: true,
+      // overwroteExistingFile: false` (flag typed, nothing to overwrite) is
+      // a distinct, honestly-recorded case from `forced: true,
+      // overwroteExistingFile: true` (flag typed AND something was actually
+      // replaced) — collapsing them would hide the one case §8 reason (1)'s
+      // "structural boundary, not operator discipline" standard cares about.
+      forced: FORCE,
+      overwroteExistingFile: COMMITTED_FILE_PREEXISTED,
       startedAt: new Date().toISOString(),
     },
     utility: { idle: [], crashDefault: [], crashMatched: [] },

@@ -1,191 +1,188 @@
 {
   "meta": {
-    "concurrentProcessCountAtStart": 823,
+    "concurrentProcessCountAtStart": 771,
     "idleReps": 5,
     "crashReps": 1,
     "outTag": "round9review-n5",
-    "startedAt": "2026-09-18T06:43:28.147Z",
+    "forced": true,
+    "overwroteExistingFile": true,
+    "startedAt": "2026-09-18T07:06:22.225Z",
     "lastPhaseCompleted": "complete",
-    "savedAt": "2026-09-18T06:46:57.214Z"
+    "savedAt": "2026-09-18T07:09:55.916Z"
   },
   "utility": {
     "idle": [
       {
         "approach": "utility",
         "port": 15900,
-        "mainPid": 49924,
+        "mainPid": 50252,
         "armPosition": "first",
-        "coldStartMs": 461,
+        "coldStartMs": 691,
         "healthError": null,
         "idle": [
           {
             "atMsAfterReady": 3000,
-            "actualElapsedMs": 4302,
+            "actualElapsedMs": 4265,
             "tree": [
               {
-                "pid": 49924,
-                "ppid": 49692,
+                "pid": 50252,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713808153,
+                "createdMs": 1789715182233,
                 "role": "browser (main)",
-                "workingSetBytes": 85819392,
+                "workingSetBytes": 84008960,
                 "depth": 0
               },
               {
-                "pid": 26436,
-                "ppid": 49924,
+                "pid": 39352,
+                "ppid": 50252,
                 "name": "electron.exe",
-                "createdMs": 1789713808263,
+                "createdMs": 1789715182430,
                 "role": "gpu-process",
-                "workingSetBytes": 85389312,
+                "workingSetBytes": 85643264,
                 "depth": 1
               },
               {
-                "pid": 27016,
-                "ppid": 49924,
+                "pid": 32540,
+                "ppid": 50252,
                 "name": "electron.exe",
-                "createdMs": 1789713808275,
+                "createdMs": 1789715182435,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41664512,
+                "workingSetBytes": 41484288,
                 "depth": 1
               },
               {
-                "pid": 22476,
-                "ppid": 49924,
+                "pid": 37804,
+                "ppid": 50252,
                 "name": "electron.exe",
-                "createdMs": 1789713808308,
+                "createdMs": 1789715182477,
                 "role": "renderer",
-                "workingSetBytes": 67350528,
+                "workingSetBytes": 64147456,
                 "depth": 1
               },
               {
-                "pid": 28992,
-                "ppid": 49924,
+                "pid": 41996,
+                "ppid": 50252,
                 "name": "electron.exe",
-                "createdMs": 1789713808369,
+                "createdMs": 1789715182549,
                 "role": "utility (Node — our forked server.js)",
-                "workingSetBytes": 72454144,
+                "workingSetBytes": 69480448,
                 "depth": 1
               }
             ],
-            "totalMB": 336.33984375
+            "totalMB": 328.79296875
           },
           {
             "atMsAfterReady": 8000,
-            "actualElapsedMs": 9294,
+            "actualElapsedMs": 9089,
             "tree": [
               {
-                "pid": 49924,
-                "ppid": 49692,
+                "pid": 50252,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713808153,
+                "createdMs": 1789715182233,
                 "role": "browser (main)",
-                "workingSetBytes": 86155264,
+                "workingSetBytes": 84074496,
                 "depth": 0
               },
               {
-                "pid": 26436,
-                "ppid": 49924,
+                "pid": 39352,
+                "ppid": 50252,
                 "name": "electron.exe",
-                "createdMs": 1789713808263,
+                "createdMs": 1789715182430,
                 "role": "gpu-process",
-                "workingSetBytes": 85712896,
+                "workingSetBytes": 85749760,
                 "depth": 1
               },
               {
-                "pid": 27016,
-                "ppid": 49924,
+                "pid": 32540,
+                "ppid": 50252,
                 "name": "electron.exe",
-                "createdMs": 1789713808275,
+                "createdMs": 1789715182435,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41803776,
+                "workingSetBytes": 41598976,
                 "depth": 1
               },
               {
-                "pid": 22476,
-                "ppid": 49924,
+                "pid": 37804,
+                "ppid": 50252,
                 "name": "electron.exe",
-                "createdMs": 1789713808308,
+                "createdMs": 1789715182477,
                 "role": "renderer",
-                "workingSetBytes": 68521984,
+                "workingSetBytes": 64147456,
                 "depth": 1
               },
               {
-                "pid": 28992,
-                "ppid": 49924,
+                "pid": 41996,
+                "ppid": 50252,
                 "name": "electron.exe",
-                "createdMs": 1789713808369,
+                "createdMs": 1789715182549,
                 "role": "utility (Node — our forked server.js)",
-                "workingSetBytes": 72581120,
+                "workingSetBytes": 69660672,
                 "depth": 1
               }
             ],
-            "totalMB": 338.33984375
+            "totalMB": 329.23828125
           }
         ],
         "crash": null,
         "exitInfo": {
           "code": 0,
           "signal": null,
-          "at": 1789713821494
+          "at": 1789715196176
         },
         "stderrTail": "",
         "discovery": {
           "attempted": true,
-          "expectedPid": 28992,
+          "expectedPid": 41996,
           "ownerPid": 45020,
           "boundToUs": false
         },
         "logEvents": [
           {
-            "t": 1789713808236,
+            "t": 1789715182388,
             "event": "main-module-start",
-            "mainPid": 49924,
+            "mainPid": 50252,
             "serverPath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713808275,
+            "t": 1789715182434,
             "event": "app-ready"
           },
           {
-            "t": 1789713808360,
+            "t": 1789715182540,
             "event": "window-created",
             "windowId": 1
           },
           {
-            "t": 1789713808361,
+            "t": 1789715182542,
             "event": "server-start-begin",
             "port": 15900,
             "modulePath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713808364,
+            "t": 1789715182545,
             "event": "server-forked",
             "modulePath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713808391,
+            "t": 1789715182579,
             "event": "server-spawn-confirmed",
-            "serverPid": 28992
+            "serverPid": 41996
           },
           {
-            "t": 1789713808577,
+            "t": 1789715182896,
             "event": "server-stdout",
-            "line": "Dokke ouvindo em http://127.0.0.1:15900"
+            "line": "Dokke ouvindo em http://127.0.0.1:15900\n[discover] erro: bind EADDRINUSE 0.0.0.0:3001"
           },
           {
-            "t": 1789713808578,
-            "event": "server-stdout",
-            "line": "[discover] erro: bind EADDRINUSE 0.0.0.0:3001"
-          },
-          {
-            "t": 1789713821371,
+            "t": 1789715195558,
             "event": "quitting",
             "windowStillExists": true,
             "serverAlive": true
           },
           {
-            "t": 1789713821396,
+            "t": 1789715195602,
             "event": "server-exit",
             "code": 0,
             "mainStillAlive": true,
@@ -196,179 +193,179 @@
       {
         "approach": "utility",
         "port": 15903,
-        "mainPid": 11576,
+        "mainPid": 1768,
         "armPosition": "second",
-        "coldStartMs": 610,
+        "coldStartMs": 882,
         "healthError": null,
         "idle": [
           {
             "atMsAfterReady": 3000,
-            "actualElapsedMs": 4399,
+            "actualElapsedMs": 5054,
             "tree": [
               {
-                "pid": 11576,
-                "ppid": 49692,
+                "pid": 1768,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713848668,
+                "createdMs": 1789715223468,
                 "role": "browser (main)",
-                "workingSetBytes": 84316160,
+                "workingSetBytes": 84017152,
                 "depth": 0
               },
               {
-                "pid": 31560,
-                "ppid": 11576,
+                "pid": 32748,
+                "ppid": 1768,
                 "name": "electron.exe",
-                "createdMs": 1789713848838,
+                "createdMs": 1789715223664,
                 "role": "gpu-process",
-                "workingSetBytes": 85368832,
+                "workingSetBytes": 85159936,
                 "depth": 1
               },
               {
-                "pid": 46980,
-                "ppid": 11576,
+                "pid": 51416,
+                "ppid": 1768,
                 "name": "electron.exe",
-                "createdMs": 1789713848846,
+                "createdMs": 1789715223678,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41607168,
+                "workingSetBytes": 41787392,
                 "depth": 1
               },
               {
-                "pid": 50792,
-                "ppid": 11576,
+                "pid": 41500,
+                "ppid": 1768,
                 "name": "electron.exe",
-                "createdMs": 1789713848881,
+                "createdMs": 1789715223718,
                 "role": "renderer",
-                "workingSetBytes": 63975424,
+                "workingSetBytes": 64303104,
                 "depth": 1
               },
               {
-                "pid": 47268,
-                "ppid": 11576,
+                "pid": 40056,
+                "ppid": 1768,
                 "name": "electron.exe",
-                "createdMs": 1789713848945,
+                "createdMs": 1789715223805,
                 "role": "utility (Node — our forked server.js)",
-                "workingSetBytes": 68722688,
+                "workingSetBytes": 69738496,
                 "depth": 1
               }
             ],
-            "totalMB": 328.0546875
+            "totalMB": 329.0234375
           },
           {
             "atMsAfterReady": 8000,
-            "actualElapsedMs": 9358,
+            "actualElapsedMs": 9594,
             "tree": [
               {
-                "pid": 11576,
-                "ppid": 49692,
+                "pid": 1768,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713848668,
+                "createdMs": 1789715223468,
                 "role": "browser (main)",
-                "workingSetBytes": 84385792,
+                "workingSetBytes": 84082688,
                 "depth": 0
               },
               {
-                "pid": 31560,
-                "ppid": 11576,
+                "pid": 32748,
+                "ppid": 1768,
                 "name": "electron.exe",
-                "createdMs": 1789713848838,
+                "createdMs": 1789715223664,
                 "role": "gpu-process",
-                "workingSetBytes": 85557248,
+                "workingSetBytes": 85295104,
                 "depth": 1
               },
               {
-                "pid": 46980,
-                "ppid": 11576,
+                "pid": 51416,
+                "ppid": 1768,
                 "name": "electron.exe",
-                "createdMs": 1789713848846,
+                "createdMs": 1789715223678,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41766912,
+                "workingSetBytes": 41791488,
                 "depth": 1
               },
               {
-                "pid": 50792,
-                "ppid": 11576,
+                "pid": 41500,
+                "ppid": 1768,
                 "name": "electron.exe",
-                "createdMs": 1789713848881,
+                "createdMs": 1789715223718,
                 "role": "renderer",
-                "workingSetBytes": 63995904,
+                "workingSetBytes": 64327680,
                 "depth": 1
               },
               {
-                "pid": 47268,
-                "ppid": 11576,
+                "pid": 40056,
+                "ppid": 1768,
                 "name": "electron.exe",
-                "createdMs": 1789713848945,
+                "createdMs": 1789715223805,
                 "role": "utility (Node — our forked server.js)",
-                "workingSetBytes": 68890624,
+                "workingSetBytes": 69738496,
                 "depth": 1
               }
             ],
-            "totalMB": 328.6328125
+            "totalMB": 329.2421875
           }
         ],
         "crash": null,
         "exitInfo": {
           "code": 0,
           "signal": null,
-          "at": 1789713862095
+          "at": 1789715237977
         },
         "stderrTail": "",
         "discovery": {
           "attempted": true,
-          "expectedPid": 47268,
+          "expectedPid": 40056,
           "ownerPid": 45020,
           "boundToUs": false
         },
         "logEvents": [
           {
-            "t": 1789713848799,
+            "t": 1789715223627,
             "event": "main-module-start",
-            "mainPid": 11576,
+            "mainPid": 1768,
             "serverPath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713848842,
+            "t": 1789715223677,
             "event": "app-ready"
           },
           {
-            "t": 1789713848935,
+            "t": 1789715223795,
             "event": "window-created",
             "windowId": 1
           },
           {
-            "t": 1789713848937,
+            "t": 1789715223796,
             "event": "server-start-begin",
             "port": 15903,
             "modulePath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713848940,
+            "t": 1789715223802,
             "event": "server-forked",
             "modulePath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713848986,
+            "t": 1789715223841,
             "event": "server-spawn-confirmed",
-            "serverPid": 47268
+            "serverPid": 40056
           },
           {
-            "t": 1789713849260,
+            "t": 1789715224311,
             "event": "server-stdout",
             "line": "Dokke ouvindo em http://127.0.0.1:15903"
           },
           {
-            "t": 1789713849268,
+            "t": 1789715224313,
             "event": "server-stdout",
             "line": "[discover] erro: bind EADDRINUSE 0.0.0.0:3001"
           },
           {
-            "t": 1789713861952,
+            "t": 1789715236823,
             "event": "quitting",
             "windowStillExists": true,
             "serverAlive": true
           },
           {
-            "t": 1789713861983,
+            "t": 1789715236860,
             "event": "server-exit",
             "code": 0,
             "mainStillAlive": true,
@@ -379,179 +376,174 @@
       {
         "approach": "utility",
         "port": 15904,
-        "mainPid": 40264,
+        "mainPid": 18212,
         "armPosition": "first",
-        "coldStartMs": 455,
+        "coldStartMs": 856,
         "healthError": null,
         "idle": [
           {
             "atMsAfterReady": 3000,
-            "actualElapsedMs": 4298,
+            "actualElapsedMs": 5215,
             "tree": [
               {
-                "pid": 40264,
-                "ppid": 49692,
+                "pid": 18212,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713862100,
+                "createdMs": 1789715237983,
                 "role": "browser (main)",
-                "workingSetBytes": 84570112,
+                "workingSetBytes": 84393984,
                 "depth": 0
               },
               {
-                "pid": 47568,
-                "ppid": 40264,
+                "pid": 38976,
+                "ppid": 18212,
                 "name": "electron.exe",
-                "createdMs": 1789713862229,
+                "createdMs": 1789715238245,
                 "role": "gpu-process",
-                "workingSetBytes": 85221376,
+                "workingSetBytes": 85143552,
                 "depth": 1
               },
               {
-                "pid": 48740,
-                "ppid": 40264,
+                "pid": 41452,
+                "ppid": 18212,
                 "name": "electron.exe",
-                "createdMs": 1789713862236,
+                "createdMs": 1789715238251,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41705472,
+                "workingSetBytes": 41574400,
                 "depth": 1
               },
               {
-                "pid": 36120,
-                "ppid": 40264,
+                "pid": 39588,
+                "ppid": 18212,
                 "name": "electron.exe",
-                "createdMs": 1789713862268,
+                "createdMs": 1789715238301,
                 "role": "renderer",
-                "workingSetBytes": 66859008,
+                "workingSetBytes": 67158016,
                 "depth": 1
               },
               {
-                "pid": 49148,
-                "ppid": 40264,
+                "pid": 42092,
+                "ppid": 18212,
                 "name": "electron.exe",
-                "createdMs": 1789713862347,
+                "createdMs": 1789715238418,
                 "role": "utility (Node — our forked server.js)",
-                "workingSetBytes": 74334208,
+                "workingSetBytes": 68943872,
                 "depth": 1
               }
             ],
-            "totalMB": 336.3515625
+            "totalMB": 331.12890625
           },
           {
             "atMsAfterReady": 8000,
-            "actualElapsedMs": 9221,
+            "actualElapsedMs": 9549,
             "tree": [
               {
-                "pid": 40264,
-                "ppid": 49692,
+                "pid": 18212,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713862100,
+                "createdMs": 1789715237983,
                 "role": "browser (main)",
-                "workingSetBytes": 84647936,
+                "workingSetBytes": 84463616,
                 "depth": 0
               },
               {
-                "pid": 47568,
-                "ppid": 40264,
+                "pid": 38976,
+                "ppid": 18212,
                 "name": "electron.exe",
-                "createdMs": 1789713862229,
+                "createdMs": 1789715238245,
                 "role": "gpu-process",
-                "workingSetBytes": 85516288,
+                "workingSetBytes": 85336064,
                 "depth": 1
               },
               {
-                "pid": 48740,
-                "ppid": 40264,
+                "pid": 41452,
+                "ppid": 18212,
                 "name": "electron.exe",
-                "createdMs": 1789713862236,
+                "createdMs": 1789715238251,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41783296,
+                "workingSetBytes": 41615360,
                 "depth": 1
               },
               {
-                "pid": 36120,
-                "ppid": 40264,
+                "pid": 39588,
+                "ppid": 18212,
                 "name": "electron.exe",
-                "createdMs": 1789713862268,
+                "createdMs": 1789715238301,
                 "role": "renderer",
-                "workingSetBytes": 66887680,
+                "workingSetBytes": 67162112,
                 "depth": 1
               },
               {
-                "pid": 49148,
-                "ppid": 40264,
+                "pid": 42092,
+                "ppid": 18212,
                 "name": "electron.exe",
-                "createdMs": 1789713862347,
+                "createdMs": 1789715238418,
                 "role": "utility (Node — our forked server.js)",
-                "workingSetBytes": 74514432,
+                "workingSetBytes": 68943872,
                 "depth": 1
               }
             ],
-            "totalMB": 336.98046875
+            "totalMB": 331.421875
           }
         ],
         "crash": null,
         "exitInfo": {
           "code": 0,
           "signal": null,
-          "at": 1789713875508
+          "at": 1789715251566
         },
         "stderrTail": "",
         "discovery": {
           "attempted": true,
-          "expectedPid": 49148,
+          "expectedPid": 42092,
           "ownerPid": 45020,
           "boundToUs": false
         },
         "logEvents": [
           {
-            "t": 1789713862199,
+            "t": 1789715238191,
             "event": "main-module-start",
-            "mainPid": 40264,
+            "mainPid": 18212,
             "serverPath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713862235,
+            "t": 1789715238250,
             "event": "app-ready"
           },
           {
-            "t": 1789713862337,
+            "t": 1789715238403,
             "event": "window-created",
             "windowId": 1
           },
           {
-            "t": 1789713862339,
+            "t": 1789715238406,
             "event": "server-start-begin",
             "port": 15904,
             "modulePath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713862342,
+            "t": 1789715238411,
             "event": "server-forked",
             "modulePath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713862366,
+            "t": 1789715238438,
             "event": "server-spawn-confirmed",
-            "serverPid": 49148
+            "serverPid": 42092
           },
           {
-            "t": 1789713862542,
+            "t": 1789715238812,
             "event": "server-stdout",
-            "line": "Dokke ouvindo em http://127.0.0.1:15904"
+            "line": "Dokke ouvindo em http://127.0.0.1:15904\n[discover] erro: bind EADDRINUSE 0.0.0.0:3001"
           },
           {
-            "t": 1789713862544,
-            "event": "server-stdout",
-            "line": "[discover] erro: bind EADDRINUSE 0.0.0.0:3001"
-          },
-          {
-            "t": 1789713875345,
+            "t": 1789715251417,
             "event": "quitting",
             "windowStillExists": true,
             "serverAlive": true
           },
           {
-            "t": 1789713875372,
+            "t": 1789715251444,
             "event": "server-exit",
             "code": 0,
             "mainStillAlive": true,
@@ -562,179 +554,174 @@
       {
         "approach": "utility",
         "port": 15907,
-        "mainPid": 38184,
+        "mainPid": 44896,
         "armPosition": "second",
-        "coldStartMs": 552,
+        "coldStartMs": 852,
         "healthError": null,
         "idle": [
           {
             "atMsAfterReady": 3000,
-            "actualElapsedMs": 4445,
+            "actualElapsedMs": 4718,
             "tree": [
               {
-                "pid": 38184,
-                "ppid": 49692,
+                "pid": 44896,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713902597,
+                "createdMs": 1789715279029,
                 "role": "browser (main)",
-                "workingSetBytes": 85770240,
+                "workingSetBytes": 84168704,
                 "depth": 0
               },
               {
-                "pid": 8972,
-                "ppid": 38184,
+                "pid": 26036,
+                "ppid": 44896,
                 "name": "electron.exe",
-                "createdMs": 1789713902750,
+                "createdMs": 1789715279234,
                 "role": "gpu-process",
-                "workingSetBytes": 85532672,
+                "workingSetBytes": 90652672,
                 "depth": 1
               },
               {
-                "pid": 41632,
-                "ppid": 38184,
+                "pid": 30380,
+                "ppid": 44896,
                 "name": "electron.exe",
-                "createdMs": 1789713902756,
+                "createdMs": 1789715279234,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41738240,
+                "workingSetBytes": 41500672,
                 "depth": 1
               },
               {
-                "pid": 51220,
-                "ppid": 38184,
+                "pid": 18228,
+                "ppid": 44896,
                 "name": "electron.exe",
-                "createdMs": 1789713902802,
+                "createdMs": 1789715279290,
                 "role": "renderer",
-                "workingSetBytes": 66699264,
+                "workingSetBytes": 63815680,
                 "depth": 1
               },
               {
-                "pid": 34160,
-                "ppid": 38184,
+                "pid": 17976,
+                "ppid": 44896,
                 "name": "electron.exe",
-                "createdMs": 1789713902893,
+                "createdMs": 1789715279383,
                 "role": "utility (Node — our forked server.js)",
-                "workingSetBytes": 74956800,
+                "workingSetBytes": 74362880,
                 "depth": 1
               }
             ],
-            "totalMB": 338.265625
+            "totalMB": 338.078125
           },
           {
             "atMsAfterReady": 8000,
-            "actualElapsedMs": 9919,
+            "actualElapsedMs": 10004,
             "tree": [
               {
-                "pid": 38184,
-                "ppid": 49692,
+                "pid": 44896,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713902597,
+                "createdMs": 1789715279029,
                 "role": "browser (main)",
-                "workingSetBytes": 85872640,
+                "workingSetBytes": 84242432,
                 "depth": 0
               },
               {
-                "pid": 8972,
-                "ppid": 38184,
+                "pid": 26036,
+                "ppid": 44896,
                 "name": "electron.exe",
-                "createdMs": 1789713902750,
+                "createdMs": 1789715279234,
                 "role": "gpu-process",
-                "workingSetBytes": 85356544,
+                "workingSetBytes": 90865664,
                 "depth": 1
               },
               {
-                "pid": 41632,
-                "ppid": 38184,
+                "pid": 30380,
+                "ppid": 44896,
                 "name": "electron.exe",
-                "createdMs": 1789713902756,
+                "createdMs": 1789715279234,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41861120,
+                "workingSetBytes": 41656320,
                 "depth": 1
               },
               {
-                "pid": 51220,
-                "ppid": 38184,
+                "pid": 18228,
+                "ppid": 44896,
                 "name": "electron.exe",
-                "createdMs": 1789713902802,
+                "createdMs": 1789715279290,
                 "role": "renderer",
-                "workingSetBytes": 66711552,
+                "workingSetBytes": 63840256,
                 "depth": 1
               },
               {
-                "pid": 34160,
-                "ppid": 38184,
+                "pid": 17976,
+                "ppid": 44896,
                 "name": "electron.exe",
-                "createdMs": 1789713902893,
+                "createdMs": 1789715279383,
                 "role": "utility (Node — our forked server.js)",
-                "workingSetBytes": 58339328,
+                "workingSetBytes": 74559488,
                 "depth": 1
               }
             ],
-            "totalMB": 322.4765625
+            "totalMB": 338.7109375
           }
         ],
         "crash": null,
         "exitInfo": {
           "code": 0,
           "signal": null,
-          "at": 1789713916197
+          "at": 1789715292514
         },
         "stderrTail": "",
         "discovery": {
           "attempted": true,
-          "expectedPid": 34160,
+          "expectedPid": 17976,
           "ownerPid": 45020,
           "boundToUs": false
         },
         "logEvents": [
           {
-            "t": 1789713902712,
+            "t": 1789715279179,
             "event": "main-module-start",
-            "mainPid": 38184,
+            "mainPid": 44896,
             "serverPath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713902755,
+            "t": 1789715279233,
             "event": "app-ready"
           },
           {
-            "t": 1789713902882,
+            "t": 1789715279374,
             "event": "window-created",
             "windowId": 1
           },
           {
-            "t": 1789713902883,
+            "t": 1789715279375,
             "event": "server-start-begin",
             "port": 15907,
             "modulePath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713902889,
+            "t": 1789715279379,
             "event": "server-forked",
             "modulePath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713902926,
+            "t": 1789715279414,
             "event": "server-spawn-confirmed",
-            "serverPid": 34160
+            "serverPid": 17976
           },
           {
-            "t": 1789713903117,
+            "t": 1789715279801,
             "event": "server-stdout",
-            "line": "Dokke ouvindo em http://127.0.0.1:15907"
+            "line": "Dokke ouvindo em http://127.0.0.1:15907\n[discover] erro: bind EADDRINUSE 0.0.0.0:3001"
           },
           {
-            "t": 1789713903118,
-            "event": "server-stdout",
-            "line": "[discover] erro: bind EADDRINUSE 0.0.0.0:3001"
-          },
-          {
-            "t": 1789713915897,
+            "t": 1789715292394,
             "event": "quitting",
             "windowStillExists": true,
             "serverAlive": true
           },
           {
-            "t": 1789713915970,
+            "t": 1789715292413,
             "event": "server-exit",
             "code": 0,
             "mainStillAlive": true,
@@ -745,174 +732,179 @@
       {
         "approach": "utility",
         "port": 15908,
-        "mainPid": 8956,
+        "mainPid": 32424,
         "armPosition": "first",
-        "coldStartMs": 520,
+        "coldStartMs": 479,
         "healthError": null,
         "idle": [
           {
             "atMsAfterReady": 3000,
-            "actualElapsedMs": 4271,
+            "actualElapsedMs": 4474,
             "tree": [
               {
-                "pid": 8956,
-                "ppid": 49692,
+                "pid": 32424,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713916204,
+                "createdMs": 1789715292518,
                 "role": "browser (main)",
-                "workingSetBytes": 85803008,
+                "workingSetBytes": 84189184,
                 "depth": 0
               },
               {
-                "pid": 38592,
-                "ppid": 8956,
+                "pid": 34656,
+                "ppid": 32424,
                 "name": "electron.exe",
-                "createdMs": 1789713916371,
+                "createdMs": 1789715292662,
                 "role": "gpu-process",
-                "workingSetBytes": 85512192,
+                "workingSetBytes": 86401024,
                 "depth": 1
               },
               {
-                "pid": 18228,
-                "ppid": 8956,
+                "pid": 29164,
+                "ppid": 32424,
                 "name": "electron.exe",
-                "createdMs": 1789713916379,
+                "createdMs": 1789715292665,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41713664,
+                "workingSetBytes": 41779200,
                 "depth": 1
               },
               {
-                "pid": 21460,
-                "ppid": 8956,
+                "pid": 38584,
+                "ppid": 32424,
                 "name": "electron.exe",
-                "createdMs": 1789713916419,
+                "createdMs": 1789715292698,
                 "role": "renderer",
-                "workingSetBytes": 64307200,
+                "workingSetBytes": 64061440,
                 "depth": 1
               },
               {
-                "pid": 29236,
-                "ppid": 8956,
+                "pid": 31012,
+                "ppid": 32424,
                 "name": "electron.exe",
-                "createdMs": 1789713916488,
+                "createdMs": 1789715292766,
                 "role": "utility (Node — our forked server.js)",
-                "workingSetBytes": 72347648,
+                "workingSetBytes": 74969088,
                 "depth": 1
               }
             ],
-            "totalMB": 333.484375
+            "totalMB": 335.12109375
           },
           {
             "atMsAfterReady": 8000,
-            "actualElapsedMs": 9111,
+            "actualElapsedMs": 9838,
             "tree": [
               {
-                "pid": 8956,
-                "ppid": 49692,
+                "pid": 32424,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713916204,
+                "createdMs": 1789715292518,
                 "role": "browser (main)",
-                "workingSetBytes": 85831680,
+                "workingSetBytes": 84262912,
                 "depth": 0
               },
               {
-                "pid": 38592,
-                "ppid": 8956,
+                "pid": 34656,
+                "ppid": 32424,
                 "name": "electron.exe",
-                "createdMs": 1789713916371,
+                "createdMs": 1789715292662,
                 "role": "gpu-process",
-                "workingSetBytes": 86106112,
+                "workingSetBytes": 86523904,
                 "depth": 1
               },
               {
-                "pid": 18228,
-                "ppid": 8956,
+                "pid": 29164,
+                "ppid": 32424,
                 "name": "electron.exe",
-                "createdMs": 1789713916379,
+                "createdMs": 1789715292665,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41635840,
+                "workingSetBytes": 41832448,
                 "depth": 1
               },
               {
-                "pid": 21460,
-                "ppid": 8956,
+                "pid": 38584,
+                "ppid": 32424,
                 "name": "electron.exe",
-                "createdMs": 1789713916419,
+                "createdMs": 1789715292698,
                 "role": "renderer",
-                "workingSetBytes": 64307200,
+                "workingSetBytes": 64090112,
                 "depth": 1
               },
               {
-                "pid": 29236,
-                "ppid": 8956,
+                "pid": 31012,
+                "ppid": 32424,
                 "name": "electron.exe",
-                "createdMs": 1789713916488,
+                "createdMs": 1789715292766,
                 "role": "utility (Node — our forked server.js)",
-                "workingSetBytes": 72552448,
+                "workingSetBytes": 75169792,
                 "depth": 1
               }
             ],
-            "totalMB": 334.19921875
+            "totalMB": 335.578125
           }
         ],
         "crash": null,
         "exitInfo": {
           "code": 0,
           "signal": null,
-          "at": 1789713929612
+          "at": 1789715305920
         },
         "stderrTail": "",
         "discovery": {
           "attempted": true,
-          "expectedPid": 29236,
+          "expectedPid": 31012,
           "ownerPid": 45020,
           "boundToUs": false
         },
         "logEvents": [
           {
-            "t": 1789713916335,
+            "t": 1789715292619,
             "event": "main-module-start",
-            "mainPid": 8956,
+            "mainPid": 32424,
             "serverPath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713916378,
+            "t": 1789715292664,
             "event": "app-ready"
           },
           {
-            "t": 1789713916479,
+            "t": 1789715292757,
             "event": "window-created",
             "windowId": 1
           },
           {
-            "t": 1789713916481,
+            "t": 1789715292759,
             "event": "server-start-begin",
             "port": 15908,
             "modulePath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713916483,
+            "t": 1789715292762,
             "event": "server-forked",
             "modulePath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713916503,
+            "t": 1789715292793,
             "event": "server-spawn-confirmed",
-            "serverPid": 29236
+            "serverPid": 31012
           },
           {
-            "t": 1789713916719,
+            "t": 1789715292941,
             "event": "server-stdout",
-            "line": "Dokke ouvindo em http://127.0.0.1:15908\n[discover] erro: bind EADDRINUSE 0.0.0.0:3001"
+            "line": "Dokke ouvindo em http://127.0.0.1:15908"
           },
           {
-            "t": 1789713929488,
+            "t": 1789715292942,
+            "event": "server-stdout",
+            "line": "[discover] erro: bind EADDRINUSE 0.0.0.0:3001"
+          },
+          {
+            "t": 1789715305780,
             "event": "quitting",
             "windowStillExists": true,
             "serverAlive": true
           },
           {
-            "t": 1789713929512,
+            "t": 1789715305817,
             "event": "server-exit",
             "code": 0,
             "mainStillAlive": true,
@@ -925,71 +917,71 @@
       {
         "approach": "utility",
         "port": 15910,
-        "mainPid": 7128,
+        "mainPid": 50036,
         "armPosition": "first",
-        "coldStartMs": 842,
+        "coldStartMs": 601,
         "healthError": null,
         "idle": [],
         "crash": {
           "crashAfterMs": 3000,
           "installHandler": false,
-          "preCrashElapsedMs": 3194,
-          "postCrashElapsedMs": 9365,
-          "preCrashTotalMB": 334.109375,
+          "preCrashElapsedMs": 3730,
+          "postCrashElapsedMs": 9393,
+          "preCrashTotalMB": 318.41796875,
           "mainAlive": true,
           "heartbeat": {
-            "t": 1789713954285,
+            "t": 1789715330804,
             "approach": "utility-process",
-            "mainPid": 7128,
+            "mainPid": 50036,
             "windowExists": true,
             "windowVisible": true,
             "serverAlive": false
           },
-          "heartbeatSnapshotAt": 1789713954496,
+          "heartbeatSnapshotAt": 1789715330993,
           "postCrashTree": [
             {
-              "pid": 7128,
-              "ppid": 49692,
+              "pid": 50036,
+              "ppid": 25692,
               "name": "electron.exe",
-              "createdMs": 1789713943112,
+              "createdMs": 1789715319684,
               "role": "browser (main)",
-              "workingSetBytes": 84549632,
+              "workingSetBytes": 84049920,
               "depth": 0
             },
             {
-              "pid": 34580,
-              "ppid": 7128,
+              "pid": 46120,
+              "ppid": 50036,
               "name": "electron.exe",
-              "createdMs": 1789713943273,
+              "createdMs": 1789715319864,
               "role": "gpu-process",
-              "workingSetBytes": 90689536,
+              "workingSetBytes": 85766144,
               "depth": 1
             },
             {
-              "pid": 28532,
-              "ppid": 7128,
+              "pid": 45748,
+              "ppid": 50036,
               "name": "electron.exe",
-              "createdMs": 1789713943274,
+              "createdMs": 1789715319872,
               "role": "utility (network.mojom.NetworkService)",
               "workingSetBytes": 41689088,
               "depth": 1
             },
             {
-              "pid": 5524,
-              "ppid": 7128,
+              "pid": 43896,
+              "ppid": 50036,
               "name": "electron.exe",
-              "createdMs": 1789713943330,
+              "createdMs": 1789715319913,
               "role": "renderer",
-              "workingSetBytes": 64061440,
+              "workingSetBytes": 64348160,
               "depth": 1
             }
           ],
-          "postCrashTotalMB": 267.97265625
+          "postCrashTotalMB": 263.07421875
         },
         "exitInfo": {
           "code": 0,
           "signal": null,
-          "at": 1789713955625
+          "at": 1789715332137
         },
         "stderrTail": "",
         "discovery": {
@@ -997,61 +989,61 @@
         },
         "logEvents": [
           {
-            "t": 1789713943226,
+            "t": 1789715319824,
             "event": "main-module-start",
-            "mainPid": 7128,
+            "mainPid": 50036,
             "serverPath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713943273,
+            "t": 1789715319871,
             "event": "app-ready"
           },
           {
-            "t": 1789713943456,
+            "t": 1789715319987,
             "event": "window-created",
             "windowId": 1
           },
           {
-            "t": 1789713943457,
+            "t": 1789715319990,
             "event": "server-start-begin",
             "port": 15910,
             "modulePath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"
           },
           {
-            "t": 1789713943461,
+            "t": 1789715319994,
             "event": "server-forked",
             "modulePath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"
           },
           {
-            "t": 1789713943463,
+            "t": 1789715319995,
             "event": "crash-scheduled",
             "afterMs": 3000,
             "target": "utility-child"
           },
           {
-            "t": 1789713943490,
+            "t": 1789715320022,
             "event": "server-spawn-confirmed",
-            "serverPid": 51900
+            "serverPid": 35708
           },
           {
-            "t": 1789713943919,
+            "t": 1789715320232,
             "event": "server-stdout",
             "line": "[server-entry-crash] Dokke ouvindo em http://127.0.0.1:15910"
           },
           {
-            "t": 1789713946921,
+            "t": 1789715323250,
             "event": "server-stderr",
             "line": "file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/server-entry-crash.mjs:50\r\n    throw new Error(\"PROOF-08 injected crash: simulated unhandled error in server process (utility, via entry wrapper)\");\r\n    ^\r\n\r\nError: PROOF-08 injected crash: simulated unhandled error in server process (utility, via entry wrapper)\r\n    at Timeout._onTimeout (file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/server-entry-crash.mjs:50:11)\r\n    at listOnTimeout (node:internal/timers:685:17)\r\n    at process.processTimers (node:internal/timers:618:7)\r\n\r\nNode.js v24.21.0"
           },
           {
-            "t": 1789713946923,
+            "t": 1789715323252,
             "event": "server-exit",
             "code": 1,
             "mainStillAlive": true,
             "windowStillExists": true
           },
           {
-            "t": 1789713955467,
+            "t": 1789715332004,
             "event": "quitting",
             "windowStillExists": true,
             "serverAlive": false
@@ -1063,71 +1055,71 @@
       {
         "approach": "utility",
         "port": 15912,
-        "mainPid": 38616,
+        "mainPid": 22476,
         "armPosition": "first",
-        "coldStartMs": 817,
+        "coldStartMs": 859,
         "healthError": null,
         "idle": [],
         "crash": {
           "crashAfterMs": 3000,
           "installHandler": true,
-          "preCrashElapsedMs": 3472,
-          "postCrashElapsedMs": 9360,
-          "preCrashTotalMB": 410.921875,
+          "preCrashElapsedMs": 4041,
+          "postCrashElapsedMs": 9858,
+          "preCrashTotalMB": 289.65234375,
           "mainAlive": true,
           "heartbeat": {
-            "t": 1789713999082,
+            "t": 1789715377291,
             "approach": "utility-process",
-            "mainPid": 38616,
+            "mainPid": 22476,
             "windowExists": true,
             "windowVisible": true,
             "serverAlive": false
           },
-          "heartbeatSnapshotAt": 1789713999244,
+          "heartbeatSnapshotAt": 1789715377889,
           "postCrashTree": [
             {
-              "pid": 38616,
-              "ppid": 49692,
+              "pid": 22476,
+              "ppid": 25692,
               "name": "electron.exe",
-              "createdMs": 1789713987234,
+              "createdMs": 1789715364886,
               "role": "browser (main)",
-              "workingSetBytes": 100917248,
+              "workingSetBytes": 91598848,
               "depth": 0
             },
             {
-              "pid": 52028,
-              "ppid": 38616,
+              "pid": 27460,
+              "ppid": 22476,
               "name": "electron.exe",
-              "createdMs": 1789713987512,
+              "createdMs": 1789715365145,
               "role": "gpu-process",
-              "workingSetBytes": 103641088,
+              "workingSetBytes": 87539712,
               "depth": 1
             },
             {
-              "pid": 29112,
-              "ppid": 38616,
+              "pid": 24056,
+              "ppid": 22476,
               "name": "electron.exe",
-              "createdMs": 1789713987516,
+              "createdMs": 1789715365145,
               "role": "utility (network.mojom.NetworkService)",
-              "workingSetBytes": 66039808,
+              "workingSetBytes": 51236864,
               "depth": 1
             },
             {
-              "pid": 33268,
-              "ppid": 38616,
+              "pid": 37220,
+              "ppid": 22476,
               "name": "electron.exe",
-              "createdMs": 1789713987582,
+              "createdMs": 1789715365183,
               "role": "renderer",
-              "workingSetBytes": 72478720,
+              "workingSetBytes": 73809920,
               "depth": 1
             }
           ],
-          "postCrashTotalMB": 327.18359375
+          "postCrashTotalMB": 290.09375
         },
         "exitInfo": {
           "code": 0,
           "signal": null,
-          "at": 1789714000062
+          "at": 1789715377900
         },
         "stderrTail": "",
         "discovery": {
@@ -1135,61 +1127,61 @@
         },
         "logEvents": [
           {
-            "t": 1789713987447,
+            "t": 1789715365077,
             "event": "main-module-start",
-            "mainPid": 38616,
+            "mainPid": 22476,
             "serverPath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713987513,
+            "t": 1789715365139,
             "event": "app-ready"
           },
           {
-            "t": 1789713987646,
+            "t": 1789715365274,
             "event": "window-created",
             "windowId": 1
           },
           {
-            "t": 1789713987648,
+            "t": 1789715365275,
             "event": "server-start-begin",
             "port": 15912,
             "modulePath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"
           },
           {
-            "t": 1789713987651,
+            "t": 1789715365277,
             "event": "server-forked",
             "modulePath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-08\\server-entry-crash.mjs"
           },
           {
-            "t": 1789713987651,
+            "t": 1789715365278,
             "event": "crash-scheduled",
             "afterMs": 3000,
             "target": "utility-child"
           },
           {
-            "t": 1789713987679,
+            "t": 1789715365325,
             "event": "server-spawn-confirmed",
-            "serverPid": 25980
+            "serverPid": 41536
           },
           {
-            "t": 1789713988020,
+            "t": 1789715365733,
             "event": "server-stdout",
             "line": "[server-entry-crash] Dokke ouvindo em http://127.0.0.1:15912"
           },
           {
-            "t": 1789713991031,
+            "t": 1789715368734,
             "event": "server-stderr",
             "line": "Error: PROOF-08 injected crash: simulated unhandled error in server process (utility, via entry wrapper)\n    at Timeout._onTimeout (file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/server-entry-crash.mjs:50:11)\n    at listOnTimeout (node:internal/timers:685:17)\n    at process.processTimers (node:internal/timers:618:7)"
           },
           {
-            "t": 1789713991032,
+            "t": 1789715368736,
             "event": "server-exit",
             "code": 1,
             "mainStillAlive": true,
             "windowStillExists": true
           },
           {
-            "t": 1789713999657,
+            "t": 1789715377291,
             "event": "quitting",
             "windowStillExists": true,
             "serverAlive": false
@@ -1203,103 +1195,103 @@
       {
         "approach": "inprocess",
         "port": 15901,
-        "mainPid": 37692,
+        "mainPid": 49104,
         "armPosition": "second",
-        "coldStartMs": 357,
+        "coldStartMs": 514,
         "healthError": null,
         "idle": [
           {
             "atMsAfterReady": 3000,
-            "actualElapsedMs": 4371,
+            "actualElapsedMs": 4367,
             "tree": [
               {
-                "pid": 37692,
-                "ppid": 49692,
+                "pid": 49104,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713821499,
+                "createdMs": 1789715196181,
                 "role": "browser (main)",
-                "workingSetBytes": 97210368,
+                "workingSetBytes": 97312768,
                 "depth": 0
               },
               {
-                "pid": 47652,
-                "ppid": 37692,
+                "pid": 29612,
+                "ppid": 49104,
                 "name": "electron.exe",
-                "createdMs": 1789713821644,
+                "createdMs": 1789715196391,
                 "role": "gpu-process",
-                "workingSetBytes": 85274624,
+                "workingSetBytes": 85585920,
                 "depth": 1
               },
               {
-                "pid": 34776,
-                "ppid": 37692,
+                "pid": 35692,
+                "ppid": 49104,
                 "name": "electron.exe",
-                "createdMs": 1789713821648,
+                "createdMs": 1789715196395,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41598976,
+                "workingSetBytes": 42127360,
                 "depth": 1
               },
               {
-                "pid": 27540,
-                "ppid": 37692,
+                "pid": 38696,
+                "ppid": 49104,
                 "name": "electron.exe",
-                "createdMs": 1789713821680,
+                "createdMs": 1789715196432,
                 "role": "renderer",
-                "workingSetBytes": 64135168,
+                "workingSetBytes": 64106496,
                 "depth": 1
               }
             ],
-            "totalMB": 274.8671875
+            "totalMB": 275.73828125
           },
           {
             "atMsAfterReady": 8000,
-            "actualElapsedMs": 9324,
+            "actualElapsedMs": 9647,
             "tree": [
               {
-                "pid": 37692,
-                "ppid": 49692,
+                "pid": 49104,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713821499,
+                "createdMs": 1789715196181,
                 "role": "browser (main)",
-                "workingSetBytes": 97570816,
+                "workingSetBytes": 97652736,
                 "depth": 0
               },
               {
-                "pid": 47652,
-                "ppid": 37692,
+                "pid": 29612,
+                "ppid": 49104,
                 "name": "electron.exe",
-                "createdMs": 1789713821644,
+                "createdMs": 1789715196391,
                 "role": "gpu-process",
-                "workingSetBytes": 85753856,
+                "workingSetBytes": 85946368,
                 "depth": 1
               },
               {
-                "pid": 34776,
-                "ppid": 37692,
+                "pid": 35692,
+                "ppid": 49104,
                 "name": "electron.exe",
-                "createdMs": 1789713821648,
+                "createdMs": 1789715196395,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41701376,
+                "workingSetBytes": 42164224,
                 "depth": 1
               },
               {
-                "pid": 27540,
-                "ppid": 37692,
+                "pid": 38696,
+                "ppid": 49104,
                 "name": "electron.exe",
-                "createdMs": 1789713821680,
+                "createdMs": 1789715196432,
                 "role": "renderer",
-                "workingSetBytes": 64163840,
+                "workingSetBytes": 64126976,
                 "depth": 1
               }
             ],
-            "totalMB": 275.79296875
+            "totalMB": 276.4609375
           }
         ],
         "crash": null,
         "exitInfo": {
           "code": 0,
           "signal": null,
-          "at": 1789713835004
+          "at": 1789715209782
         },
         "stderrTail": "",
         "discovery": {
@@ -1307,32 +1299,32 @@
         },
         "logEvents": [
           {
-            "t": 1789713821609,
+            "t": 1789715196346,
             "event": "main-module-start",
-            "mainPid": 37692,
+            "mainPid": 49104,
             "serverPath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713821647,
+            "t": 1789715196391,
             "event": "app-ready"
           },
           {
-            "t": 1789713821729,
+            "t": 1789715196488,
             "event": "window-created",
             "windowId": 1
           },
           {
-            "t": 1789713821730,
+            "t": 1789715196490,
             "event": "server-start-begin",
             "port": 15901
           },
           {
-            "t": 1789713821839,
+            "t": 1789715196629,
             "event": "server-ready",
             "port": 15901
           },
           {
-            "t": 1789713834847,
+            "t": 1789715209641,
             "event": "quitting",
             "windowStillExists": true,
             "serverAlive": true
@@ -1342,103 +1334,103 @@
       {
         "approach": "inprocess",
         "port": 15902,
-        "mainPid": 44020,
+        "mainPid": 26436,
         "armPosition": "first",
-        "coldStartMs": 402,
+        "coldStartMs": 561,
         "healthError": null,
         "idle": [
           {
             "atMsAfterReady": 3000,
-            "actualElapsedMs": 4407,
+            "actualElapsedMs": 5763,
             "tree": [
               {
-                "pid": 44020,
-                "ppid": 49692,
+                "pid": 26436,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713835010,
+                "createdMs": 1789715209790,
                 "role": "browser (main)",
-                "workingSetBytes": 97439744,
+                "workingSetBytes": 97947648,
                 "depth": 0
               },
               {
-                "pid": 42328,
-                "ppid": 44020,
+                "pid": 47204,
+                "ppid": 26436,
                 "name": "electron.exe",
-                "createdMs": 1789713835157,
+                "createdMs": 1789715209959,
                 "role": "gpu-process",
-                "workingSetBytes": 85426176,
+                "workingSetBytes": 85295104,
                 "depth": 1
               },
               {
-                "pid": 21436,
-                "ppid": 44020,
+                "pid": 33364,
+                "ppid": 26436,
                 "name": "electron.exe",
-                "createdMs": 1789713835165,
+                "createdMs": 1789715209964,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41795584,
+                "workingSetBytes": 41390080,
                 "depth": 1
               },
               {
-                "pid": 7248,
-                "ppid": 44020,
+                "pid": 44868,
+                "ppid": 26436,
                 "name": "electron.exe",
-                "createdMs": 1789713835201,
+                "createdMs": 1789715210009,
                 "role": "renderer",
-                "workingSetBytes": 64086016,
+                "workingSetBytes": 63967232,
                 "depth": 1
               }
             ],
-            "totalMB": 275.37109375
+            "totalMB": 275.23046875
           },
           {
             "atMsAfterReady": 8000,
-            "actualElapsedMs": 9247,
+            "actualElapsedMs": 10456,
             "tree": [
               {
-                "pid": 44020,
-                "ppid": 49692,
+                "pid": 26436,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713835010,
+                "createdMs": 1789715209790,
                 "role": "browser (main)",
-                "workingSetBytes": 98361344,
+                "workingSetBytes": 97329152,
                 "depth": 0
               },
               {
-                "pid": 42328,
-                "ppid": 44020,
+                "pid": 47204,
+                "ppid": 26436,
                 "name": "electron.exe",
-                "createdMs": 1789713835157,
+                "createdMs": 1789715209959,
                 "role": "gpu-process",
-                "workingSetBytes": 85704704,
+                "workingSetBytes": 85405696,
                 "depth": 1
               },
               {
-                "pid": 21436,
-                "ppid": 44020,
+                "pid": 33364,
+                "ppid": 26436,
                 "name": "electron.exe",
-                "createdMs": 1789713835165,
+                "createdMs": 1789715209964,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41930752,
+                "workingSetBytes": 41414656,
                 "depth": 1
               },
               {
-                "pid": 7248,
-                "ppid": 44020,
+                "pid": 44868,
+                "ppid": 26436,
                 "name": "electron.exe",
-                "createdMs": 1789713835201,
+                "createdMs": 1789715210009,
                 "role": "renderer",
-                "workingSetBytes": 64102400,
+                "workingSetBytes": 63995904,
                 "depth": 1
               }
             ],
-            "totalMB": 276.66015625
+            "totalMB": 274.796875
           }
         ],
         "crash": null,
         "exitInfo": {
           "code": 0,
           "signal": null,
-          "at": 1789713848662
+          "at": 1789715223461
         },
         "stderrTail": "",
         "discovery": {
@@ -1446,32 +1438,32 @@
         },
         "logEvents": [
           {
-            "t": 1789713835126,
+            "t": 1789715209925,
             "event": "main-module-start",
-            "mainPid": 44020,
+            "mainPid": 26436,
             "serverPath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713835161,
+            "t": 1789715209963,
             "event": "app-ready"
           },
           {
-            "t": 1789713835260,
+            "t": 1789715210074,
             "event": "window-created",
             "windowId": 1
           },
           {
-            "t": 1789713835262,
+            "t": 1789715210077,
             "event": "server-start-begin",
             "port": 15902
           },
           {
-            "t": 1789713835377,
+            "t": 1789715210283,
             "event": "server-ready",
             "port": 15902
           },
           {
-            "t": 1789713848388,
+            "t": 1789715223291,
             "event": "quitting",
             "windowStillExists": true,
             "serverAlive": true
@@ -1481,103 +1473,103 @@
       {
         "approach": "inprocess",
         "port": 15905,
-        "mainPid": 18652,
+        "mainPid": 11152,
         "armPosition": "second",
-        "coldStartMs": 481,
+        "coldStartMs": 464,
         "healthError": null,
         "idle": [
           {
             "atMsAfterReady": 3000,
-            "actualElapsedMs": 4564,
+            "actualElapsedMs": 4889,
             "tree": [
               {
-                "pid": 18652,
-                "ppid": 49692,
+                "pid": 11152,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713875513,
+                "createdMs": 1789715251571,
                 "role": "browser (main)",
-                "workingSetBytes": 97476608,
+                "workingSetBytes": 97402880,
                 "depth": 0
               },
               {
-                "pid": 18892,
-                "ppid": 18652,
+                "pid": 11560,
+                "ppid": 11152,
                 "name": "electron.exe",
-                "createdMs": 1789713875673,
+                "createdMs": 1789715251735,
                 "role": "gpu-process",
-                "workingSetBytes": 85561344,
+                "workingSetBytes": 85901312,
                 "depth": 1
               },
               {
-                "pid": 49100,
-                "ppid": 18652,
+                "pid": 40172,
+                "ppid": 11152,
                 "name": "electron.exe",
-                "createdMs": 1789713875678,
+                "createdMs": 1789715251741,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41508864,
+                "workingSetBytes": 41709568,
                 "depth": 1
               },
               {
-                "pid": 8240,
-                "ppid": 18652,
+                "pid": 49380,
+                "ppid": 11152,
                 "name": "electron.exe",
-                "createdMs": 1789713875719,
+                "createdMs": 1789715251779,
                 "role": "renderer",
-                "workingSetBytes": 64147456,
+                "workingSetBytes": 64086016,
                 "depth": 1
               }
             ],
-            "totalMB": 275.3203125
+            "totalMB": 275.70703125
           },
           {
             "atMsAfterReady": 8000,
-            "actualElapsedMs": 9362,
+            "actualElapsedMs": 9980,
             "tree": [
               {
-                "pid": 18652,
-                "ppid": 49692,
+                "pid": 11152,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713875513,
+                "createdMs": 1789715251571,
                 "role": "browser (main)",
-                "workingSetBytes": 97546240,
+                "workingSetBytes": 97456128,
                 "depth": 0
               },
               {
-                "pid": 18892,
-                "ppid": 18652,
+                "pid": 11560,
+                "ppid": 11152,
                 "name": "electron.exe",
-                "createdMs": 1789713875673,
+                "createdMs": 1789715251735,
                 "role": "gpu-process",
-                "workingSetBytes": 85696512,
+                "workingSetBytes": 86118400,
                 "depth": 1
               },
               {
-                "pid": 49100,
-                "ppid": 18652,
+                "pid": 40172,
+                "ppid": 11152,
                 "name": "electron.exe",
-                "createdMs": 1789713875678,
+                "createdMs": 1789715251741,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41652224,
+                "workingSetBytes": 41791488,
                 "depth": 1
               },
               {
-                "pid": 8240,
-                "ppid": 18652,
+                "pid": 49380,
+                "ppid": 11152,
                 "name": "electron.exe",
-                "createdMs": 1789713875719,
+                "createdMs": 1789715251779,
                 "role": "renderer",
-                "workingSetBytes": 64167936,
+                "workingSetBytes": 64102400,
                 "depth": 1
               }
             ],
-            "totalMB": 275.671875
+            "totalMB": 276.05859375
           }
         ],
         "crash": null,
         "exitInfo": {
           "code": 0,
           "signal": null,
-          "at": 1789713889081
+          "at": 1789715265396
         },
         "stderrTail": "",
         "discovery": {
@@ -1585,32 +1577,32 @@
         },
         "logEvents": [
           {
-            "t": 1789713875631,
+            "t": 1789715251698,
             "event": "main-module-start",
-            "mainPid": 18652,
+            "mainPid": 11152,
             "serverPath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713875678,
+            "t": 1789715251738,
             "event": "app-ready"
           },
           {
-            "t": 1789713875776,
+            "t": 1789715251843,
             "event": "window-created",
             "windowId": 1
           },
           {
-            "t": 1789713875778,
+            "t": 1789715251845,
             "event": "server-start-begin",
             "port": 15905
           },
           {
-            "t": 1789713875962,
+            "t": 1789715251978,
             "event": "server-ready",
             "port": 15905
           },
           {
-            "t": 1789713888971,
+            "t": 1789715264982,
             "event": "quitting",
             "windowStillExists": true,
             "serverAlive": true
@@ -1620,103 +1612,103 @@
       {
         "approach": "inprocess",
         "port": 15906,
-        "mainPid": 47108,
+        "mainPid": 37268,
         "armPosition": "first",
-        "coldStartMs": 432,
+        "coldStartMs": 535,
         "healthError": null,
         "idle": [
           {
             "atMsAfterReady": 3000,
-            "actualElapsedMs": 4903,
+            "actualElapsedMs": 5008,
             "tree": [
               {
-                "pid": 47108,
-                "ppid": 49692,
+                "pid": 37268,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713889086,
+                "createdMs": 1789715265402,
                 "role": "browser (main)",
-                "workingSetBytes": 97468416,
+                "workingSetBytes": 97644544,
                 "depth": 0
               },
               {
-                "pid": 48980,
-                "ppid": 47108,
+                "pid": 22180,
+                "ppid": 37268,
                 "name": "electron.exe",
-                "createdMs": 1789713889205,
+                "createdMs": 1789715265573,
                 "role": "gpu-process",
-                "workingSetBytes": 85483520,
+                "workingSetBytes": 85250048,
                 "depth": 1
               },
               {
-                "pid": 43668,
-                "ppid": 47108,
+                "pid": 40028,
+                "ppid": 37268,
                 "name": "electron.exe",
-                "createdMs": 1789713889211,
+                "createdMs": 1789715265580,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41820160,
+                "workingSetBytes": 41689088,
                 "depth": 1
               },
               {
-                "pid": 35064,
-                "ppid": 47108,
+                "pid": 25008,
+                "ppid": 37268,
                 "name": "electron.exe",
-                "createdMs": 1789713889248,
+                "createdMs": 1789715265631,
                 "role": "renderer",
-                "workingSetBytes": 64081920,
+                "workingSetBytes": 66945024,
                 "depth": 1
               }
             ],
-            "totalMB": 275.47265625
+            "totalMB": 278.0234375
           },
           {
             "atMsAfterReady": 8000,
-            "actualElapsedMs": 9749,
+            "actualElapsedMs": 10266,
             "tree": [
               {
-                "pid": 47108,
-                "ppid": 49692,
+                "pid": 37268,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713889086,
+                "createdMs": 1789715265402,
                 "role": "browser (main)",
-                "workingSetBytes": 97538048,
+                "workingSetBytes": 97042432,
                 "depth": 0
               },
               {
-                "pid": 48980,
-                "ppid": 47108,
+                "pid": 22180,
+                "ppid": 37268,
                 "name": "electron.exe",
-                "createdMs": 1789713889205,
+                "createdMs": 1789715265573,
                 "role": "gpu-process",
-                "workingSetBytes": 85614592,
+                "workingSetBytes": 85409792,
                 "depth": 1
               },
               {
-                "pid": 43668,
-                "ppid": 47108,
+                "pid": 40028,
+                "ppid": 37268,
                 "name": "electron.exe",
-                "createdMs": 1789713889211,
+                "createdMs": 1789715265580,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41869312,
+                "workingSetBytes": 41783296,
                 "depth": 1
               },
               {
-                "pid": 35064,
-                "ppid": 47108,
+                "pid": 25008,
+                "ppid": 37268,
                 "name": "electron.exe",
-                "createdMs": 1789713889248,
+                "createdMs": 1789715265631,
                 "role": "renderer",
-                "workingSetBytes": 64221184,
+                "workingSetBytes": 66965504,
                 "depth": 1
               }
             ],
-            "totalMB": 275.84375
+            "totalMB": 277.7109375
           }
         ],
         "crash": null,
         "exitInfo": {
           "code": 0,
           "signal": null,
-          "at": 1789713902591
+          "at": 1789715279022
         },
         "stderrTail": "",
         "discovery": {
@@ -1724,32 +1716,32 @@
         },
         "logEvents": [
           {
-            "t": 1789713889176,
+            "t": 1789715265534,
             "event": "main-module-start",
-            "mainPid": 47108,
+            "mainPid": 37268,
             "serverPath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713889210,
+            "t": 1789715265578,
             "event": "app-ready"
           },
           {
-            "t": 1789713889304,
+            "t": 1789715265704,
             "event": "window-created",
             "windowId": 1
           },
           {
-            "t": 1789713889306,
+            "t": 1789715265706,
             "event": "server-start-begin",
             "port": 15906
           },
           {
-            "t": 1789713889437,
+            "t": 1789715265860,
             "event": "server-ready",
             "port": 15906
           },
           {
-            "t": 1789713902443,
+            "t": 1789715278879,
             "event": "quitting",
             "windowStillExists": true,
             "serverAlive": true
@@ -1759,103 +1751,103 @@
       {
         "approach": "inprocess",
         "port": 15909,
-        "mainPid": 30476,
+        "mainPid": 14856,
         "armPosition": "second",
-        "coldStartMs": 354,
+        "coldStartMs": 545,
         "healthError": null,
         "idle": [
           {
             "atMsAfterReady": 3000,
-            "actualElapsedMs": 4213,
+            "actualElapsedMs": 4738,
             "tree": [
               {
-                "pid": 30476,
-                "ppid": 49692,
+                "pid": 14856,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713929616,
+                "createdMs": 1789715305926,
                 "role": "browser (main)",
-                "workingSetBytes": 97431552,
+                "workingSetBytes": 97099776,
                 "depth": 0
               },
               {
-                "pid": 11188,
-                "ppid": 30476,
+                "pid": 10064,
+                "ppid": 14856,
                 "name": "electron.exe",
-                "createdMs": 1789713929742,
+                "createdMs": 1789715306075,
                 "role": "gpu-process",
-                "workingSetBytes": 85295104,
+                "workingSetBytes": 85389312,
                 "depth": 1
               },
               {
-                "pid": 27788,
-                "ppid": 30476,
+                "pid": 31868,
+                "ppid": 14856,
                 "name": "electron.exe",
-                "createdMs": 1789713929747,
+                "createdMs": 1789715306082,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41730048,
+                "workingSetBytes": 41562112,
                 "depth": 1
               },
               {
-                "pid": 7760,
-                "ppid": 30476,
+                "pid": 49000,
+                "ppid": 14856,
                 "name": "electron.exe",
-                "createdMs": 1789713929781,
+                "createdMs": 1789715306131,
                 "role": "renderer",
-                "workingSetBytes": 66654208,
+                "workingSetBytes": 64221184,
                 "depth": 1
               }
             ],
-            "totalMB": 277.625
+            "totalMB": 274.91796875
           },
           {
             "atMsAfterReady": 8000,
-            "actualElapsedMs": 9350,
+            "actualElapsedMs": 9367,
             "tree": [
               {
-                "pid": 30476,
-                "ppid": 49692,
+                "pid": 14856,
+                "ppid": 25692,
                 "name": "electron.exe",
-                "createdMs": 1789713929616,
+                "createdMs": 1789715305926,
                 "role": "browser (main)",
-                "workingSetBytes": 97722368,
+                "workingSetBytes": 97247232,
                 "depth": 0
               },
               {
-                "pid": 11188,
-                "ppid": 30476,
+                "pid": 10064,
+                "ppid": 14856,
                 "name": "electron.exe",
-                "createdMs": 1789713929742,
+                "createdMs": 1789715306075,
                 "role": "gpu-process",
-                "workingSetBytes": 89772032,
+                "workingSetBytes": 85524480,
                 "depth": 1
               },
               {
-                "pid": 27788,
-                "ppid": 30476,
+                "pid": 31868,
+                "ppid": 14856,
                 "name": "electron.exe",
-                "createdMs": 1789713929747,
+                "createdMs": 1789715306082,
                 "role": "utility (network.mojom.NetworkService)",
-                "workingSetBytes": 41709568,
+                "workingSetBytes": 41566208,
                 "depth": 1
               },
               {
-                "pid": 7760,
-                "ppid": 30476,
+                "pid": 49000,
+                "ppid": 14856,
                 "name": "electron.exe",
-                "createdMs": 1789713929781,
+                "createdMs": 1789715306131,
                 "role": "renderer",
-                "workingSetBytes": 66678784,
+                "workingSetBytes": 64245760,
                 "depth": 1
               }
             ],
-            "totalMB": 282.17578125
+            "totalMB": 275.21484375
           }
         ],
         "crash": null,
         "exitInfo": {
           "code": 0,
           "signal": null,
-          "at": 1789713943104
+          "at": 1789715319676
         },
         "stderrTail": "",
         "discovery": {
@@ -1863,32 +1855,32 @@
         },
         "logEvents": [
           {
-            "t": 1789713929714,
+            "t": 1789715306045,
             "event": "main-module-start",
-            "mainPid": 30476,
+            "mainPid": 14856,
             "serverPath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713929745,
+            "t": 1789715306080,
             "event": "app-ready"
           },
           {
-            "t": 1789713929844,
+            "t": 1789715306188,
             "event": "window-created",
             "windowId": 1
           },
           {
-            "t": 1789713929846,
+            "t": 1789715306189,
             "event": "server-start-begin",
             "port": 15909
           },
           {
-            "t": 1789713929952,
+            "t": 1789715306377,
             "event": "server-ready",
             "port": 15909
           },
           {
-            "t": 1789713942962,
+            "t": 1789715319380,
             "event": "quitting",
             "windowStillExists": true,
             "serverAlive": true
@@ -1900,72 +1892,72 @@
       {
         "approach": "inprocess",
         "port": 15911,
-        "mainPid": 40552,
+        "mainPid": 49228,
         "armPosition": "second",
-        "coldStartMs": 413,
+        "coldStartMs": 416,
         "healthError": null,
         "idle": [],
         "crash": {
           "crashAfterMs": 3000,
           "installHandler": false,
-          "preCrashElapsedMs": 3233,
-          "postCrashElapsedMs": 9227,
-          "preCrashTotalMB": 277.17578125,
+          "preCrashElapsedMs": 3573,
+          "postCrashElapsedMs": 9585,
+          "preCrashTotalMB": 275.06640625,
           "mainAlive": true,
           "heartbeat": {
-            "t": 1789713958852,
+            "t": 1789715335371,
             "approach": "in-process",
-            "mainPid": 40552,
+            "mainPid": 49228,
             "windowExists": true,
             "windowVisible": true,
-            "serverPid": 40552,
+            "serverPid": 49228,
             "serverAlive": true
           },
-          "heartbeatSnapshotAt": 1789713966909,
+          "heartbeatSnapshotAt": 1789715343755,
           "postCrashTree": [
             {
-              "pid": 40552,
-              "ppid": 49692,
+              "pid": 49228,
+              "ppid": 25692,
               "name": "electron.exe",
-              "createdMs": 1789713955633,
+              "createdMs": 1789715332141,
               "role": "browser (main)",
-              "workingSetBytes": 101920768,
+              "workingSetBytes": 100126720,
               "depth": 0
             },
             {
-              "pid": 27324,
-              "ppid": 40552,
+              "pid": 49908,
+              "ppid": 49228,
               "name": "electron.exe",
-              "createdMs": 1789713955799,
+              "createdMs": 1789715332280,
               "role": "gpu-process",
-              "workingSetBytes": 85426176,
+              "workingSetBytes": 89628672,
               "depth": 1
             },
             {
-              "pid": 28336,
-              "ppid": 40552,
+              "pid": 46032,
+              "ppid": 49228,
               "name": "electron.exe",
-              "createdMs": 1789713955807,
+              "createdMs": 1789715332286,
               "role": "utility (network.mojom.NetworkService)",
-              "workingSetBytes": 41775104,
+              "workingSetBytes": 41881600,
               "depth": 1
             },
             {
-              "pid": 39384,
-              "ppid": 40552,
+              "pid": 51784,
+              "ppid": 49228,
               "name": "electron.exe",
-              "createdMs": 1789713955845,
+              "createdMs": 1789715332316,
               "role": "renderer",
-              "workingSetBytes": 64466944,
+              "workingSetBytes": 64155648,
               "depth": 1
             }
           ],
-          "postCrashTotalMB": 279.98828125
+          "postCrashTotalMB": 282.08984375
         },
         "exitInfo": {
           "code": null,
           "signal": "SIGTERM",
-          "at": 1789713987223
+          "at": 1789715364875
         },
         "stderrTail": "",
         "discovery": {
@@ -1973,32 +1965,32 @@
         },
         "logEvents": [
           {
-            "t": 1789713955764,
+            "t": 1789715332248,
             "event": "main-module-start",
-            "mainPid": 40552,
+            "mainPid": 49228,
             "serverPath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789713955805,
+            "t": 1789715332283,
             "event": "app-ready"
           },
           {
-            "t": 1789713955901,
+            "t": 1789715332389,
             "event": "window-created",
             "windowId": 1
           },
           {
-            "t": 1789713955903,
+            "t": 1789715332390,
             "event": "server-start-begin",
             "port": 15911
           },
           {
-            "t": 1789713956018,
+            "t": 1789715332509,
             "event": "server-ready",
             "port": 15911
           },
           {
-            "t": 1789713956019,
+            "t": 1789715332509,
             "event": "crash-scheduled",
             "afterMs": 3000,
             "target": "main-process-itself",
@@ -2011,35 +2003,35 @@
       {
         "approach": "inprocess",
         "port": 15913,
-        "mainPid": 19928,
+        "mainPid": 27024,
         "armPosition": "second",
-        "coldStartMs": 686,
+        "coldStartMs": 718,
         "healthError": null,
         "idle": [],
         "crash": {
           "crashAfterMs": 3000,
           "installHandler": true,
-          "preCrashElapsedMs": 3638,
-          "postCrashElapsedMs": 15321,
-          "preCrashTotalMB": 275.18359375,
+          "preCrashElapsedMs": 4546,
+          "postCrashElapsedMs": 15312,
+          "preCrashTotalMB": 169.80859375,
           "mainAlive": false,
           "heartbeat": {
-            "t": 1789714003608,
+            "t": 1789715381464,
             "approach": "in-process",
-            "mainPid": 19928,
+            "mainPid": 27024,
             "windowExists": true,
             "windowVisible": true,
-            "serverPid": 19928,
+            "serverPid": 27024,
             "serverAlive": true
           },
-          "heartbeatSnapshotAt": 1789714017209,
+          "heartbeatSnapshotAt": 1789715395909,
           "postCrashTree": [],
           "postCrashTotalMB": 0
         },
         "exitInfo": {
           "code": 1,
           "signal": null,
-          "at": 1789714003909
+          "at": 1789715383142
         },
         "stderrTail": "Error: PROOF-08 injected crash: simulated unhandled error in-process (shares process with the window)\n    at Timeout._onTimeout (file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/main-inprocess.mjs:137:13)\n    at listOnTimeout (node:internal/timers:685:17)\n    at process.processTimers (node:internal/timers:618:7)\n",
         "discovery": {
@@ -2047,39 +2039,39 @@
         },
         "logEvents": [
           {
-            "t": 1789714000229,
+            "t": 1789715378135,
             "event": "main-module-start",
-            "mainPid": 19928,
+            "mainPid": 27024,
             "serverPath": "C:\\Users\\MaxVision\\Desktop\\cursor-oficial\\decktech\\server.js"
           },
           {
-            "t": 1789714000284,
+            "t": 1789715378240,
             "event": "app-ready"
           },
           {
-            "t": 1789714000430,
+            "t": 1789715378423,
             "event": "window-created",
             "windowId": 1
           },
           {
-            "t": 1789714000438,
+            "t": 1789715378425,
             "event": "server-start-begin",
             "port": 15913
           },
           {
-            "t": 1789714000710,
+            "t": 1789715378589,
             "event": "server-ready",
             "port": 15913
           },
           {
-            "t": 1789714000711,
+            "t": 1789715378590,
             "event": "crash-scheduled",
             "afterMs": 3000,
             "target": "main-process-itself",
             "handlerInstalled": true
           },
           {
-            "t": 1789714003715,
+            "t": 1789715381608,
             "event": "main-uncaught-exception-handled",
             "message": "PROOF-08 injected crash: simulated unhandled error in-process (shares process with the window)",
             "stack": "Error: PROOF-08 injected crash: simulated unhandled error in-process (shares process with the window)\n    at Timeout._onTimeout (file:///C:/Users/MaxVision/Desktop/cursor-oficial/decktech/measure/windows/proof-08/main-inprocess.mjs:137:13)\n    at listOnTimeout (node:internal/timers:685:17)\n    at process.processTimers (node:internal/timers:618:7)"

@@ -336,21 +336,77 @@
 > (committed at `raw-results-round9review-n5.json` and
 > `round9review-n5-run-output.txt`), confirmed the guard renders an actual
 > verdict once n reaches the minimum, on both sides of the FLAG: cold start
-> at n=5 printed `FLAG: median delta (118 ms) is SMALLER than at least one
-> arm's own spread (155 ms) — not a reproducible directional claim at this
+> at n=5 printed `FLAG: median delta (317 ms) is SMALLER than at least one
+> arm's own spread (403 ms) — not a reproducible directional claim at this
 > n.`, idle RSS at n=5 printed `Median delta exceeds both arms' spread —
-> directionally supported at this n.` (delta 58.4 MB vs. spreads 15.9/6.5
+> directionally supported at this n.` (delta 55.4 MB vs. spreads 9.5/2.9
 > MB). Both smoke batteries carried `meta.outTag` set to their own validated
 > tag in the committed JSON, confirmed by reading the file back, not
-> assumed. **None of this touches §4/§5's own headline numbers:** round-8's
+> assumed.
+>
+> **Advisor follow-up on this same round (pre-existing self-review gaps
+> caught before this round shipped, not a second external rejection): 2
+> further defects in the round-9 fix itself, both closed the same way — fix,
+> then run, then read the output.** **(a)** `--force` overwrites committed
+> evidence but the written file carried no record that it had — the exact
+> defect class major finding #1 was raised against, reproduced inside this
+> round's own fix for minor finding #3. Fixed: `COMMITTED_FILE_PREEXISTED`
+> (an `existsSync` check captured once, before the guard can exit) and
+> `FORCE` are both written unconditionally into `meta` as
+> `overwroteExistingFile` and `forced`. Verified: a fresh
+> `--out-tag round9forcetest` run followed by
+> `--out-tag round9forcetest --force` produced `meta: {..., "forced": true,
+> "overwroteExistingFile": true, ...}`, read back from the file, not
+> assumed; the first (non-forced) run of the pair carried
+> `"overwroteExistingFile": false`, confirming the flag records the actual
+> fact (something really was replaced) and not merely that `--force` was
+> typed. Both throwaway files deleted after verification (`git status
+> --short` clean — this pair was not committed; it only demonstrates the
+> mechanism). **(b)** the bare-invocation, timestamp-derived default-tag
+> path (minor finding #3's own fix) had never actually been executed —
+> every verification run above passed an explicit `--out-tag`, so an
+> unverified behavioral claim (that a bare run derives a fresh,
+> collision-free, `SAFE_TAG_RE`-valid tag) sat in this very note — the exact
+> failure mode under review. Verified: `node run.mjs --reps 1 --crash-reps
+> 1` (no `--out-tag`) → `[checkpoint] wrote
+> ...raw-results-run-2026-09-18T06-57-39-700Z.json after phase "complete"`,
+> and `/^[A-Za-z0-9_-]+$/.test("run-2026-09-18T06-57-39-700Z")` → `true`,
+> checked against the real produced filename rather than the expression
+> (the `else` branch that derives it skips `SAFE_TAG_RE` by construction, so
+> this could only be confirmed by actually running it). Artifact deleted
+> after verification, `git status --short` clean, same disclosure
+> convention this round's own reviewer used for their reproduction. **(c)**
+> a smaller, related gap: `--out-tag --force` (the next arg is itself
+> flag-shaped) previously passed `SAFE_TAG_RE` unchanged and was silently
+> accepted as the literal tag `"--force"` — not a traversal risk, but the
+> same "flag last, value missing/misread" family. Fixed: a value starting
+> with `-` is now rejected explicitly, alongside the existing checks.
+> Verified: `node run.mjs --reps 1 --crash-reps 1 --out-tag --force` →
+> `FATAL: invalid --out-tag value: "--force" — ... and not starting with
+> "-" ...`, exit 1. **(d)** the file's own `Usage:` header comment listed
+> only `--reps`/`--crash-reps`, omitting both `--out-tag` and `--force` —
+> the same "header comment claims less than the code does" pattern (the
+> inverse of round-8's own "claims more than the code enforces" defect)
+> this file was already rejected for once; both flags are now listed. The
+> two committed batteries above (`round9fixverifn1`, `round9review-n5`)
+> were then **re-run against this fully-fixed code with `--force`**, so the
+> committed evidence's own `meta` now reflects the final script rather than
+> an intermediate one — both show `"forced": true, "overwroteExistingFile":
+> true"` (this round's own re-run legitimately overwrote this round's own
+> prior smoke-test file, never round-8's evidence).
+>
+> **None of this touches §4/§5's own headline numbers:** round-8's
 > committed battery ran at n=8 ≥ `MIN_N_FOR_DIRECTIONAL_VERDICT`, so the new
 > guard changes nothing about its printed verdicts — §4's 55 ms/152 ms cold
 > start FLAG and §4's 57.7 MB idle-RSS "directionally supported" result are
-> unchanged, still cited from `raw-results-round8.json`, not re-derived. The
+> unchanged, still cited from `raw-results-round8.json`, not re-derived, and
+> `raw-results-round8.json` itself was never overwritten by any run this
+> round (every attempt to target that exact filename exited 1 without
+> `--force`, and `--force` was never passed against it — see above). The
 > decision (ship `utilityProcess.fork`) is unchanged. See the inline
-> "ROUND-9 FIX" comments in `measure/windows/proof-08/run.mjs` and
-> `measure/windows/proof-08/results/` for the two new smoke-verification
-> batteries' committed evidence.
+> "ROUND-9 FIX" and "ROUND-9 FOLLOW-UP FIX" comments in
+> `measure/windows/proof-08/run.mjs` and `measure/windows/proof-08/results/`
+> for the two committed smoke-verification batteries' evidence.
 
 > Evidence convention: every number and behavior below is `[MEASURED]` — produced
 > by running the probes in `measure/windows/proof-08/` on this machine — or
@@ -1929,7 +1985,13 @@ node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3 --out-tag   # flag
 node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag "../../x"   # path-traversal tag — exits 1, `FATAL: invalid --out-tag value: "../../x" ...`, same finding
 node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round8   # tag collides with already-committed evidence — closes round-9 minor finding #3: exits 1, `FATAL: ...raw-results-round8.json already exists — refusing to overwrite committed evidence.`, before any Electron process spawns; pass --force to override deliberately
 node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round9fixverifn1 2>&1 | tee measure/windows/proof-08/results/round9fixverifn1-run-output.txt   # closes round-9 major finding #2 at n=1 (below MIN_N_FOR_DIRECTIONAL_VERDICT): both cold start and idle RSS print "n too small to judge directionality (n=1, minimum 5) ... no verdict rendered" instead of the old code's false "directionally supported"; committed at raw-results-round9fixverifn1.json (meta.outTag: "round9fixverifn1", confirmed present by reading the file back)
-node measure/windows/proof-08/run.mjs --reps 5 --crash-reps 1 --out-tag round9review-n5 2>&1 | tee measure/windows/proof-08/results/round9review-n5-run-output.txt   # closes round-9 major finding #2 at n=5 (at MIN_N_FOR_DIRECTIONAL_VERDICT): the guard renders an actual verdict again once n reaches the minimum — cold start printed a FLAG (118 ms delta < 155 ms spread), idle RSS printed "directionally supported" (58.4 MB delta > 15.9/6.5 MB spreads); committed at raw-results-round9review-n5.json
+node measure/windows/proof-08/run.mjs --reps 5 --crash-reps 1 --out-tag round9review-n5 2>&1 | tee measure/windows/proof-08/results/round9review-n5-run-output.txt   # closes round-9 major finding #2 at n=5 (at MIN_N_FOR_DIRECTIONAL_VERDICT): the guard renders an actual verdict again once n reaches the minimum — cold start printed a FLAG, idle RSS printed "directionally supported" (see Round-9 revision note above for this run's exact numbers); committed at raw-results-round9review-n5.json
+
+# Round-9 additions (advisor follow-up, closing 4 self-review gaps in this same round's own fix):
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag --force   # --out-tag's next arg is itself flag-shaped ("--force") — previously accepted as the literal tag "--force"; now exits 1, `FATAL: invalid --out-tag value: "--force" — ... and not starting with "-" ...`
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1   # bare invocation, no --out-tag at all — the timestamp-default path itself, verified for real for the first time this round: prints a checkpoint at raw-results-run-<ISO timestamp>.json, a filename confirmed (not assumed) to satisfy SAFE_TAG_RE; artifact deleted after verification (git status --short clean), not committed
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round9forcetest        # first run at a fresh tag — meta.forced=false, meta.overwroteExistingFile=false
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round9forcetest --force  # second run, same tag, --force — meta.forced=true, meta.overwroteExistingFile=true; both throwaway files deleted after verification, not committed
 ```
 
 `crash-timeline.mjs`'s per-iteration cadence is now printed inline (`iter
