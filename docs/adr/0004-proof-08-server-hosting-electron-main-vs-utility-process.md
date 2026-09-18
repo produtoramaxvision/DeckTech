@@ -2,7 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-09-17 (round-1), revised 2026-09-17 (round-2), revised
-  2026-09-18 (round-3 — see below), revised 2026-09-18 (round-4 — see below)
+  2026-09-18 (round-3 — see below), revised 2026-09-18 (round-4 — see below),
+  revised 2026-09-18 (round-5 — see below)
 - Requirement: PROOF-08 (`.maxvision/REQUIREMENTS.md` Fase 0), decides D15,
   informs SHELL-01/SHELL-02/SHELL-03 (Fase 5)
 - Supersedes: nothing. Closes the gap `WINDOWS-STACK.md` §9 left open — that
@@ -102,6 +103,42 @@
 > (58.8 MB against 4.6 MB/2.9 MB spreads, both tighter than round-3's own
 > now-retracted 6.4 MB/3.5 MB). See §6 and the inline "ROUND-4 FIX" comments
 > in `measure/windows/proof-08/*.mjs`/`.ps1` for the mechanism of each fix.
+
+> **Round-5 revision note.** A rigorous review rejected the round-4 version
+> on 3 findings (1 blocker, 1 major, 1 minor), all in the crash-timeline
+> probe and its window-enumeration dependency — **§4 (idle RSS, cold start)
+> is untouched by any of the three and was not re-run.** The blocker:
+> round-4's own headline fix for its own finding #4 (mislabeled
+> crash-timeline timestamps) was incomplete, and round-4's own code comment
+> asserting the fix was complete was false — every probe was still stamped
+> *before* its `await`, so a label could still precede the true read by up
+> to the ~1s+ the underlying PowerShell round trip takes; a round-5
+> reviewer reproduced the exact impossible-ordering signature (a window
+> sample reporting the crash dialog 275ms *before* the independently-
+> computed crash time) that round-4 itself was rejected for, on round-4's
+> supposedly-fixed code. Fixed by stamping both a pre-call and a
+> post-return timestamp per probe and deriving any causal-timing interval
+> only from the edge each stamp can actually prove (pre-call of the last
+> absent sample as the lower bound, post-return of the first present sample
+> as the upper bound) — see §5's box and §6's finding-#1 entry for the
+> re-derived numbers, from a fresh `crash-timeline.mjs inprocess` run. The
+> major: `enum-windows.ps1`'s `GetClassName` P/Invoke import had no
+> `CharSet`, silently binding the ANSI entry point (`GetClassNameA`) on a
+> file whose own header, and this ADR, asserted three times it calls
+> `GetClassNameW` — a defect the round-4 base64 fix (which protects only
+> the console output pipe, not the P/Invoke marshaling boundary) could not
+> reach. Proven on an identically-declared `GetWindowText` pair (not on
+> `GetClassName` directly — Win32 class names are ASCII in practice, which
+> is why nothing measured here was actually corrupted); fixed by declaring
+> the import `CharSet=CharSet.Unicode, EntryPoint="GetClassNameW"`
+> explicitly. The minor: the Appendix's round-4 "decode and confirm"
+> repro line was a bare `enum-windows.ps1` invocation that prints raw
+> base64 and decodes nothing — a reader could not confirm the round-trip
+> claim from the Appendix alone; fixed with a new committed script,
+> `decode-windows.mjs`, that decodes through `lib.mjs`'s real
+> `enumAllWindows()` (the same path every real caller uses). The decision
+> is unchanged. See §5, §6 and the inline "ROUND-5 FIX" comments in
+> `measure/windows/proof-08/*.mjs`/`.ps1` for the mechanism of each fix.
 
 > Evidence convention: every number and behavior below is `[MEASURED]` — produced
 > by running the probes in `measure/windows/proof-08/` on this machine — or
@@ -514,13 +551,78 @@ three different (overlapping) ranges around that same floor.
 > samples, itself disclosed rather than assumed — see below), the honest
 > claim is **the dialog first appears somewhere in (t+1495ms, t+4358ms] —
 > consistent with, and bounded around, the ~t+3372ms crash** — not a false
-> single-millisecond timestamp. The heartbeat over the same window: last
+> single-millisecond timestamp. ~~The heartbeat over the same window: last
 > live tick recorded at the sample taken t+1495ms (age 32ms at that
 > sample), then frozen at that same `hb.t` value at every subsequent sample
 > through the end of the run (age growing past 94s by the final sample)
 > while `/health` answers `TIMEOUT` from the first post-crash sample
 > onward — confirming the freeze independently again, on freshly-timed,
-> correctly-labeled data.
+> correctly-labeled data.~~
+>
+> **Round-5 correction (blocker finding #1): the paragraph above is
+> retracted, not merely re-derived — round-4's own "fix" was itself still a
+> pre-call label.** Round-4 moved `windowsAtMs` to be stamped immediately
+> *before* `windowsForPids()`'s `await`, and its own header comment claimed
+> this "is when the window data below was actually sampled, not when the
+> iteration started" — but `windowsForPids()` still takes up to ~1s+ (the
+> `EnumWindows` `Add-Type` recompile plus retries — see `lib.mjs`), so the
+> label could still precede the true read by that much. A round-5 reviewer
+> reproduced the identical impossible-ordering signature this exact defect
+> shape produces: their clean run's row `windows[sampled t+3038ms]` already
+> contained the `#32770`/`Error` dialog for a crash independently computed
+> (from that same run's own `server-ready` log + `PROOF08_CRASH_AFTER_MS`)
+> to fire at t+3313ms — a label 275ms *before* the crash that created what
+> it reports. The t+1495ms/t+4358ms figures above have the same defect and
+> are retracted for the same reason round-4 retracted round-3's
+> t+3659ms/t+85800ms figures.
+>
+> **Fix (round-5).** `crash-timeline.mjs` now stamps each probe with BOTH a
+> pre-call and a post-return timestamp and prints `[read in (t+A ms,
+> t+B ms]]` — an interval bounding the unknown true read instant, not a
+> single point. A dialog-arrival interval is derived across two consecutive
+> rows using only the edges each row can actually prove: the **pre-call**
+> timestamp of the **last dialog-absent** sample (a provable lower bound —
+> the read that found no dialog cannot have happened before its own
+> pre-call stamp) and the **post-return** timestamp of the **first
+> dialog-present** sample (a provable upper bound — the call had returned,
+> so the dialog existed, by that stamp). Using the post-return stamp of the
+> *absent* sample as the lower bound (what a naive reading of "use the
+> later, more-certain edge" would suggest) is NOT valid: that read could
+> have completed anywhere in its own `(pre, post]` window, including right
+> after `pre`, so its `post` time is not a bound on when the dialog was
+> still absent — only its `pre` time is.
+>
+> **Re-run post-fix** (`node measure/windows/proof-08/crash-timeline.mjs
+> inprocess`, this round, fresh; full output archived in this round's
+> commit): health 200 at **t+291ms**. `t0` (the driver's own spawn instant,
+> in absolute Unix-ms) is derived two independent ways from this run's own
+> heartbeat rows — `hb.t + hbAgeMs − hbPostMs` — and both agree exactly:
+> iter 1's hb row (`hb.t=1789707327928`, age 8ms, `hbPostMs=1237`) gives
+> `t0=1789707326699`; iter 2's hb row (`hb.t=1789707329411`, age 65ms,
+> `hbPostMs=2777`) gives the same `t0=1789707326699`. The crash fires at
+> absolute `server-ready`(`1789707326965`) + `crash-scheduled.afterMs`(3000,
+> both from this run's own log) = `1789707329965`, i.e. relative
+> **t+3266ms** to that `t0`. The last dialog-absent window sample is iter 2,
+> `windows[read in (t+2777ms, t+3519ms]]` — only `{"class":
+> "Chrome_WidgetWin_1","title":"Electron",...}`; the first dialog-present
+> sample is iter 3, `windows[read in (t+5080ms, t+6006ms]]` — a second
+> entry, `{"class":"#32770","title":"Error","visible":true}`, now appears.
+> Per the interval rule above, the honest claim is **the dialog first
+> appeared somewhere in (t+2777ms, t+6006ms]** — consistent with, and
+> bounded around, the independently-computed **t+3266ms** crash.
+> **Discriminating check (the one round-5's reviewer's reproduction
+> failed):** the upper bound must be ≥ the computed crash time —
+> `6006 ≥ 3266` holds, and the lower bound must be < the crash time —
+> `2777 < 3266` holds — no impossible ordering. The heartbeat over the same
+> window: last live tick recorded in the iter-2 sample (`hb.t=1789707329411`
+> → relative t+2712ms, age 65ms at that read), then frozen at
+> `hb.t=1789707329832` (relative **t+3133ms**, the last tick the event loop
+> completed before the crash — 133ms before the computed t+3266ms crash,
+> less than the 200ms heartbeat-write interval, consistent) for every
+> subsequent sample through the end of the run, while `/health` answers
+> `TIMEOUT` from the first post-crash sample onward — confirming the freeze
+> a fifth time (round-1 through round-5), now on an interval-bounded,
+> honestly-labeled re-run.
 >
 > **Actual poll cadence, disclosed rather than assumed (finding #3).**
 > `EnumWindows` recompiles its `Add-Type` P/Invoke shim on every
@@ -605,17 +707,20 @@ predates it) — it is not a blanket guarantee against every possible
 contamination shape, e.g. a child with no queryable `CreationDate` at all
 is admitted on the pid/parent match alone, same as round-3.
 Re-verified independently this round, from the **committed**
-`crash-timeline.mjs inprocess`, on this round's fixed, correctly-timestamped
-code (round-4, finding #4 — see the box above; round-3's own timestamps for
-this same claim, "t+3659ms onward"/"t+85800ms", were mislabeled and are
-retracted, not reused): heartbeat ticks normally through the sample taken at
-t+1495ms, then **freezes at that exact tick's content for every subsequent
-sample through the end of the ~97s run** while `/health` answers `TIMEOUT`
-from the first post-crash sample onward, and the independently-enumerated
-window set shows the `#32770`/`Error` dialog already present by the sample
-taken at t+4358ms (absent at t+1495ms) and persisting throughout —
-confirming round-1's and round-2's finding stands under this round's fresh,
-committed, correctly-timestamped data. `stderr tail:` for this run was
+`crash-timeline.mjs inprocess`, on round-5's fixed, interval-timestamped
+code (round-5, finding #1 — see the box above; round-4's own "fixed" pre-call
+labels for this same claim, t+1495ms/t+4358ms — themselves replacing
+round-3's t+3659ms/t+85800ms — were still mislabeled and are retracted, not
+reused): heartbeat ticks normally through the sample read in
+`(t+2776ms, t+2777ms]` (that sample's `hb.t` converts to relative t+2712ms,
+age 65ms at read time), then **freezes at that exact tick's content for
+every subsequent sample through the end of the ~93s run** while `/health`
+answers `TIMEOUT` from the first post-crash sample onward, and the
+independently-enumerated window set shows the `#32770`/`Error` dialog
+already present in the sample read in `(t+5080ms, t+6006ms]` (absent in the
+prior sample, read in `(t+2777ms, t+3519ms]`) and persisting throughout —
+confirming round-1 through round-4's finding stands under round-5's fresh,
+committed, interval-timestamped data. `stderr tail:` for this run was
 empty, consistent with the mechanism in the box above (the dialog is the
 diagnostic; stderr
 genuinely gets nothing).
@@ -1074,6 +1179,36 @@ mangled the same way.
 > Explorador de Arquivos"` intact, every accent preserved, for the same
 > live desktop windows.
 
+**Round-5 disclosure — the base64 fix above closed the cp850 console pipe,
+but a separate encoding leak in the same file, at the P/Invoke boundary
+itself, was still open (major finding #2).** `GetClassName` in
+`enum-windows.ps1`'s `Add-Type` block was declared with no `CharSet`, so
+.NET's P/Invoke default (`CharSet.Ansi`) applied and the import bound to
+`GetClassNameA`, not `GetClassNameW` — while this file's own header, the
+§5 box above, and §6's finding-#3 citation itself all asserted three times
+that this script calls `GetClassNameW`. `GetWindowText` right next to it
+was already correctly declared `CharSet=CharSet.Auto` (→ `GetWindowTextW`
+on this NT-based OS); `GetClassName` had no such declaration. This loss
+happens marshaling the Win32 API result into this process, **before** the
+base64 encoding above ever sees the string — so the finding-#3 fix
+(immune console output encoding) cannot reach it; the two are different
+defects in the same file. Proven with an identically-shaped pair (an
+undeclared-`CharSet` `GetWindowText` import vs. the file's own correctly-
+declared `CharSet=Auto` one, both called live against the same windows):
+`ANSI-decl = "? DeckTech análise e otimização do Dokke"` vs.
+`UNICODE-decl = "◑ DeckTech análise e otimização do Dokke"`. This is an
+inference for `GetClassName` specifically, not a direct reproduction on
+that exact function — Win32 class names are ASCII by convention in
+practice (`#32770`, `Chrome_WidgetWin_1`, …), which is why no measurement
+in this ADR was actually corrupted; the risk was latent, not realized.
+**Fix.** `[DllImport("user32.dll", CharSet=CharSet.Unicode,
+EntryPoint="GetClassNameW")]`, explicitly targeting the W entry point
+rather than relying on `CharSet.Auto`'s OS-dependent resolution. Re-run of
+`enum-windows.ps1` standalone still exits 0 and enumerates windows
+normally; `#32770` and `Chrome_WidgetWin_1` (the classes §5's evidence
+depends on, both ASCII) still come back intact, confirming the fix did not
+regress the existing evidence.
+
 **Round-4 bug — `crash-timeline.mjs` labeled each poll row with the
 iteration-*start* time while the row's actual data was sampled up to ~2.5s
 later (major finding #4).** `now = Date.now() - t0` was computed at the top
@@ -1106,15 +1241,62 @@ header `for (let elapsed = 0; elapsed <= 11000; elapsed += 300)` reads as an
 > ready+3000ms (internal main-process clock), which converts to
 > approximately **t+3372ms** on the driver's own clock (computed from the
 > main process's own `server-ready`/`crash-scheduled` log timestamps against
-> the driver's `t0`, not estimated). The window-enumeration sample at
-> **t+1495ms** shows only the app's own window (`class=Chrome_WidgetWin_1
-> title=Electron`); the next sample, at **t+4358ms**, shows the `#32770`
-> `Error` dialog already present. This round's honest claim, given the
-> real sampling resolution: **the dialog first appears between t+1495ms and
+> the driver's `t0`, not estimated). ~~The window-enumeration sample at
+> t+1495ms shows only the app's own window (class=Chrome_WidgetWin_1
+> title=Electron); the next sample, at t+4358ms, shows the #32770 Error
+> dialog already present. This round's honest claim, given the real
+> sampling resolution: the dialog first appears between t+1495ms and
 > t+4358ms — consistent with, and bounded around, the ~t+3372ms crash, not
-> pinned to a false-precision single millisecond** the way round-3's
+> pinned to a false-precision single millisecond the way round-3's
 > "t+3659ms onward" figure implied. §5's box below is corrected to this
-> bounded claim.
+> bounded claim.~~
+
+**Round-5 bug — round-4's fix above was itself still a pre-call label, and
+round-4's own comment asserting otherwise was false (blocker finding #1).**
+Round-4 moved each probe's timestamp to `Date.now() - t0` taken
+*immediately before* that probe's `await`, and `crash-timeline.mjs`'s
+header comment claimed this timestamp "is when the window data below was
+actually sampled, not when the iteration started" — but the call itself
+(EnumWindows' `Add-Type` recompile plus retries) takes up to ~1s+, so a
+pre-call label can still precede the true read by that much. A round-5
+reviewer reproduced the exact impossible-ordering signature this defect
+shape produces — on the "fixed" round-4 code: their clean run's row
+`windows[sampled t+3038ms]` already contained the `#32770`/`Error` dialog
+for a crash independently computed (from that run's own `server-ready` log
++ `PROOF08_CRASH_AFTER_MS`) to fire at t+3313ms — a label 275ms *before*
+the crash it reports, the identical defect shape round-4 was rejected for.
+The t+1495ms/t+4358ms figures struck through above have the same defect
+and are retracted, not re-derived, for the same reason.
+
+> **Fix.** Every probe now stamps BOTH a pre-call (`*PreMs`) and a
+> post-return (`*PostMs`) timestamp, printed as `[read in (t+A ms,
+> t+B ms]]`. A causal-timing claim across two rows now uses only the edge
+> each row can actually prove: the pre-call time of the last dialog-absent
+> sample (the true read cannot have happened before its own pre-call stamp)
+> as the lower bound, and the post-return time of the first dialog-present
+> sample (the call had returned, so the dialog already existed) as the
+> upper bound. The post-return time of the *absent* sample is explicitly
+> NOT used as a lower bound — that read could have completed anywhere in
+> its own `(pre, post]` window, so its `post` proves nothing about when the
+> dialog was still absent.
+>
+> **Re-run post-fix** (`node measure/windows/proof-08/crash-timeline.mjs
+> inprocess`, this round, fresh): health 200 at **t+291ms**. `t0` is
+> cross-derived from two independent heartbeat rows in this same run
+> (`hb.t + hbAgeMs − hbPostMs`) and both agree: `t0 = 1789707326699` (abs
+> Unix-ms). The crash fires at `server-ready`(1789707326965) +
+> `crash-scheduled.afterMs`(3000) = 1789707329965 abs, i.e. **t+3266ms**
+> relative to that `t0` — both figures read from this run's own log, not
+> estimated. The last dialog-absent window sample is
+> `windows[read in (t+2777ms, t+3519ms]]` (only the app's own window); the
+> first dialog-present sample is `windows[read in (t+5080ms, t+6006ms]]`
+> (the `#32770`/`Error` dialog now present). Per the fixed interval rule,
+> the honest claim is **the dialog first appeared somewhere in
+> (t+2777ms, t+6006ms]** — consistent with, and bounded around, the
+> independently-computed t+3266ms crash. **Discriminating check:** the
+> upper bound (6006ms) is ≥ the computed crash time (3266ms) and the lower
+> bound (2777ms) is < it — no impossible ordering, unlike the pre-fix
+> reproduction above. §5's box is corrected to this bounded claim.
 
 **Round-4 bug — `chromiumRole()` labeled any process without a `--type=`
 flag `"browser (main)"`, including non-Electron processes (minor finding
@@ -1337,7 +1519,11 @@ time powershell.exe -NoProfile -NonInteractive -File measure/windows/proof-08/en
 
 # Round-4 additions:
 node measure/windows/proof-08/crash-timeline.mjs inprocess   # re-timestamped per-probe sampling (§6, finding #4) — every probe's own sample time is now printed, not one iteration-start label
-powershell.exe -NoProfile -NonInteractive -File measure/windows/proof-08/enum-windows.ps1  # decode titleB64/classB64 and confirm an accented window title round-trips intact (§6, finding #3)
+powershell.exe -NoProfile -NonInteractive -File measure/windows/proof-08/enum-windows.ps1  # standalone: prints raw titleB64/classB64 JSON — does NOT decode (round-5 finding #3: this line alone cannot confirm the accented round-trip)
+
+# Round-5 additions:
+node measure/windows/proof-08/decode-windows.mjs   # ACTUALLY decodes titleB64/classB64 via lib.mjs's real enumAllWindows() (the same decode path windowsForPids()/crash-timeline.mjs use) and confirms an accented window title round-trips intact — closes §6 finding #3: the round-4 line above prints undecoded base64 and confirms nothing by itself. Prints every window plus a non-ASCII title/class count (honestly 0 if none are open right now).
+node measure/windows/proof-08/crash-timeline.mjs inprocess   # re-run needed after both round-5 fixes (interval timestamps, finding #1; GetClassNameW charset, finding #2) — §5's box and §6's finding-#4/#1 entries are re-derived from this exact re-run, not carried over
 ```
 
 `crash-timeline.mjs`'s per-iteration cadence is now printed inline (`iter

@@ -36,6 +36,29 @@
 # console encoding claims to be) — matching lib.mjs's existing CommandLine
 # handling exactly — and decode in lib.mjs's enumAllWindows() before this
 # data reaches any caller.
+#
+# ROUND-5 FIX (major finding #2). GetClassName below used to be declared with
+# NO CharSet, so .NET's P/Invoke default (CharSet.Ansi) applied and the import
+# bound to GetClassNameA, not GetClassNameW — while this file's own header
+# above, crash-timeline.mjs's header comment, and the ADR all asserted three
+# times that this script calls GetClassNameW. GetWindowText next to it was
+# already correctly declared `CharSet=CharSet.Auto` (-> GetWindowTextW on this
+# NT-based OS); GetClassName had no such declaration and silently took the
+# ANSI entry point instead. Proven on this machine with an identically-
+# undeclared-vs-declared pair (GetWindowText with no CharSet vs
+# CharSet=Auto, both called on the same live windows):
+#   ANSI-decl = "? DeckTech análise e otimização do Dokke"
+#   UNICODE-decl = "◑ DeckTech análise e otimização do Dokke"
+# The loss happens at the P/Invoke marshaling boundary, inside this process,
+# before the base64 encoding above ever sees the string — so the base64 fix
+# protects the cp850 console pipe (lib.mjs -> Node) but cannot recover a
+# character GetClassNameA already destroyed marshaling the Win32 API result
+# into this process. This had not yet corrupted a measurement because Win32
+# class names are ASCII by convention in practice (`#32770`,
+# `Chrome_WidgetWin_1`, …), not because the declaration was correct — a
+# latent defect, not a demonstrated corruption. Fixed by declaring the
+# GetClassName import the same way, explicitly targeting the W entry point
+# rather than relying on CharSet.Auto's OS-dependent resolution.
 Add-Type @"
 using System;
 using System.Text;
@@ -44,7 +67,7 @@ public class ProofEightWin32 {
   public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
   [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
   [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-  [DllImport("user32.dll")] public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode, EntryPoint="GetClassNameW")] public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
   [DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 }

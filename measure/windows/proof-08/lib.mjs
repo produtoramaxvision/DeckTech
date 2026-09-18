@@ -349,7 +349,13 @@ export function fmtTree(tree) {
 // classB64 (base64, immune to this machine's cp850 console output encoding
 // — see enum-windows.ps1's header) instead of raw title/class text. Decode
 // here, once, so every caller still sees plain `title`/`class` strings.
-function enumAllWindows() {
+// ROUND-5 FIX (minor finding #3): exported (was module-private) so
+// decode-windows.mjs (this directory) can reproduce the ADR §6 finding-#3
+// accented-title round-trip claim through the SAME decode path every real
+// caller (windowsForPids, and through it crash-timeline.mjs) uses, instead
+// of the Appendix pointing at a raw `enum-windows.ps1` invocation that
+// prints undecoded base64 and proves nothing about the round-trip.
+export function enumAllWindows() {
   return new Promise((resolve, reject) => {
     execFile(
       "powershell.exe",

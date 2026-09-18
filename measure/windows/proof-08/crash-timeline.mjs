@@ -53,13 +53,40 @@
 // t+51014ms; an earlier round's ADR draft cited t+85800ms for the same
 // nominal 37-iteration loop).
 //
-// Fix: every probe below (processTree, httpStatus, heartbeat read,
-// windowsForPids) now stamps its OWN wall-clock time immediately before it
-// runs, and every one of those per-probe timestamps is printed on the row —
-// not just a single iteration-start label that only the first probe's data
-// could honestly be attributed to. The loop variable is renamed from
-// `elapsed` (which claimed to BE elapsed wall time) to a plain iteration
-// index, with the real ~55-95s budget named instead of implied.
+// ROUND-4's fix was ITSELF incomplete, and its own comment was false (round-5
+// review, blocker finding #1). Round-4 moved each probe's timestamp to
+// `Date.now() - t0` taken immediately BEFORE that probe's `await` — i.e.
+// still a pre-call label — while the comment at the old call sites asserted
+// "windowsAtMs is ... when the window data below was actually sampled, not
+// when the iteration started" and "any reader ... MUST use this timestamp".
+// That claim was false: the label was stamped before the ~1s+ PowerShell
+// round trip ran, so it could still precede the actual read by up to
+// roughly that round trip's duration. Reproduced live by round-5's
+// reviewer with the same impossible-ordering signature round-4 was
+// rejected for: a row labeled `windows[sampled t+3038ms]` already contained
+// the `{"title":"Error",...}` dialog for a crash computed (from that same
+// run's own `server-ready` log + `PROOF08_CRASH_AFTER_MS`) to fire at
+// t+3313ms — the printed label was 275ms BEFORE the crash that created the
+// dialog it reports.
+//
+// Fix (round-5): every probe below now stamps TWO timestamps — one
+// immediately before its `await` starts (`*PreMs`, the earliest instant its
+// data could possibly reflect) and one immediately after its `await`
+// resolves (`*PostMs`, the instant by which its data is definitely known
+// good, since the call has returned). Both are printed as
+// `label[read in (t+PRE ms, t+POST ms]]=...` — an interval, not a single
+// point — because no single timestamp between those two instants can be
+// honestly claimed as "the" sample time; the true read happened somewhere
+// in between, and PowerShell round trips (~0.8-1.1s per EnumWindows call,
+// plus retry overhead — see lib.mjs) make that interval wide enough to
+// matter for causal-timing claims. Any reader deriving "the dialog appeared
+// at t+Xms" must use this interval, not a single number: the provable upper
+// bound for "the dialog existed" is the POST timestamp of the first sample
+// that shows it; the provable lower bound for "the dialog did not yet
+// exist" is the PRE timestamp of the last sample that does not show it (its
+// own POST timestamp is NOT a valid lower bound, because the read could
+// have completed at any point in its own (PRE, POST] window, including
+// right after PRE).
 //
 // Usage: node measure/windows/proof-08/crash-timeline.mjs <utility|inprocess> [--matched-handler]
 import { mkdtempSync, existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -131,12 +158,13 @@ console.log(`[driver] health 200 at t+${Date.now() - t0}ms (approach=${approach}
 const SAMPLE_COUNT = 37; // unchanged iteration count from round-3 (11000/300 + 1)
 console.log(`[driver] polling ${SAMPLE_COUNT} iterations; real cadence is ~1.5-2.5s/iteration (PowerShell round trips dominate) -> expect roughly ${(SAMPLE_COUNT * 1.5).toFixed(0)}-${(SAMPLE_COUNT * 2.5).toFixed(0)}s wall clock, not the ~11s a naive reading of a nominal "300ms step" would suggest.`);
 for (let i = 0; i < SAMPLE_COUNT; i++) {
-  // ROUND-4 FIX (major finding #4): each probe below stamps its OWN
-  // wall-clock time immediately before it runs and that per-probe timestamp
-  // is what gets printed for it — no single iteration-start label is used
-  // to caption data that was actually read up to ~2.5s later. `iterStartMs`
-  // is kept only as the row's sort key / iteration marker, explicitly
-  // labeled as such, never as "when this row's data was sampled".
+  // ROUND-5 FIX (blocker finding #1): `iterStartMs` is a row sort key / a
+  // marker of when this iteration BEGAN, never a sample time. Every probe
+  // below now stamps a Pre (immediately before its `await`) and a Post
+  // (immediately after it resolves) timestamp of its own — see the file
+  // header comment for why a single "stamp before the await" label (round-4's
+  // fix) is still not honest: the call itself takes up to ~1s+, so the true
+  // read happened somewhere inside (Pre, Post], not AT Pre.
   const iterStartMs = Date.now() - t0;
   const iterWallStart = Date.now();
   // processTree already retries 3x internally and guards against pid reuse
@@ -144,7 +172,7 @@ for (let i = 0; i < SAMPLE_COUNT; i++) {
   // failure under load), report this one sample as unavailable and keep
   // polling rather than losing the rest of the timeline — one bad sample
   // must not erase the surrounding 30+ good ones.
-  const processTreeAtMs = Date.now() - t0;
+  const osAlivePreMs = Date.now() - t0;
   let alive;
   let childPids = [];
   try {
@@ -154,17 +182,23 @@ for (let i = 0; i < SAMPLE_COUNT; i++) {
   } catch (e) {
     alive = `ERROR:${e.message}`;
   }
-  const httpStatusAtMs = Date.now() - t0;
+  const osAlivePostMs = Date.now() - t0;
+
+  const healthPreMs = Date.now() - t0;
   const status = await httpStatus();
+  const healthPostMs = Date.now() - t0;
+
   // ROUND-2 FIX (major #6): a swallowed read failure here (e.g. reading mid-
   // write, or file gone) previously looked identical to "hb=null because the
   // event loop is dead" in the printed timeline. Surface which case it is.
-  const heartbeatReadAtMs = Date.now() - t0;
+  const hbPreMs = Date.now() - t0;
   let hb = null;
   let hbReadError = null;
   try { hb = existsSync(hbFile) ? JSON.parse(readFileSync(hbFile, "utf8")) : null; }
   catch (e) { hbReadError = e?.code || e?.message || String(e); }
+  const hbPostMs = Date.now() - t0;
   const hbAgeMs = hb ? (Date.now() - hb.t) : null;
+
   // ROUND-3 FIX (major finding #2): independent Win32 window enumeration,
   // folded into the committed poll loop instead of a one-off uncommitted
   // probe. Enumerates for the main pid AND every child pid this iteration's
@@ -172,12 +206,14 @@ for (let i = 0; i < SAMPLE_COUNT; i++) {
   // actually threw — in Approach A that could in principle be the forked
   // child, not main).
   //
-  // ROUND-4 FIX (major finding #4): windowsAtMs is the timestamp that
-  // actually matters for §5's causal-timing claim — it is when the window
-  // data below was actually sampled, not when the iteration started. Any
-  // reader deriving "the dialog appeared at t+Xms" MUST use this timestamp,
-  // not iterStartMs.
-  const windowsAtMs = Date.now() - t0;
+  // ROUND-5 FIX (blocker finding #1): `windowsPostMs` — not `windowsPreMs`,
+  // and not round-4's since-retracted single `windowsAtMs` — is the only
+  // timestamp by which the window data below is PROVABLY known: the call
+  // has returned by then. `windowsPreMs` is kept and printed too, because it
+  // is the provable bound for the OPPOSITE direction — see the file header
+  // comment and ADR §5 for how the two edges combine into a dialog-arrival
+  // interval across consecutive rows.
+  const windowsPreMs = Date.now() - t0;
   let windows = [];
   let winError = null;
   try {
@@ -185,12 +221,13 @@ for (let i = 0; i < SAMPLE_COUNT; i++) {
   } catch (e) {
     winError = e?.message || String(e);
   }
+  const windowsPostMs = Date.now() - t0;
   const iterWallMs = Date.now() - iterWallStart;
   console.log(
     `iter ${i + 1}/${SAMPLE_COUNT} (iterStart t+${iterStartMs}ms, iter took ${iterWallMs}ms)  ` +
-    `osAlive[sampled t+${processTreeAtMs}ms]=${alive}  health[sampled t+${httpStatusAtMs}ms]=${status}  ` +
-    `hb[sampled t+${heartbeatReadAtMs}ms]=${JSON.stringify(hb)}${hb ? ` (age ${hbAgeMs}ms, LAST-KNOWN-GOOD not necessarily current)` : ""}${hbReadError ? `  hbReadError=${hbReadError}` : ""}  ` +
-    `windows[sampled t+${windowsAtMs}ms]=${JSON.stringify(windows)}${winError ? `  winError=${winError}` : ""}`
+    `osAlive[read in (t+${osAlivePreMs}ms, t+${osAlivePostMs}ms]]=${alive}  health[read in (t+${healthPreMs}ms, t+${healthPostMs}ms]]=${status}  ` +
+    `hb[read in (t+${hbPreMs}ms, t+${hbPostMs}ms]]=${JSON.stringify(hb)}${hb ? ` (age ${hbAgeMs}ms, LAST-KNOWN-GOOD not necessarily current)` : ""}${hbReadError ? `  hbReadError=${hbReadError}` : ""}  ` +
+    `windows[read in (t+${windowsPreMs}ms, t+${windowsPostMs}ms]]=${JSON.stringify(windows)}${winError ? `  winError=${winError}` : ""}`
   );
 }
 
