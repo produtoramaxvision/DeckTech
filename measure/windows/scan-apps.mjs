@@ -175,7 +175,16 @@ const { kept, excluded } = resolveAppList(resolved);
 // not a deduped set), uninstaller or not, shown with its own arguments so
 // the /x-vs-/i distinction the rule relies on is visible and auditable
 // here per-shortcut, not collapsed before it can be inspected.
-const msiexecHits = resolved.filter((e) => basename(e.target).toLowerCase() === "msiexec.exe");
+// Guarded the same way as the `leftover` filter below: dedupe-target.mjs's
+// dedupeByTarget() is documented as total (a null/empty/missing `target`
+// passes through untouched, never crashes) precisely so a future caller
+// without this file's own pre-filter (line 146) is safe — so this file
+// must not assume its own pre-filter is what makes basename(e.target) safe
+// here. `resolved` is in fact pre-filtered at line 146, so this guard is
+// unreachable today, but the expression must hold on its own terms.
+const msiexecHits = resolved.filter(
+  (e) => typeof e.target === "string" && e.target !== "" && basename(e.target).toLowerCase() === "msiexec.exe",
+);
 
 console.log("=== PROOF-04 — real scan on this machine ===");
 console.log(`.lnk found (Start Menu, machine + user):     ${totalLnk}`);
@@ -233,7 +242,13 @@ console.log("--- sanity check: any AFTER entry whose target basename matches uni
 // full path caught. `.*` on the basename matches the old semantics exactly
 // (verified: both match "unins.v2.exe" and "unins000.exe", neither matches
 // "notunins.exe").
-const leftover = kept.filter((e) => /^unins.*\.exe$/i.test(basename(e.target)));
+// Guarded: `kept` comes from resolveAppList(resolved), and dedupeByTarget
+// passes an unkeyable target (null/""/missing) through untouched, so an
+// entry here is not guaranteed to carry a non-empty string target the way
+// `resolved` (pre-filtered at line 146) is — see dedupe-target.mjs's header.
+const leftover = kept.filter(
+  (e) => typeof e.target === "string" && e.target !== "" && /^unins.*\.exe$/i.test(basename(e.target)),
+);
 console.log(leftover.length === 0 ? "PASS — none" : `FAIL — ${leftover.length} left: ${JSON.stringify(leftover)}`);
 // Round-3 finding 3 (documentation-only per the review's own required fix
 // — see ADR §3): this sanity check is deliberately BROADER than

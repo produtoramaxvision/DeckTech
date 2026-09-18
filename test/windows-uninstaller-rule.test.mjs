@@ -350,6 +350,48 @@ test("CASE-INSENSITIVITY, os dois /i não cobertos pela lista do reviewer: EXACT
   );
 });
 
+// Round-5 review finding 1: MSI_UNINSTALL_ARG's two boundary
+// sub-expressions — `(^|\s)` before the slash and `\b` after the verb — are
+// each independently droppable without any existing fixture noticing (both
+// survived the reviewer's own mutation run). Each needs its own
+// discriminator; verified with node -e that each fixture matches ONLY its
+// targeted mutant and not the real regex nor the other mutant (see
+// docs/adr/PROOF-04-uninstaller-exclusion-rule.md §9.1b Group 6).
+test("MSI_UNINSTALL_ARG ANCORAGEM (líder): um caminho de pacote que embute '/x' como segmento de diretório não deve ser tratado como verbo de desinstalação — pina (^|\\s)", () => {
+  // "/i C:/x/App Setup/pkg.msi" — an install verb whose package sits under a
+  // directory literally named "x" (msiexec accepts forward-slash / URL
+  // package paths), with a space in "App Setup" per this task's Windows
+  // path-handling rule. Without the leading `(^|\s)` boundary, the bare
+  // "/x" inside the path (preceded by ":", not whitespace) would itself
+  // satisfy the pattern and this legitimate install shortcut would vanish —
+  // the exact failure mode resolve-app-list.mjs's partition-before-dedupe
+  // fix exists to prevent.
+  assert.equal(
+    isUninstallerEntry({
+      name: "Some App Installer Shortcut",
+      target: "C:\\Windows\\System32\\msiexec.exe",
+      arguments: "/i C:/x/App Setup/pkg.msi",
+    }),
+    false,
+    "'/x' dentro de um segmento de caminho não é o verbo /x e não deve excluir o atalho",
+  );
+});
+
+test("MSI_UNINSTALL_ARG ANCORAGEM (fim do verbo): um argumento que começa com '/x' mas continua com mais letras não deve ser tratado como o verbo /x — pina \\b", () => {
+  // "/xml settings.cfg" starts with "/x" at the string start (satisfying
+  // the leading boundary) but the verb continues as "xml", not a bare "x" —
+  // without the trailing `\b`, "/x" alone would satisfy the pattern.
+  assert.equal(
+    isUninstallerEntry({
+      name: "Some App Installer Shortcut",
+      target: "C:\\Windows\\System32\\msiexec.exe",
+      arguments: "/xml settings.cfg",
+    }),
+    false,
+    "'/xml' não é o verbo /x isolado e não deve excluir o atalho",
+  );
+});
+
 test("partitionUninstallers separa a lista real medida: 1 excluído de 4, nomeado", () => {
   const scanResult = [
     { name: "Notepad++", target: "C:\\Program Files\\Notepad++\\notepad++.exe" },

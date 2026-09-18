@@ -6,7 +6,68 @@
 **Requirement:** `PROOF-04` (`.maxvision/REQUIREMENTS.md`), Phase 0 success criterion 4
 (`.maxvision/ROADMAP.md`)
 
-**Round 4 (this revision).** A rigorous review rejected round 3 on three
+**Round 5 (this revision).** A rigorous review rejected round 4 on seven
+findings, all addressed here:
+
+1. **[major] `MSI_UNINSTALL_ARG`'s two boundary sub-expressions — `(^|\s)`
+   before the slash and `\b` after the verb — were unpinned; both mutants
+   survived all 28 round-4 tests, the same clause-granularity gap round 4
+   was rejected for, one regex over.** **Fixed:** two new fixtures in
+   `test/windows-uninstaller-rule.test.mjs` (20 tests total, up from 18),
+   each checked with `node -e` as a clean single-site discriminator before
+   being committed — see §9.1b Group 6 for the scripted mutation kill.
+2. **[major] The three lib modules read as a review-round changelog, not
+   code a stranger can read** — round-N finding citations, mutant IDs
+   (M27/M13) and reviewer-fixture references had no home outside the
+   modules themselves (70 comment lines for 14 code lines in
+   `dedupe-target.mjs`, 57 for 8 in `resolve-app-list.mjs`). **Fixed:** all
+   three files trimmed to durable WHY only (NTFS case-insensitivity, why
+   partition precedes dedupe, why an unkeyable target passes through
+   instead of collapsing, why `\b`/`(^|\s)` are load-bearing); the
+   round-by-round narrative moved to §12. `dedupe-target.mjs`'s
+   `@param`/`@returns` converted to a proper `/** */` JSDoc block, matching
+   its two siblings.
+3. **[major] `dedupeByTarget`'s totality fix was applied at one of three
+   call sites** — `resolveAppList`/`dedupeByTarget` accept a null/empty
+   `target` without throwing, but `scan-apps.mjs`'s own `msiexecHits`
+   filter and `unins*.exe` sanity check called `basename(e.target)`
+   unguarded, which throws `TypeError` on exactly that input shape.
+   **Fixed:** chose the position this ADR's own §2/§9.5 already commit to —
+   the pre-filter is NOT the contract, because Phase 3's win32 apps.js
+   provider will not necessarily have it. Both call sites in
+   `scan-apps.mjs` now guard `typeof e.target === "string" && e.target !==
+   ""` before calling `basename()`, matching `dedupe-target.mjs`'s own
+   contract instead of assuming scan-apps.mjs's pre-filter makes the guard
+   unnecessary. A new resolveAppList-level test in
+   `test/windows-dedupe-order.test.mjs` (6 tests total, up from 5) feeds a
+   null-target entry through the whole composed pipeline, not just
+   `dedupeByTarget` in isolation.
+4. **[minor] `dedupe-target.mjs`'s header over-cited PLAT-02** (`.maxvision/REQUIREMENTS.md:56`)
+   as "locking in" first-walked-wins, then 40 lines later called the
+   empty-target case "changed here rather than preserved" — self-
+   contradictory, and PLAT-02's actual text names neither. **Fixed:**
+   citation downgraded to what PLAT-02 actually says (requires dedupe by
+   target path, does not specify which duplicate wins — that choice is this
+   module's own); the two statements now agree instead of contradicting.
+5. **[minor] A round-4 cross-reference pointed at a nonexistent §9.6**
+   (should have been §9.5) — the third recurrence of citation drift in this
+   same document. **Fixed:** corrected; every `§`-style cross-reference in
+   this document was then grepped against the heading list and confirmed to
+   resolve (see §12 for the check).
+6. **[minor] §9.2 labeled its posix-swap measurement "current" against the
+   14-test file, which had since grown to 18 (now 20) — re-running the
+   stated procedure gives different numbers than the ones printed.**
+   **Fixed:** relabeled as round-3-historical, matching the convention §9's
+   own opening paragraph already uses for §9.1's table, instead of chasing
+   a "current" number that goes stale every round a fixture is added.
+7. **[minor] Commit `a527ebe`'s trailer claimed "339/339 non-skipped"; the
+   actual figure is 322 passing of 324 non-skipped (339 total, 2
+   pre-existing unrelated `ui.test.mjs` failures, 15 skipped).** **Fixed:**
+   correction recorded in §11 alongside the existing `1763d51` trailer note,
+   for the same reason that note gives (this branch has another active
+   writer right now, so history is not rewritten).
+
+**Round 4.** A rigorous review rejected round 3 on three
 findings, all addressed here:
 
 1. **[major] Anchoring (`^`/`$`) and case-insensitivity (`/i`) — the two
@@ -47,7 +108,7 @@ findings, all addressed here:
    `test/windows-dedupe-target.test.mjs` (also closing a second,
    independent gap the same finding measured: removing `.toLowerCase()`
    from the case-insensitive-NTFS-key logic left the round-3 suite green
-   too — see §9.6). `resolve-app-list.mjs`'s and `uninstaller-rule.mjs`'s
+   too — see §9.5). `resolve-app-list.mjs`'s and `uninstaller-rule.mjs`'s
    JSDoc were cross-checked and updated to state the same contract for
    this input shape, so the three modules cannot drift apart silently
    again.
@@ -657,18 +718,32 @@ was re-run against the current files, not hand-adjusted from round 2's
 numbers** — see the exact script and raw output this table transcribes at
 the end of this section.
 
-**Round-4 trap, avoided the same way.** Round 4 added 4 fixtures to
+**Round-4 trap, avoided the same way — except round 4's own claim about it
+was itself wrong, corrected in round 5 below.** Round 4 added 4 fixtures to
 `test/windows-uninstaller-rule.test.mjs` (14 → 18 tests, §9.1b) and a whole
 new file, `test/windows-dedupe-target.test.mjs` (5 tests, §9.5), which
 again invalidate every row's baseline test-count if hand-carried forward
 instead of re-measured. §9.1's original round-3 table (14-test baseline) is
 left as-is below as a historical record of what it actually proved at that
-point — it is not re-run against 18 tests, because doing so would not
-change any of its own pass/fail splits (none of the round-4 fixtures touch
-the clauses rows 1–11 mutate) and would only obscure which round produced
-which number. §9.1b, §9.5 and the combined 28-test run at the end of §9.5
-are the round-4-current numbers; §9.1's `14`/`14`/`0` baseline references
-below describe round 3's file as it stood then, not this file today.
+point — it is not re-run against 20 tests below for the same reason. Round
+4 asserted here that this was safe because re-running "would not change any
+of its own pass/fail splits (none of the round-4 fixtures touch the clauses
+rows 1–11 mutate)" — **that specific claim was checked directly for round 5
+and found false**: 8 of the 11 rows do pick up additional failures from
+round 4's own new fixtures. The correction, with the actual current numbers
+for every row, is immediately after §9.1's table below, not silently fixed
+here — see that paragraph, not this one, for the numbers. §9.1's
+`14`/`14`/`0` baseline (and this now-corrected claim) describe round 3's
+file as it stood then, not this file today.
+
+**Round-5 trap, avoided the same way.** Round 5 added 2 fixtures to
+`test/windows-uninstaller-rule.test.mjs` (18 → 20 tests, §9.1b Group 6) and
+1 to `test/windows-dedupe-order.test.mjs` (5 → 6 tests, §9.4), which again
+invalidate every baseline test-count below if hand-carried forward. Every
+row in §9.1, §9.1b, §9.4 and the combined run at the end of §9.5 below was
+re-measured fresh against this round's own files — including re-running
+§9.1's 11 rows, which is precisely how this round caught round 4's overclaim
+above instead of repeating it.
 
 ### 9.1 `isUninstallerEntry` clauses (`test/windows-uninstaller-rule.test.mjs`)
 
@@ -741,23 +816,67 @@ does not replace this table, which still correctly proves each clause's
 specifically, also matters — for those eight sites, by name, not by a
 general claim about the module.
 
-### 9.1b Anchoring (`^`/`$`) and case-insensitivity (`/i`) — round-4 finding 1
+**Round-5 correction: round 4's own "would not change any of its own
+pass/fail splits" claim (§9's opening paragraph) was checked directly and
+found wrong.** Re-running rows 1–11 against the current file (20 tests,
+after this round's own two additions — see §9.1b Group 6) shows 8 of the 11
+rows gain additional failing tests, not the "none of the round-4 fixtures
+touch" claimed at the time:
+
+| Row | 14-test fail (round 3, historical) | 20-test fail (round 5, current) | New failure(s) picked up |
+|---|---|---|---|
+| 1 | 4 | 5 | CASE-INSENSITIVITY (maiúsculas) |
+| 2 | 1 | 2 | CASE-INSENSITIVITY (maiúsculas) |
+| 3 | 1 | 2 | CASE-INSENSITIVITY (maiúsculas) |
+| 4 | 1 | 2 | CASE-INSENSITIVITY (maiúsculas) |
+| 5 | 4 | 5 | ANCORAGEM (prefixo) |
+| 6 | 1 | 1 | (unchanged) |
+| 7 | 1 | 3 | CASE-INSENSITIVITY (maiúsculas), CASE-INSENSITIVITY (os dois /i) |
+| 8 | 1 | 3 | CASE-INSENSITIVITY (maiúsculas), CASE-INSENSITIVITY (os dois /i) |
+| 9 | 1 | 1 | (unchanged) |
+| 10 | 1 | 1 | (unchanged) |
+| 11 | 8 | 10 | CASE-INSENSITIVITY (maiúsculas), CASE-INSENSITIVITY (os dois /i) |
+
+Row 5's new failure makes sense on inspection, not just measurement: row 5
+weakens `EXACT_UNINSTALL_NAME` from `/^uninstall$/i` to the substring
+`/uninstall/i`; the ANCORAGEM (prefixo) fixture `{ name: "App Uninstall
+Helper", target: "...\\AppUninstall.exe" }` has a NAME that contains
+"uninstall" as a substring and a target ending in `.exe`, so the weakened
+name-check plus the still-intact `.exe` guard together wrongly exclude it —
+an interaction between two clauses round 4's own fixture additions created
+without anyone re-running row 5 against them. Rows 1–4/7/8/11 pick up the
+CASE-INSENSITIVITY fixtures for the structural reason `/i` and pattern
+existence overlap: a pattern that "never matches" or is entirely deleted
+also fails to match its own uppercase variant it used to match. Rows 6, 9
+and 10 mutate clauses (the `.exe` guard, the input guard, `.trim()`) that
+none of round 4's own new fixtures happen to exercise differently, which is
+why those three alone are unchanged. None of this round's own two new
+fixtures (§9.1b Group 6, both on `MSI_UNINSTALL_ARG`) appear in any row's
+failure list above: rows 1–11 mutate a different clause each and never
+touch `MSI_UNINSTALL_ARG` itself except row 8 (which deletes it entirely,
+independently already caught by the pre-existing msiexec fixture). **No row
+above was hand-adjusted; every number is a fresh `node --test` re-run
+against the current, unmodified files, restored between mutations exactly
+as §9.1's own original run was.**
+
+### 9.1b Anchoring (`^`/`$`) and case-insensitivity (`/i`) — round-4 finding 1, extended by round-5 finding 1
 
 Baseline: `node --test test/windows-uninstaller-rule.test.mjs` against the
-unmodified rule, current 18-test file (14 round-3 tests + 4 new fixtures
-added this round) — `ℹ tests 18`, `ℹ pass 18`, `ℹ fail 0`.
+unmodified rule, current 20-test file (18 round-4 tests + 2 new fixtures
+added this round, §Group 6 below) — `ℹ tests 20`, `ℹ pass 20`, `ℹ fail 0`.
 
 Every fixture below was checked with `node -e` against both the real
 (anchored, case-insensitive) pattern and its specific mutant before being
 committed, confirming each one is a clean, single-pattern discriminator
 (matches its own target pattern's mutant and no other pattern, anchored or
-not) — not asserted from the pattern shape, run directly. All 18
-mutations below were applied one at a time with a scripted, literal-string
-replace (not hand-edited — `MSYS_NO_PATHCONV=1 node
-<scratchpad>/mutate.mjs "<old>" "<new>"`, restoring the clean file first
-and after every mutation), re-run against the identical, unmodified
-18-test file, then reverted and the baseline re-confirmed green before the
-next mutation — raw `node --test` output for every row, not summarized:
+not) — not asserted from the pattern shape, run directly. All 22
+mutations below (20 from round 4's Groups 1–5, 2 new in round 5's Group 6)
+were applied one at a time with a scripted, literal-string replace (not
+hand-edited — a Node helper doing an exact single-occurrence string
+replace, restoring the clean file first and after every mutation), re-run
+against the identical, unmodified 20-test file, then reverted and the
+baseline re-confirmed green before the next mutation — raw `node --test`
+output for every row, not summarized:
 
 **Group 1 — drop BOTH `^` and `$` (reproduces the reviewer's own A-unins /
 A-uninst / A-uninstall / A-uninstaller mutations, all 4 of which SURVIVED
@@ -765,10 +884,10 @@ the round-3 suite):**
 
 | Pattern | Mutation | Result | Failing test(s) |
 |---|---|---|---|
-| `UNINSTALLER_BASENAME_PATTERNS[0]` (`unins`) | `/^unins\d*\.exe$/i` → `/unins\d*\.exe/i` | 16 pass / 2 fail | ANCORAGEM (prefixo), ANCORAGEM (sufixo) |
-| `[1]` (`uninst`) | `/^uninst\d*\.exe$/i` → `/uninst\d*\.exe/i` | 16 pass / 2 fail | ANCORAGEM (prefixo), ANCORAGEM (sufixo) |
-| `[2]` (`uninstall`) | `/^uninstall\.exe$/i` → `/uninstall\.exe/i` | 16 pass / 2 fail | ANCORAGEM (prefixo), ANCORAGEM (sufixo) |
-| `[3]` (`uninstaller`) | `/^uninstaller\.exe$/i` → `/uninstaller\.exe/i` | 16 pass / 2 fail | ANCORAGEM (prefixo), ANCORAGEM (sufixo) |
+| `UNINSTALLER_BASENAME_PATTERNS[0]` (`unins`) | `/^unins\d*\.exe$/i` → `/unins\d*\.exe/i` | 18 pass / 2 fail | ANCORAGEM (prefixo), ANCORAGEM (sufixo) |
+| `[1]` (`uninst`) | `/^uninst\d*\.exe$/i` → `/uninst\d*\.exe/i` | 18 pass / 2 fail | ANCORAGEM (prefixo), ANCORAGEM (sufixo) |
+| `[2]` (`uninstall`) | `/^uninstall\.exe$/i` → `/uninstall\.exe/i` | 18 pass / 2 fail | ANCORAGEM (prefixo), ANCORAGEM (sufixo) |
+| `[3]` (`uninstaller`) | `/^uninstaller\.exe$/i` → `/uninstaller\.exe/i` | 18 pass / 2 fail | ANCORAGEM (prefixo), ANCORAGEM (sufixo) |
 
 All 4/4 now caught (round 3: 4/4 survived, per the reviewer's own
 measurement).
@@ -783,10 +902,10 @@ either:**
 
 | Pattern | Mutation | Result | Failing test(s) |
 |---|---|---|---|
-| `[0]` | `/^unins\d*\.exe$/i` → `/^unins\d*\.exe/i` | 17 pass / 1 fail | ANCORAGEM (sufixo) |
-| `[1]` | `/^uninst\d*\.exe$/i` → `/^uninst\d*\.exe/i` | 17 pass / 1 fail | ANCORAGEM (sufixo) |
-| `[2]` | `/^uninstall\.exe$/i` → `/^uninstall\.exe/i` | 17 pass / 1 fail | ANCORAGEM (sufixo) |
-| `[3]` | `/^uninstaller\.exe$/i` → `/^uninstaller\.exe/i` | 17 pass / 1 fail | ANCORAGEM (sufixo) |
+| `[0]` | `/^unins\d*\.exe$/i` → `/^unins\d*\.exe/i` | 19 pass / 1 fail | ANCORAGEM (sufixo) |
+| `[1]` | `/^uninst\d*\.exe$/i` → `/^uninst\d*\.exe/i` | 19 pass / 1 fail | ANCORAGEM (sufixo) |
+| `[2]` | `/^uninstall\.exe$/i` → `/^uninstall\.exe/i` | 19 pass / 1 fail | ANCORAGEM (sufixo) |
+| `[3]` | `/^uninstaller\.exe$/i` → `/^uninstaller\.exe/i` | 19 pass / 1 fail | ANCORAGEM (sufixo) |
 
 **Group 3 — drop `^` only (`$` kept), for completeness (not explicitly
 named in the reviewer's required-fix list, but the same clause-granularity
@@ -794,10 +913,10 @@ gap the round-4 self-correction above warns against leaving half-closed):**
 
 | Pattern | Mutation | Result | Failing test(s) |
 |---|---|---|---|
-| `[0]` | `/^unins\d*\.exe$/i` → `/unins\d*\.exe$/i` | 17 pass / 1 fail | ANCORAGEM (prefixo) |
-| `[1]` | `/^uninst\d*\.exe$/i` → `/uninst\d*\.exe$/i` | 17 pass / 1 fail | ANCORAGEM (prefixo) |
-| `[2]` | `/^uninstall\.exe$/i` → `/uninstall\.exe$/i` | 17 pass / 1 fail | ANCORAGEM (prefixo) |
-| `[3]` | `/^uninstaller\.exe$/i` → `/uninstaller\.exe$/i` | 17 pass / 1 fail | ANCORAGEM (prefixo) |
+| `[0]` | `/^unins\d*\.exe$/i` → `/unins\d*\.exe$/i` | 19 pass / 1 fail | ANCORAGEM (prefixo) |
+| `[1]` | `/^uninst\d*\.exe$/i` → `/uninst\d*\.exe$/i` | 19 pass / 1 fail | ANCORAGEM (prefixo) |
+| `[2]` | `/^uninstall\.exe$/i` → `/uninstall\.exe$/i` | 19 pass / 1 fail | ANCORAGEM (prefixo) |
+| `[3]` | `/^uninstaller\.exe$/i` → `/uninstaller\.exe$/i` | 19 pass / 1 fail | ANCORAGEM (prefixo) |
 
 **Group 4 — drop `/i` (the reviewer's required-fix list: all four
 basename patterns plus `MSIEXEC_BASENAME`, 5/5 of which SURVIVED round
@@ -805,11 +924,11 @@ basename patterns plus `MSIEXEC_BASENAME`, 5/5 of which SURVIVED round
 
 | Pattern | Mutation | Result | Failing test(s) |
 |---|---|---|---|
-| `[0]` | `/^unins\d*\.exe$/i` → `/^unins\d*\.exe$/` | 17 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
-| `[1]` | `/^uninst\d*\.exe$/i` → `/^uninst\d*\.exe$/` | 17 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
-| `[2]` | `/^uninstall\.exe$/i` → `/^uninstall\.exe$/` | 17 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
-| `[3]` | `/^uninstaller\.exe$/i` → `/^uninstaller\.exe$/` | 17 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
-| `MSIEXEC_BASENAME` | `/^msiexec\.exe$/i` → `/^msiexec\.exe$/` | 17 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
+| `[0]` | `/^unins\d*\.exe$/i` → `/^unins\d*\.exe$/` | 19 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
+| `[1]` | `/^uninst\d*\.exe$/i` → `/^uninst\d*\.exe$/` | 19 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
+| `[2]` | `/^uninstall\.exe$/i` → `/^uninstall\.exe$/` | 19 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
+| `[3]` | `/^uninstaller\.exe$/i` → `/^uninstaller\.exe$/` | 19 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
+| `MSIEXEC_BASENAME` | `/^msiexec\.exe$/i` → `/^msiexec\.exe$/` | 19 pass / 1 fail | CASE-INSENSITIVITY (maiúsculas) |
 
 All 5/5 now caught (round 3: 5/5 survived).
 
@@ -820,16 +939,69 @@ finding calls out one level up):**
 
 | Site | Mutation | Result | Failing test(s) |
 |---|---|---|---|
-| `EXACT_UNINSTALL_NAME` | `/^uninstall$/i` → `/^uninstall$/` | 15 pass / 3 fail | "exclui achado real de máquina: shortcut nomeado exatamente 'Uninstall'...", "o match exato de nome 'Uninstall' não vira substring...", CASE-INSENSITIVITY (os dois /i não cobertos) |
-| `.exe` guard (`/\.exe$/i.test(base)` inside `isUninstallerEntry`) | → `/\.exe$/.test(base)` | 17 pass / 1 fail | CASE-INSENSITIVITY (os dois /i não cobertos) |
-| `MSI_UNINSTALL_ARG` | `/(^|\s)\/(x\|uninstall)\b/i` → without `/i` | 17 pass / 1 fail | CASE-INSENSITIVITY (os dois /i não cobertos) |
+| `EXACT_UNINSTALL_NAME` | `/^uninstall$/i` → `/^uninstall$/` | 17 pass / 3 fail | "exclui achado real de máquina: shortcut nomeado exatamente 'Uninstall'...", "o match exato de nome 'Uninstall' não vira substring...", CASE-INSENSITIVITY (os dois /i não cobertos) |
+| `.exe` guard (`/\.exe$/i.test(base)` inside `isUninstallerEntry`) | → `/\.exe$/.test(base)` | 19 pass / 1 fail | CASE-INSENSITIVITY (os dois /i não cobertos) |
+| `MSI_UNINSTALL_ARG` | `/(^|\s)\/(x\|uninstall)\b/i` → without `/i` | 19 pass / 1 fail | CASE-INSENSITIVITY (os dois /i não cobertos) |
 
-**18/18 mutations killed, 0 survivors, across both required and
-self-discovered rows.** Baseline (`18`/`18`/`0`) re-confirmed after every
-single mutation was reverted, and once more at the end of the scripted
-run — no neutered version was ever committed.
+**20/20 mutations killed, 0 survivors, across Groups 1–5** (round-4's own
+tally of "18/18" here undercounted its own table by 2 — Group 1 has 4 rows,
+Group 2 has 4, Group 3 has 4, Group 4 has 5, Group 5 has 3, summing to 20,
+not 18; corrected here while extending this section for round 5, not
+silently). Baseline (`20`/`20`/`0`) re-confirmed after every single
+mutation was reverted, and once more at the end of the scripted run — no
+neutered version was ever committed.
+
+**Group 6 — `MSI_UNINSTALL_ARG`'s two boundary sub-expressions, round-5
+finding 1.** Groups 1–5 above exercise anchoring/casing on the four
+basename patterns, `MSIEXEC_BASENAME`, `EXACT_UNINSTALL_NAME` and the
+`.exe` guard — but `MSI_UNINSTALL_ARG` itself has two boundary mechanisms
+of its own (the leading `(^|\s)` and the trailing `\b`) that Group 5's
+"drop `/i`" row does not touch, and round 4's own required-fix list did not
+name them. The round-5 review measured both survived all 28 round-4 tests.
+Each fixture was checked with `node -e` against the real regex and BOTH
+mutants (not just its own target) before being committed, confirming a
+clean single-site discriminator — see the two `node -e` truth tables below,
+run directly:
+
+```
+$ node -e '<real /(^|\s)\/(x|uninstall)\b/i, mutantA (drop leading) /\/(x|uninstall)\b/i, mutantB (drop trailing) /(^|\s)\/(x|uninstall)/i>'
+fixtureA "/i C:/x/App Setup/pkg.msi"  vs real: false | vs mutantA: true  | vs mutantB: false
+fixtureB "/xml settings.cfg"          vs real: false | vs mutantA: false | vs mutantB: true
+```
+
+| Mutation | Result | Failing test(s) |
+|---|---|---|
+| drop leading `(^|\s)`: `/(^|\s)\/(x\|uninstall)\b/i` → `/\/(x\|uninstall)\b/i` | 19 pass / 1 fail | MSI_UNINSTALL_ARG ANCORAGEM (líder) |
+| drop trailing `\b`: `/(^|\s)\/(x\|uninstall)\b/i` → `/(^|\s)\/(x\|uninstall)/i` | 19 pass / 1 fail | MSI_UNINSTALL_ARG ANCORAGEM (fim do verbo) |
+
+Fixture A (`"/i C:/x/App Setup/pkg.msi"`) is a legitimate install shortcut
+whose package path embeds `/x` as a directory segment (msiexec accepts
+forward-slash package paths) under a directory named "App Setup" — a
+Windows path containing a space, per this task's path-handling rule.
+Without the leading boundary, the bare `/x` inside the path (preceded by
+`:`, not whitespace or string-start) would itself satisfy the pattern and
+this legitimate install would silently vanish from the app list — the
+exact failure mode `resolve-app-list.mjs`'s partition-before-dedupe fix
+(§4c) exists to prevent, one layer down. Fixture B (`"/xml settings.cfg"`)
+starts with `/x` at the string start (satisfying the leading boundary) but
+continues as "xml", not the bare verb; without the trailing `\b`, "/x"
+alone inside "/xml" would satisfy the pattern.
+
+**Both mutants killed, 0 survivors — 22/22 across all six groups.**
+Baseline (`20`/`20`/`0`) re-confirmed after each mutation was reverted, and
+the full 20-test file re-confirmed green once more at the end of the
+scripted run.
 
 ### 9.2 Reproducing round-3 finding 1's exact defect (the import, not a clause)
+
+**Round-5 correction (finding 6):** this subsection's measurement below is
+round-3-historical, the same status §9's opening paragraph already gives
+§9.1's table — it ran against the 14-test file as it stood in round 3, not
+today's 20-test file, and is not re-run here for the same reason §9.1's
+table is not: re-running would only produce a new number to keep chasing
+every time a fixture is added, without changing the point being made (the
+import gap is untestable-on-this-host by the "neuter and rerun" technique,
+a structural fact about this machine, not about the test count).
 
 The `basename` import isn't a clause of `isUninstallerEntry`, so it isn't a
 row in §9.1's table — and it **cannot** be demonstrated by the same
@@ -841,7 +1013,7 @@ untested clause is one thing; an untestable-on-this-host clause is another)
 — demonstrated here the same way the reviewer's own evidence did: a
 temporary copy of the module with `basename` imported from
 `node:path/posix` instead (standing in for what `node:path` resolves to on
-a genuine POSIX host), the **current, unmodified** 14-test file run against
+a genuine POSIX host), the 14-test file as it stood in round 3 run against
 it unchanged:
 
 ```
@@ -858,9 +1030,11 @@ it unchanged:
 
 6 failures (round 3's reviewer measured 5 against the round-2, 13-test
 file; the 6th here is the new win32-pin fixture itself, added specifically
-to fail under this exact condition). The **fixed** module (importing from
-`node:path/win32`, `measure/windows/lib/uninstaller-rule.mjs:36`) cannot be
-subjected to this *same simulate-by-swapping-the-import* technique to show
+to fail under this exact condition). The **fixed** module (its own
+top-of-file `import { basename } from "node:path/win32"` — cited by symbol,
+not line number, so this reference does not rot as the file's comments are
+trimmed or grown across rounds) cannot be subjected to this *same
+simulate-by-swapping-the-import* technique to show
 the opposite, because there is no longer an import to swap out from under
 it — its immunity is structural (a static import of a module whose
 behavior never varies by host OS). That does not mean no test covers it:
@@ -910,15 +1084,29 @@ a clause of `isUninstallerEntry`, so its own suite is reported separately
 rather than folded into §9.1's table (folding it in would conflate two
 different functions' coverage).
 
-Baseline: `node --test test/windows-dedupe-order.test.mjs` — `ℹ tests 5`,
-`ℹ pass 5`, `ℹ fail 0`.
+Baseline: `node --test test/windows-dedupe-order.test.mjs` — `ℹ tests 6`
+(5 round-3/4 tests + 1 new round-5 test, below), `ℹ pass 6`, `ℹ fail 0`.
+
+**Round-5 addition (finding 3):** a sixth test in this file feeds a
+null-target entry through the whole composed `resolveAppList` pipeline
+(`{ name: "File Explorer", target: null }`, a real entry from this
+machine's own scan output), not just `dedupeByTarget` in isolation —
+closing the gap where `scan-apps.mjs`'s own `basename(e.target)` call
+sites at its `msiexecHits` filter and `unins*.exe` sanity check were
+unguarded against exactly the input shape `dedupeByTarget`'s own contract
+promises to pass through untouched. This test is not itself part of the
+mutation row below: it is unaffected by the partition/dedupe composition
+order (a null target is neither excluded nor keyed under either order), so
+mutating the order does not move its pass/fail status — it guards a
+different property (the pipeline does not crash on this input shape) than
+§4c's ordering fix does.
 
 | # | Mutation | Result | Failing test(s) |
 |---|---|---|---|
-| 1 | `resolveAppList` reverted to dedupe-then-partition (`dedupeByTarget(resolved)` then `partitionUninstallers(deduped)` — the round-2 order) | 2 pass / 3 fail | both order-pinning tests, **and** "excluded list is NOT deduped..." |
+| 1 | `resolveAppList` reverted to dedupe-then-partition (`dedupeByTarget(resolved)` then `partitionUninstallers(deduped)` — the round-2 order) | 3 pass / 3 fail | both order-pinning tests, **and** "excluded list is NOT deduped..." |
 
 Measured directly (not estimated): reverting the composition order and
-re-running the identical, unmodified test file gives `ℹ tests 5`, `ℹ pass 2`,
+re-running the identical, unmodified test file gives `ℹ tests 6`, `ℹ pass 3`,
 `ℹ fail 3`, failing exactly:
 
 ```
@@ -956,7 +1144,7 @@ implementation being simple enough to read correctly by inspection. Round
 dedicated suite (`test/windows-dedupe-target.test.mjs`, §9.5) instead of
 relying on indirect coverage through this file. The mutation in this
 section was reverted immediately after its own measurement and the
-baseline (`5`/`5`/`0`) re-confirmed.
+baseline (`6`/`6`/`0`) re-confirmed.
 
 ### 9.5 `dedupeByTarget`'s own suite (`test/windows-dedupe-target.test.mjs`) — round-4 findings 1 (M27) and 2
 
@@ -1004,15 +1192,17 @@ $ node --test test/windows-dedupe-target.test.mjs
 4/5 tests fail (the fifth, the case-only-differs test, does not touch an
 unkeyable target and is unaffected by this specific mutation, as
 expected). Both mutations reverted immediately after measurement and the
-baseline (`5`/`5`/`0` for this file) re-confirmed, together with
-`test/windows-uninstaller-rule.test.mjs`'s own 18-test baseline and
-`test/windows-dedupe-order.test.mjs`'s 5-test baseline, in a single
-combined run across all three PROOF-04 test files:
+baseline (`5`/`5`/`0` for this file, unchanged this round — the round-5
+fixes touch `uninstaller-rule.mjs` and `dedupe-order.test.mjs`, not this
+file) re-confirmed, together with `test/windows-uninstaller-rule.test.mjs`'s
+own 20-test baseline (18 round-4 + 2 round-5) and
+`test/windows-dedupe-order.test.mjs`'s 6-test baseline (5 round-3/4 + 1
+round-5), in a single combined run across all three PROOF-04 test files:
 
 ```
 $ node --test test/windows-uninstaller-rule.test.mjs test/windows-dedupe-order.test.mjs test/windows-dedupe-target.test.mjs
-ℹ tests 28
-ℹ pass 28
+ℹ tests 31
+ℹ pass 31
 ℹ fail 0
 ```
 
@@ -1092,3 +1282,118 @@ and this session's attribution reminder both require —
 correctly on first commit, not requiring a later amend. `1763d51` and any
 other historically-mistrailered PROOF-04 commit remain as they are,
 un-rewritten, until the branch is confirmed to have no other active writer.
+
+**Round-5 addition (finding 7): commit `a527ebe`'s message also carries a
+wrong number, and this note is where it is recorded** — the same
+constraint above (this branch has another active writer right now, so
+history is not rewritten) applies here too, checked freshly for this round,
+not carried forward as an assumption:
+
+```
+$ git status --short | grep -v '^??'
+ M docs/adr/0003-proof-03-lnk-binary-parsing.md                <- NOT this round's work
+ M docs/adr/PROOF-04-uninstaller-exclusion-rule.md              <- this round's own edit
+ M measure/windows/icon-bench/bench-repeat-results.json        <- NOT this round's work
+ M measure/windows/icon-bench/data/apps.json                    <- NOT this round's work
+ M measure/windows/icon-bench/results.json                      <- NOT this round's work
+ M measure/windows/icon-bench/verify-results.json               <- NOT this round's work
+ M measure/windows/lib/dedupe-target.mjs                        <- this round's own edit
+ M measure/windows/lib/resolve-app-list.mjs                     <- this round's own edit
+ M measure/windows/lib/uninstaller-rule.mjs                     <- this round's own edit
+ M measure/windows/proof-08/crash-timeline.mjs                  <- NOT this round's work
+ M measure/windows/proof-08/lib.mjs                             <- NOT this round's work
+ M measure/windows/proof-08/run.mjs                             <- NOT this round's work
+ M measure/windows/scan-apps.mjs                                <- this round's own edit
+ M test/windows-dedupe-order.test.mjs                           <- this round's own edit
+ M test/windows-uninstaller-rule.test.mjs                       <- this round's own edit
+$ git log -1 --format="%H %s"
+f85bfb551ea678f1a941cbb5725036f800ba9d83 fix(adr): tighten self-review nits in PROOF-03 provenance fix
+```
+
+Same shape as round 4's finding: files outside this round's own PROOF-04
+scope (PROOF-03 provenance, PROOF-01 icon-bench, PROOF-08) are dirty from
+another session, and `HEAD` is not the commit this ADR's own round-4 work
+landed on — confirming a concurrent writer again, not a one-time
+coincidence. `git notes` was considered and rejected for the same reason
+`git filter-branch` was in the note above: a note is local to this clone
+until `refs/notes/*` is explicitly pushed, so it would not reach anyone
+reading `git log` on the shared remote either, and attaching one to a
+commit under a concurrent writer carries the same collision risk as
+rewriting the commit itself.
+
+**The correction, stated here instead:** commit `a527ebe`'s message says
+"Full suite: 28/28 across the three PROOF-04 test files, 339/339
+non-skipped elsewhere unaffected (2 pre-existing, unrelated ui.test.mjs
+Playwright failures)." The actual figure AT THAT COMMIT — measured by
+running `npm test` fresh for this round against the tree as it stood before
+this round's own PROOF-04 test additions (not copied from the commit
+message or an earlier round's note): `tests 339`, `pass 322`, `fail 2`,
+`skipped 15` — 322 passing of 324 non-skipped (339 total minus 15 skipped),
+not "339/339". (This round's own commit, further below, adds 3 more PROOF-04
+tests on top of this — see its own trailer for the post-round-5 full-suite
+figure; the two numbers describe different points in the tree and are not
+in tension.) The two failures are the same pre-existing, unrelated
+`ui.test.mjs` Playwright tests the commit message already correctly names
+as unrelated; only the aggregate fraction is wrong, in both numerator and
+denominator. The follow-up commit `fea03be` (made specifically to correct
+`a527ebe`'s
+overclaims) did not address this one; it remains uncorrected in git history
+until this branch has no other active writer, at which point it should be
+fixed the same way `1763d51`'s trailer should be — a scoped, targeted
+rewrite of that one commit's message, not a broader history rewrite.
+
+## 12. Comment provenance moved out of the lib modules (round-5 finding 2)
+
+Round 5 trimmed `measure/windows/lib/dedupe-target.mjs` (70 comment lines
+for 14 code lines → 21 for 15), `measure/windows/lib/resolve-app-list.mjs`
+(57 for 8 → 26 for 6) and `measure/windows/lib/uninstaller-rule.mjs` (103
+for 42 → 47 for 36) down to durable WHY only. What was removed was the
+round-by-round changelog — finding citations, mutant IDs, reviewer-fixture
+references — that belongs in this document, not in code a stranger reads
+six months from now with no access to this repo's review history. None of
+it was deleted outright; it already lives here, in more detail than the
+comments carried, at the sections below. This section is the index, not a
+restatement:
+
+| What used to be in the code comments | Where it lives now |
+|---|---|
+| "Round-3 review caught this module importing plain `node:path`... 5 of the 13 tests... failed" (`uninstaller-rule.mjs` header) | §9.2 (the full reproduction, with raw `node --test` output) and the Round 3 header block above (finding 1) |
+| "Round-3 review finding 2" (pipeline order) narrative (`resolve-app-list.mjs`, `dedupe-target.mjs`, `scan-apps.mjs` headers) | §4c (the mechanism and measured evidence) and §9.4 (the mutation table) |
+| "Round-4 review finding 1" / M27 (`.toLowerCase()` mutation survived indirect coverage) | §9.5 and the Round 4 header block, finding 2 |
+| "Round-4 review finding 2" (null/empty-target crash) | §9.5's "finding 2's crash guard" mutation table and the Round 4 header block, finding 2 |
+| "Round-4 review finding 3" (stale line-number citations) | Round 4 header block, finding 3, and §9's opening paragraph (the citation-does-not-rot convention this established) |
+| M13 (swapping `node:path/win32` back to plain `node:path` leaves the suite green on this win32 host) | §9.3's "Round-4 honesty note" |
+| "the reviewer's own three named fixtures" (`AppUninstall.exe`, `SmartUninstaller.exe`, `MyUninst.exe`) not discriminating the `$`-only-dropped mutation | §9.1b Group 2's own preamble |
+| The citation-rot meta-commentary (why a reference was changed from a line number to a symbol name, "so this reference does not rot the way an earlier one did in this same commit's sibling files") | Round 4 header block, finding 3, and this round's own §9.2 fix (converting the one remaining live line-number citation, `uninstaller-rule.mjs:36`, to cite the import by symbol instead) |
+| Round-5's own two new findings, `MSI_UNINSTALL_ARG`'s boundary sub-expressions | §9.1b Group 6 |
+
+**Cross-reference audit (finding 5's required fix, done systematically, not
+as a one-off grep):** `grep -oE '§[0-9]+(\.[0-9]+)?[a-z]?'` run over this
+document, the three lib modules, `scan-apps.mjs`, and the three test files,
+deduplicated, gives 22 distinct tokens. Checked one at a time against this
+document's own heading list (`§1`–`§12`, `§4a`–`§4c`, `§6.1`, `§9.1`–`§9.5`,
+`§9.1b`):
+
+- `§9.6` — the one genuinely dangling token, only in prose *naming* the
+  round-4 defect (this line, and the Round 5 header block's finding 5) —
+  not a live cross-reference, since the live one (in the Round 4 header
+  block's finding 2, "too — see §9.5") was already corrected to `§9.5`
+  above (cited by finding number here, not by line, for the same
+  citation-does-not-rot reason this document uses elsewhere).
+- `§4.1`, `§6.2` — appear once, together with `§7`, inside §6.1's own text
+  (`icon3.js`, `mica.png`, ... "the §6.2/§4.1/§7 artifacts"). These are
+  **not** references into this ADR — they name sections of
+  `.maxvision/research/WINDOWS-STACK.md`, a different document, whose own
+  headings were checked directly (`### 4.1 Glass/blur...`,
+  `### 6.2 Ícones (RF-04)...`, `## 7. Testes...`) and do resolve there. A
+  blanket check against only this ADR's own heading list would have
+  wrongly flagged these three as dangling — checked against the document
+  each one actually names, not assumed from the `§` sigil alone.
+- Every other token (`§1`–`§9.5`, `§9.1b`, `§4a`–`§4c`, `§6.1`) resolves
+  against this document's own heading list, including every occurrence
+  inside `measure/windows/lib/*.mjs`, `measure/windows/scan-apps.mjs` and
+  the three test files — those files were NOT emptied of `§` references by
+  this round's comment trim (finding 2's fix kept durable pointers like
+  "see ADR §3" and "see ADR §4c" precisely because a bare file-name
+  citation with no section would send a future reader hunting through a
+  1300+ line document for the right paragraph).

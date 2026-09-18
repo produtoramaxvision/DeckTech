@@ -85,3 +85,24 @@ test("resolveAppList: ordinary apps with distinct targets are unaffected — sam
   assert.equal(excluded.length, 1);
   assert.equal(excluded[0].name, "Uninstall DJI Assistant 2");
 });
+
+// Round-5 review finding 3 — a null-target entry ("File Explorer" with no
+// resolvable target is a real entry from this machine's own scan output)
+// must survive the WHOLE pipeline (partitionUninstallers -> dedupeByTarget)
+// without throwing, exactly as isUninstallerEntry's and dedupeByTarget's own
+// per-function tests already pin in isolation. This is the same input shape
+// through the actual composed function scan-apps.mjs calls, not a synthetic
+// unit test of either half alone — the shape the review's repro used to crash
+// scan-apps.mjs's own basename(e.target) call sites before those were guarded.
+test("resolveAppList: a null-target entry survives the whole pipeline untouched, alongside a normal kept entry", () => {
+  const resolved = [
+    { name: "Notepad++", target: "C:\\Program Files\\Notepad++\\notepad++.exe" },
+    { name: "File Explorer", target: null },
+  ];
+  const { kept, excluded } = resolveAppList(resolved);
+  assert.equal(excluded.length, 0);
+  assert.equal(kept.length, 2);
+  assert.equal(kept[0].name, "Notepad++");
+  assert.equal(kept[1].name, "File Explorer");
+  assert.equal(kept[1].target, null);
+});
