@@ -61,7 +61,10 @@ test("§7/D13: o Mac NÃO tem estado vazio real — todo slot livre vira .add (n
     /guard let piece = byPosition\[index\] else \{ return \.add\(index\) \}/,
     "toda posição livre deve virar .add — a ausência de estado vazio é o comportamento real do Mac",
   );
-  assert.doesNotMatch(dockGrid, /isEmpty.*EmptyState|EmptyStateView|estado vazio/i, "o Mac não deve ganhar um EmptyStateView por engano nesta suíte");
+  // Não afirmamos aqui que o Mac NUNCA vai ganhar um EmptyStateView — D13
+  // não proíbe isso, só registra que hoje ele não tem um (macHasRealEmptyState
+  // acima). O que é protegido é que nenhum consumidor da fixture trata essa
+  // ausência como o contrato compartilhado do §7.
 });
 
 test("bullets da fixture aplicáveis ao Mac estão todos com id e status válidos", () => {

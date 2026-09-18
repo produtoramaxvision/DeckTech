@@ -44,14 +44,11 @@ test("§7 grid: pageSize e grid-template do PWA batem com a fixture compartilhad
   }
 });
 
-test("§7 escopo: o PWA não implementa sidebar, reorder mode nem app picker (companion, não host)", async () => {
-  const { port, close } = await startServer(0);
-  try {
-    const r = await fetch(`http://127.0.0.1:${port}/`);
-    const html = await r.text();
-    assert.doesNotMatch(html, /case apps = "Slots"|case about = "Conectar"/, "sidebar do host não pertence ao companion");
-    assert.doesNotMatch(html, /isReordering/, "modo de reorganizar explícito não pertence ao companion");
-  } finally {
-    await close();
-  }
-});
+// A escolha de escopo em si — por que sidebar, reorder mode e app picker
+// não são bullets "pwa" — já está documentada e é aplicada pela própria
+// fixture (nenhum desses ids em BULLETS marca "pwa" em `surfaces`; ver
+// design/section7-fixture.mjs e o comentário no topo deste arquivo). Um
+// teste `doesNotMatch` contra sintaxe Swift literal ("case apps = ...")
+// ou um identificador Swift ("isReordering") dentro de public/index.html
+// não consegue falhar de forma realista — não fazia parte da prova de
+// discriminação de TEST-01 e foi removido por não fechar nada.

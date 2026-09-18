@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+// TEST-01: the sidebar item-string assertions below are built FROM the
+// shared PRD §7 fixture (design/section7-fixture.mjs), not retyped against
+// it — see that file's header and its D4 note. Mutating SIDEBAR.items
+// there breaks this file too, alongside test/section7-mac.test.mjs.
+import { SIDEBAR } from "../design/section7-fixture.mjs";
+
 const contentView = await readFile(new URL("../mac/Sources/ContentView.swift", import.meta.url), "utf8");
 const app = await readFile(new URL("../mac/Sources/DokkeApp.swift", import.meta.url), "utf8");
 const theme = await readFile(new URL("../mac/Sources/DokkeTheme.swift", import.meta.url), "utf8");
@@ -22,7 +28,7 @@ const menuBar = contentView.slice(contentView.indexOf("struct MenuBarView"));
 const dockStore = await readFile(new URL("../mac/Sources/DockStore.swift", import.meta.url), "utf8");
 
 test("tela de conexão prioriza o código e esconde configuração técnica", () => {
-  assert.match(contentView, /case about = "Conectar"/);
+  assert.match(contentView, new RegExp(`case about = "${SIDEBAR.items[1]}"`), `fixture SIDEBAR.items[1] é "${SIDEBAR.items[1]}"`);
   assert.match(contentView, /private let aboutContentMaxWidth: CGFloat = 980/);
   assert.match(about, /\.frame\(maxWidth: aboutContentMaxWidth, alignment: \.leading\)/);
   assert.match(about, /\.frame\(maxWidth: \.infinity, alignment: \.center\)/);
@@ -97,8 +103,9 @@ test("sidebar flutuante replica largura, seleção azul opaca e contraste da ref
   assert.match(sidebar, /DokkeTheme\.selection/);
   assert.doesNotMatch(sidebar, /Label\(item\.rawValue, systemImage: item\.icon\)/);
   assert.match(contentView, /\.foregroundStyle\(selection == item \? Color\.white : Color\.white\.opacity\(0\.58\)\)/);
-  assert.match(contentView, /case apps = "Slots"/);
-  assert.match(contentView, /case about = "Conectar"/);
+  assert.match(contentView, new RegExp(`case apps = "${SIDEBAR.items[0]}"`), `fixture SIDEBAR.items[0] é "${SIDEBAR.items[0]}"`);
+  assert.match(contentView, new RegExp(`case about = "${SIDEBAR.items[1]}"`), `fixture SIDEBAR.items[1] é "${SIDEBAR.items[1]}"`);
+  assert.notEqual(SIDEBAR.items[0], "Apps", "D4: a fixture não pode reverter para a string stale do PRD");
 });
 
 test("ícone de recolher alterna a sidebar de verdade", () => {

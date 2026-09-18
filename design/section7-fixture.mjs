@@ -5,17 +5,23 @@
 // fixture for PRD §7 ("Contrato visual obrigatório",
 // docs/plans/2026-08-18-dokke-windows-host-prd.md:78-96).
 //
-// Today the Mac tests (test/mac-app-slides-ui.test.mjs,
-// test/mac-connection-ui.test.mjs) and the PWA test (test/ui.test.mjs)
-// each hand-encode the same §7 invariants in their own regex dialect. A
-// third hand-written copy for Windows (Phase 7 has no UI yet) is exactly
-// the drift §7 exists to prevent. This file is the fixture all three
-// surfaces' §7-scoped tests import instead:
+// The Mac tests (test/mac-app-slides-ui.test.mjs,
+// test/mac-connection-ui.test.mjs) and the PWA test (test/ui.test.mjs) used
+// to each hand-encode the same §7 invariants in their own regex dialect. A
+// third hand-written copy for Windows (Phase 7 has no UI yet) would have
+// been exactly the drift §7 exists to prevent, so instead every §7-scoped
+// assertion — in the dedicated files below AND in the pre-existing
+// mac-app-slides-ui/mac-connection-ui/ui test files — is now built FROM
+// this fixture's exported values, not retyped against them:
 //   - test/section7-mac.test.mjs
 //   - test/section7-pwa.test.mjs
 //   - test/section7-windows.test.mjs (Phase 7 has no UI to read yet — this
 //     is the acceptance contract Phase 7's real UI test will extend, not a
 //     placeholder; see the file for how it stays a real, breakable test.)
+//   - test/mac-app-slides-ui.test.mjs (pageSize/maxPageCount assertions)
+//   - test/mac-connection-ui.test.mjs (sidebar item-string assertions)
+//   - test/ui.test.mjs (the 38/40 empty-slot-count assertions, derived
+//     from GRID.maxSlots = GRID.pageSize * GRID.maxPageCount)
 //
 // Two decisions this file must NOT get wrong, both from .maxvision/REQUIREMENTS.md:
 //   - D4: the shipped sidebar string is "Slots", not "Apps". The PRD §7
@@ -165,17 +171,29 @@ export const BULLETS = [
 export const GRID = {
   columns: 4,
   rows: 2,
+  // Mac: DockGridView.swift's own `maxPageCount`. PWA: public/index.html's
+  // DEFAULT_MAX_PINNED_PAGES. Both surfaces cap a dock at 5 pages; see
+  // `source` below. Consumed by test/mac-app-slides-ui.test.mjs (Mac's
+  // literal `maxPageCount = 5`) and test/ui.test.mjs (the PWA's 38/40
+  // empty-slot-count assertions, via `maxSlots` below), so this is a real
+  // shared invariant, not a Mac-only number smuggled into GRID.
+  maxPageCount: 5,
   get pageSize() {
     return this.columns * this.rows;
+  },
+  get maxSlots() {
+    return this.pageSize * this.maxPageCount;
   },
   source: {
     mac:
       "mac/Sources/DockGridView.swift:14 (`private let pageSize = 8`), " +
-      ":211 (`GridItem(...), count: 4` — 4 columns; 8/4 = 2 rows)",
+      ":211 (`GridItem(...), count: 4` — 4 columns; 8/4 = 2 rows), " +
+      ":15 (`private let maxPageCount = 5`)",
     pwa:
       "public/index.html:1093 (`function pageSize(){ return 8; }`), " +
       ":494-495 (`grid-template-columns: repeat(4, ...)`, " +
-      "`grid-template-rows: repeat(2, ...)`)",
+      "`grid-template-rows: repeat(2, ...)`), :1092 " +
+      "(`const DEFAULT_MAX_PINNED_PAGES = 5;`)",
   },
 };
 

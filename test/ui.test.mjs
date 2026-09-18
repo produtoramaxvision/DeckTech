@@ -3,6 +3,12 @@ import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { startServer } from "../server.js";
 
+// TEST-01: the 38/40 empty/total-slot counts below are asserted FROM the
+// shared PRD §7 fixture (design/section7-fixture.mjs) via GRID.maxSlots
+// (= GRID.pageSize * GRID.maxPageCount), not retyped against it. Mutating
+// GRID there breaks this file too, alongside test/mac-app-slides-ui.test.mjs.
+import { GRID } from "../design/section7-fixture.mjs";
+
 test("GET / serve as 2 telas (apps + apps abertos) liquid glass", async () => {
   const { port, close } = await startServer(0);
   try {
@@ -326,13 +332,13 @@ test("PWA exibe cinco páginas completas e preserva slots vazios", async () => {
     // readiness instead"). Com um tile de app real o dock faz polling de status,
     // entao a rede nunca fica ociosa 500ms e o goto estourava o timeout.
     await page.goto(`http://127.0.0.1:${port}/`);
-    await page.waitForFunction(() => document.querySelectorAll(".atile.empty").length === 38);
+    await page.waitForFunction((n) => document.querySelectorAll(".atile.empty").length === n, GRID.maxSlots - 2);
     const empty = page.locator(".atile.empty .aglass").first();
     const style = await empty.evaluate((el) => {
       const computed = getComputedStyle(el);
       return { background: computed.backgroundColor, border: computed.border, boxShadow: computed.boxShadow };
     });
-    assert.equal(await page.locator(".atile.empty").count(), 38);
+    assert.equal(await page.locator(".atile.empty").count(), GRID.maxSlots - 2);
     assert.equal(style.background, "rgba(255, 255, 255, 0.035)");
     assert.match(style.border, /rgba\(240, 135, 55, 0\.18\)/);
     assert.match(style.boxShadow, /rgba\(255, 255, 255, 0\.035\)/);
@@ -554,7 +560,7 @@ test("grid em retrato não corta cards quando o PWA tem safe area", async () => 
     // O Playwright não expõe safe-area-inset-*; estas dimensões reproduzem o
     // recuo do status bar e do indicador Home do PWA em um iPhone moderno.
     await page.addStyleTag({ content: ":root{--dokke-safe-top:59px;--dokke-safe-bottom:44px}.screen{padding-top:59px !important}.dots{padding-bottom:44px !important}" });
-    await page.waitForFunction(() => document.querySelectorAll(".atile").length === 40);
+    await page.waitForFunction((n) => document.querySelectorAll(".atile").length === n, GRID.maxSlots);
     const bounds = await page.evaluate(() => {
       const pageRect = document.querySelector(".page").getBoundingClientRect();
       const launchpad = document.querySelector(".launchpad").getBoundingClientRect();
@@ -597,7 +603,7 @@ test("grade mobile mantém a régua do retrato e se ajusta sem cortar com safe a
     });
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "domcontentloaded" });
     await page.addStyleTag({ content: ":root{--dokke-safe-top:100px;--dokke-safe-bottom:100px}.screen{padding-top:100px !important}.dots{padding-bottom:100px !important}" });
-    await page.waitForFunction(() => document.querySelectorAll(".atile").length === 40);
+    await page.waitForFunction((n) => document.querySelectorAll(".atile").length === n, GRID.maxSlots);
     await page.evaluate(() => window.dispatchEvent(new Event("resize")));
     await page.waitForFunction(() => document.querySelector(".page-grid")?.style.transform.startsWith("scale("));
     const bounds = await page.evaluate(() => {
@@ -710,7 +716,7 @@ test("landscape touch mantém o slide centralizado sem girar o pager", async () 
       userAgent: "Mozilla/5.0 (iPad; CPU OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1",
     });
     await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => document.querySelectorAll(".atile").length === 40);
+    await page.waitForFunction((n) => document.querySelectorAll(".atile").length === n, GRID.maxSlots);
     await page.waitForSelector(".page-grid");
     await page.waitForTimeout(900);
     const layout = await page.evaluate(() => {

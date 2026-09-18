@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+// TEST-01: pageSize/maxPageCount below are asserted FROM the shared PRD §7
+// fixture (design/section7-fixture.mjs), not retyped against it — see that
+// file's header. Mutating GRID.pageSize or GRID.maxPageCount there breaks
+// this file too, alongside test/section7-mac.test.mjs and test/ui.test.mjs.
+import { GRID } from "../design/section7-fixture.mjs";
+
 const dockGrid = await readFile(new URL("../mac/Sources/DockGridView.swift", import.meta.url), "utf8");
 const dockIcon = await readFile(new URL("../mac/Sources/DockIcon.swift", import.meta.url), "utf8");
 const contentView = await readFile(new URL("../mac/Sources/ContentView.swift", import.meta.url), "utf8");
@@ -107,8 +113,12 @@ test("conteúdo ocupa o topo sem barra nativa e preserva os semáforos", () => {
 });
 
 test("paginação continua baseada em oito apps por slide", () => {
-  assert.match(dockGrid, /let pageSize = 8/);
-  assert.match(dockGrid, /private let maxPageCount = 5/);
+  assert.match(dockGrid, new RegExp(`let pageSize = ${GRID.pageSize}`), `fixture GRID.pageSize é ${GRID.pageSize}`);
+  assert.match(
+    dockGrid,
+    new RegExp(`private let maxPageCount = ${GRID.maxPageCount}`),
+    `fixture GRID.maxPageCount é ${GRID.maxPageCount}`,
+  );
   assert.match(dockGrid, /pageSize \* maxPageCount/);
   assert.match(dockGrid, /tileSize: CGFloat = 80/);
   assert.match(dockGrid, /\.scrollTargetBehavior\(\.viewAligned\)/);
