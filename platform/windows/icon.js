@@ -265,6 +265,17 @@ function createIconQueue(concurrency) {
  * @param {typeof import("node:fs/promises")} [deps.fs]
  * @param {() => number} [deps.now]
  * @param {{debug: Function, warn: Function}} [deps.log]
+ * @param {string|(() => (string|Promise<string>))|null} [deps.appearanceToken]
+ *   PLAT-07 — Windows equivalent of apps.js's `appearanceToken` dep
+ *   (apps.js:846,866-877): a string, a function returning one (sync or
+ *   async — platform/windows/theme.js's tracker's `.token()` is exactly
+ *   this shape), or the default `null`. Folded into the disk/mem cache key
+ *   below so a theme change invalidates the cache without a second cache
+ *   structure — same principle PLAT-09's mtime-in-key comment states a few
+ *   lines below. `null` (nothing wired) keeps today's behavior byte-for-
+ *   byte: every call resolves to the same constant "legacy" suffix, so the
+ *   cache key shape is unchanged for every existing caller/test that never
+ *   passes this dep.
  */
 export function makeWindowsIconService(deps = {}) {
   const {
@@ -284,7 +295,24 @@ export function makeWindowsIconService(deps = {}) {
     // Só pra observabilidade de teste — nunca chamado em produção real
     // além de contabilizar. Ver "PLAT-03: cancelamento".
     onExtractStart,
+    appearanceToken = null,
   } = deps;
+
+  /**
+   * Espelha resolveAppearanceToken de apps.js (apps.js:866-869) — mesmo
+   * shape (string | função | ausente), sem o TTL de lá: aqui não há
+   * TTL nenhum porque a invalidação é orientada a evento
+   * (platform/windows/theme.js), não a tempo. `appearanceToken` ausente
+   * (nenhum tracker wireado — caso hoje esperado, ver ROADMAP.md:167)
+   * devolve sempre o mesmo token constante, então a chave de cache nunca
+   * muda por causa de aparência — idêntico ao comportamento de antes desta
+   * ticket.
+   */
+  async function resolveAppearanceToken() {
+    if (typeof appearanceToken === "function") return String(await appearanceToken());
+    if (appearanceToken != null) return String(appearanceToken);
+    return "legacy";
+  }
 
   if (typeof scan !== "function") {
     throw new TypeError("makeWindowsIconService: deps.scan é obrigatório (função async () => apps[])");
@@ -471,11 +499,21 @@ export function makeWindowsIconService(deps = {}) {
         return null;
       }
 
+      // PLAT-07: mesmo princípio do comentário PLAT-09 logo acima, aplicado
+      // à aparência em vez do mtime — a aparência atual entra na chave, então
+      // uma mudança de tema gera uma chave nova automaticamente e a próxima
+      // carga reextrai (ou serve o PNG da variante nova já cacheada em
+      // disco/memória) em vez de servir o PNG da aparência antiga. Mesmo
+      // efeito observável que resolveAppearanceToken (apps.js:866) produz no
+      // cache do macOS — ver platform/windows/theme.js pro mecanismo
+      // event-driven que invalida isto sem poll.
+      const appearance = await resolveAppearanceToken();
+
       // PLAT-09: mtime entra na chave — um app atualizado (mtime novo) gera
       // uma chave nova automaticamente, então a próxima carga reextrai em
       // vez de servir o PNG do binário antigo. Não existe uma segunda
       // estrutura de "invalidação" separada: a chave em si é a prova.
-      const cacheKey = createHash("sha1").update(`${sourcePath}\0${mtimeMs}\0${maxPx}`).digest("hex");
+      const cacheKey = createHash("sha1").update(`${sourcePath}\0${mtimeMs}\0${maxPx}\0${appearance}`).digest("hex");
 
       if (memPng.has(cacheKey)) {
         const hit = memPng.get(cacheKey);

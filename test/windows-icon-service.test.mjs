@@ -192,6 +192,66 @@ test("PLAT-09: mtime do binário de origem muda -> próxima carga REEXTRAI em ve
   assert.notEqual(Buffer.compare(before, after), 0, "PNG pós-update deve ser diferente do PNG pré-update");
 });
 
+// --- PLAT-07: aparência (AppsUseLightTheme) na chave de cache --------------
+// Espelha o teste mac equivalente ("realIconService separa o cache quando a
+// aparência dos ícones muda", test/icon.test.mjs:238-265) na forma: injeta
+// `appearanceToken` como função, muda o valor que ela devolve entre duas
+// chamadas, prova que isso sozinho (mtime e sourcePath CONSTANTES) já basta
+// pra forçar uma reextração.
+
+test("PLAT-07: appearanceToken constante -> mesma chave -> cache hit, sem re-extração", async () => {
+  let calls = 0;
+  const svc = makeWindowsIconService({
+    scan: async () => [makeApp("A")],
+    fs: fakeFs(),
+    extract: (p, size) => { calls++; return new Uint8Array(size * size * 4).fill(calls); },
+    appearanceToken: () => "apps=dark",
+  });
+  await svc.getIconPng("A");
+  await svc.getIconPng("A");
+  assert.equal(calls, 1, "appearanceToken sempre igual -> mesma cacheKey -> só 1 extração");
+});
+
+test("PLAT-07: mudar o token de aparência (sourcePath e mtime CONSTANTES) força reextração — mesmo efeito observável de resolveAppearanceToken em apps.js:866 pro macOS", async () => {
+  let calls = 0;
+  let appearance = "apps=dark";
+  const svc = makeWindowsIconService({
+    scan: async () => [makeApp("A")],
+    fs: fakeFs(), // mtimeMs fixo (fakeFs default) — só a aparência muda
+    extract: (p, size) => { calls++; return new Uint8Array(size * size * 4).fill(calls); },
+    appearanceToken: () => appearance,
+  });
+
+  const dark = await svc.getIconPng("A");
+  assert.equal(calls, 1);
+  const darkAgain = await svc.getIconPng("A");
+  assert.equal(calls, 1, "mesma aparência -> cache hit, sem re-extração");
+  assert.equal(Buffer.compare(dark, darkAgain), 0);
+
+  appearance = "apps=light"; // "usuário trocou o tema do Windows"
+  const light = await svc.getIconPng("A");
+  assert.equal(calls, 2, "aparência nova -> reextraiu, mesmo com sourcePath/mtime intactos");
+  assert.notEqual(Buffer.compare(dark, light), 0, "PNG pós-troca de tema deve ser diferente do PNG pré-troca");
+
+  appearance = "apps=dark"; // volta pro claro-original — cache de disco/memória da variante dark ainda existe
+  const darkOnceMore = await svc.getIconPng("A");
+  assert.equal(calls, 2, "voltar pra uma aparência já vista antes serve do cache, não reextrai de novo");
+  assert.equal(Buffer.compare(dark, darkOnceMore), 0, "deve devolver o MESMO PNG dark de antes, não um terceiro");
+});
+
+test("PLAT-07: sem appearanceToken (padrão null) preserva o comportamento de antes desta ticket — chave não muda entre chamadas", async () => {
+  let calls = 0;
+  const svc = makeWindowsIconService({
+    scan: async () => [makeApp("A")],
+    fs: fakeFs(),
+    extract: (p, size) => { calls++; return new Uint8Array(size * size * 4).fill(calls); },
+    // appearanceToken deliberadamente OMITIDO — default null.
+  });
+  await svc.getIconPng("A");
+  await svc.getIconPng("A");
+  assert.equal(calls, 1, "sem appearanceToken wireado, a chave nunca muda por aparência — regressão zero pra quem não passa este dep");
+});
+
 // --- PLAT-03: cancelamento -------------------------------------------------
 
 test("PLAT-03: abortar o signal ANTES de uma extração ainda não iniciada pula essa extração (não lança, resolve null)", async () => {

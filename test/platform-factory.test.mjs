@@ -218,3 +218,47 @@ test("PLAT-01: darwin sem overrides usa realIconService de verdade (não mock)",
   assert.equal(typeof platform.iconService.getIconPng, "function");
   assert.equal(typeof bare.getIconPng, "function");
 });
+
+// Critério discriminante equivalente pro PLAT-07, espelhando o teste
+// "PLAT-01: darwin resolve iconHelper explicitamente na fábrica" acima: sem
+// esta asserção, um win32Platform() que nunca resolvesse/injetasse um
+// appearance tracker passaria em todos os testes de forma/contrato do mesmo
+// jeito (typeof função ainda bate, getIconPng ainda resolve). Prova de
+// discriminação em discrimination_proof.
+test("PLAT-07: win32 resolve o appearance tracker explicitamente na fábrica e passa .token pra makeIconService — não fica implícito dentro de icon.js", () => {
+  let capturedDeps;
+  let tokenCalls = 0;
+  const fakeTracker = { token: () => { tokenCalls++; return "apps=dark"; }, start() {}, stop() {} };
+  const platform = createPlatform("win32", {
+    makeIconService: (deps) => { capturedDeps = deps; return { getIconPng: async () => null }; },
+    resolveWindowsAppearanceTracker: () => fakeTracker,
+  });
+  assert.notEqual(capturedDeps, undefined, "makeIconService deveria ter sido chamado com deps explícitos");
+  assert.ok(Object.prototype.hasOwnProperty.call(capturedDeps, "appearanceToken"), "appearanceToken precisa ser passado explicitamente pela fábrica");
+  assert.equal(capturedDeps.appearanceToken, fakeTracker.token);
+  assert.equal(typeof platform.iconService.getIconPng, "function");
+  // A fábrica só RESOLVE o tracker (construção), nunca chama .token() ela
+  // mesma — quem decide quando ler é makeWindowsIconService/getIconPng.
+  assert.equal(tokenCalls, 0, "win32Platform() não deveria ter chamado token() sozinha");
+});
+
+// Critério discriminante: construir a plataforma win32 (com ou sem
+// overrides) NUNCA spawna um processo real — resolveWindowsAppearanceTracker
+// default (createWindowsAppearanceTracker) é barato por design (ver
+// platform/windows/theme.js). Sem start() explícito, um powershell.exe real
+// seria um processo órfão criado só por chamar createPlatform("win32") —
+// exatamente o que os outros testes acima ("win32 devolve os 5 membros...")
+// já fazem em bateria nesta máquina Windows real; este teste torna essa
+// garantia EXPLÍCITA em vez de incidental.
+test("PLAT-07: createPlatform(\"win32\") sem overrides NUNCA chama start() no tracker — construção é sempre barata, nunca spawna processo", () => {
+  let startCalls = 0;
+  const platform = createPlatform("win32", {
+    resolveWindowsAppearanceTracker: () => ({
+      token: async () => "apps=dark",
+      start: () => { startCalls++; },
+      stop: () => {},
+    }),
+  });
+  assert.equal(startCalls, 0);
+  assert.equal(typeof platform.iconService.getIconPng, "function");
+});

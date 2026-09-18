@@ -13,6 +13,7 @@ import {
   listAppProcesses as win32ListAppProcesses,
   activateApp as win32ActivateApp,
 } from "./windows/actions.js";
+import { createWindowsAppearanceTracker } from "./windows/theme.js";
 
 /**
  * Erro tipado para um membro do contrato de plataforma ainda sem provider
@@ -70,19 +71,40 @@ function darwinPlatform(deps = {}) {
  * Contrato Windows: Fase 3 (PLAT-02..PLAT-07) chegando membro a membro.
  * PLAT-02+10 (descoberta de apps: atalhos do Menu Iniciar via o leitor
  * binário .lnk, UWP, dedupe por target, exclusão de desinstaladores),
- * PLAT-03+09 (ícone 256px via addon N-API, cache persistente cancelável) e
+ * PLAT-03+09 (ícone 256px via addon N-API, cache persistente cancelável),
  * PLAT-05 (listagem de processos + ativação de janela, com o fallback do
- * PRD §15) já existem de verdade — `listInstalledApps`, `iconService`,
- * `listAppProcesses` e `activateApp` usam as instâncias reais de
- * platform/windows/apps.js e platform/windows/actions.js. Só `openWebsite`
- * (PLAT-07 é outra coisa — ver .maxvision/REQUIREMENTS.md; não há
- * requisito de Fase 3 que cubra abrir URL no Windows) continua ausente e
+ * PRD §15) e PLAT-07 (aparência de ícone via AppsUseLightTheme — ver
+ * platform/windows/theme.js) já existem de verdade — `listInstalledApps`,
+ * `iconService`, `listAppProcesses` e `activateApp` usam as instâncias
+ * reais de platform/windows/apps.js, platform/windows/actions.js e
+ * platform/windows/theme.js. Só `openWebsite` (não coberto por nenhum
+ * requisito de Fase 3 — ver .maxvision/REQUIREMENTS.md) continua ausente e
  * falha alto com erro tipado em vez de devolver lista vazia, null
  * silencioso ou lançar TypeError sem código.
  */
 function win32Platform(deps = {}) {
   const platformName = "win32";
-  const { makeIconService = makeWindowsIconService } = deps;
+  const {
+    makeIconService = makeWindowsIconService,
+    // PLAT-07: mesmo padrão de darwinPlatform's resolveMacIconHelper —
+    // resolvido explicitamente AQUI, na fábrica, e passado pra
+    // makeIconService, em vez de ficar implícito num default dentro de
+    // icon.js. `createWindowsAppearanceTracker()` em si é barato e sem
+    // efeito colateral: SÓ constrói o objeto (cache vazio, nenhum
+    // powershell.exe spawnado). Deliberadamente NUNCA chama `.start()`
+    // aqui — createPlatform("win32") não tem chamador de produção hoje
+    // (grep confirma: só test/*.mjs), e cada teste que chama
+    // createPlatform("win32") nesta máquina Windows real spawnaria um
+    // processo real toda vez que a fábrica rodasse se start() fosse
+    // automático aqui. Quem QUISER o watch event-driven ligado (produção
+    // futura, ou o script de prova do critério 5) chama
+    // `.start()`/`.stop()` no tracker devolvido por
+    // `resolveWindowsAppearanceTracker()` explicitamente — o mesmo
+    // "sinal emitido, ninguém liga ainda" que ROADMAP.md:167 pré-declara
+    // como esperado pra esta fase (consumidor real é a Fase 6/D11).
+    resolveWindowsAppearanceTracker = createWindowsAppearanceTracker,
+  } = deps;
+  const appearanceTracker = resolveWindowsAppearanceTracker();
   return {
     listInstalledApps: win32ListInstalledApps,
     listAppProcesses: win32ListAppProcesses,
@@ -95,7 +117,7 @@ function win32Platform(deps = {}) {
     // activateApp (platform/windows/actions.js) seguem a mesma regra: suas
     // próprias instâncias default já resolvem `resolveApps` para
     // win32ListInstalledApps sem precisar de injeção aqui.
-    iconService: makeIconService({ scan: win32ListInstalledApps }),
+    iconService: makeIconService({ scan: win32ListInstalledApps, appearanceToken: appearanceTracker.token }),
   };
 }
 
