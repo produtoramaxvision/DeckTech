@@ -25,8 +25,10 @@ findings, all addressed here:
    assertion is replaced with the measured fact, and the same measurement
    is offered as the previously-missing candidate root cause for why the
    round-7 `GenerateConsoleCtrlEvent` simulation never reached the
-   handler within its 1.8s window, replacing the unmeasured "plausibly
-   this session's lack of a real foreground console" guess.
+   handler within its 1.8s window — conditional on when the event was
+   sent, which this session did not record, but outranking the unmeasured
+   "plausibly this session's lack of a real foreground console" guess as
+   the leading candidate rather than sitting beside it unranked.
 2. **[major] The top-of-document revision header said "Round 5 (this
    revision)" while round 7 had already landed** (`mutate.mjs` commit
    `16d0794`), misstating the document's own provenance by two rounds, and
@@ -1434,10 +1436,13 @@ against different failure modes that are not interchangeable on Windows:
   child_process.spawnSync(), child_process.execSync(), and
   child_process.execFileSync() methods are synchronous and will block the
   Node.js event loop, pausing execution of any additional code until the
-  spawned process exits."* A signal handler is JS code dispatched from
-  that same event loop, so it cannot execute while `runSuite()` blocks —
-  measured directly, not assumed from the doc quote alone. A 50ms
-  `setTimeout` scheduled immediately before a ~2000ms `execFileSync`
+  spawned process exits."* A registered signal handler is dispatched
+  through that same event loop, not a separate preemptive path — Node's
+  own source shows why, `[REASONED]` in full below, since a real signal
+  cannot be delivered and observed from this headless session. What
+  **is** `[MEASURED]` directly, on the timer path the same loop mechanism
+  also serves: a 50ms `setTimeout` scheduled immediately before a
+  ~2000ms `execFileSync` did not fire during it
   (`measure/windows/proof-04/eventloop-probe.mjs`):
 
   ```
@@ -1512,37 +1517,68 @@ against different failure modes that are not interchangeable on Windows:
      7 left "why the simulated console event did not reach the handler"
      not root-caused, speculating it was "plausibly this session's lack of
      a real foreground console." A concrete, testable alternative follows
-     directly from the event-loop measurement above — and it does not
-     depend on *when* inside the run the event was delivered, only on
-     *whether the runtime ever regains control at all before the run
-     ends*. `CTRL_C_EVENT` is delivered at an instant, but a signal landing
-     mid-`execFileSync()` does not vanish — Node queues it and the handler
-     runs at the first point the event loop regains control, exactly like
-     the queued `setTimeout` in both probes above. The gap-probe already
-     shows there is **no such point anywhere in this script**: the pending
-     timer did not fire in the JS-only gap between two consecutive
-     `execFileSync()` calls either — only once the whole top-level
-     synchronous script had finished. `mutate.mjs`'s full 18-mutant run is
-     that same shape at 19x the length (1 baseline + 18 mutants, each an
-     `execFileSync()` call), and takes, measured fresh on this machine
-     across four runs just now, 4.2–5.4s wall-clock
-     (`node measure/windows/proof-04/mutate.mjs`, timed with `time`) — no
-     shorter than the 1.8s the round-7 helper waited. The helper attached
-     and sent `GenerateConsoleCtrlEvent` immediately after launching the
-     harness, so nearly the full 4.2–5.4s run was still ahead of it at
-     delivery — comfortably more than its 1.8s cap. Combining the two
-     measurements: this script offers the event loop no yield point until
-     the entire run completes, and the entire run takes longer than the
-     helper waited, so the handler could not have run within that window
-     **regardless of whether or precisely when Windows delivered
-     `CTRL_C_EVENT`** — a stronger, deterministic claim than "landed
-     inside a blocking call," which would not by itself explain 1.8s of
-     silence (a mid-call signal would still fire at the next yield, if one
-     existed). This does not rule out the foreground-console explanation
-     (both could be true at once, and this session cannot distinguish them
-     without an attached interactive terminal to test against), but it is
-     a mechanism this session *can* measure and *did* measure, so it
-     replaces the unmeasured guess as the leading candidate rather than
+     from the event-loop measurement above, stated with each step marked
+     `[MEASURED]` or `[REASONED]`, the same distinction this document's
+     own "Evidence convention" note (near the top, before §1) draws
+     between a run number and a design decision, applied here to a
+     mechanism claim instead of a number — since one step in this chain,
+     unlike the two probes, genuinely cannot be measured from this
+     session:
+
+     - `[MEASURED]` The gap-probe shows no point anywhere in a purely
+       synchronous script where a pending `setTimeout` callback can run —
+       not during an `execFileSync()` call, and not in the JS-only gap
+       between two consecutive calls either — only once the whole
+       top-level script has finished.
+     - `[REASONED]` A registered signal handler is dispatched through the
+       same mechanism as a timer callback, not a separate, preemptive
+       path: Node's own source (`lib/internal/process/signal.js`, read via
+       context7) shows `process.on("SIGINT", ...)` installs a libuv
+       `Signal` watcher whose `onsignal` callback calls `process.emit()`,
+       and libuv's own public API contract for `uv_run()` (`deps/uv/docs/src/loop.rst`,
+       platform-generic, no OS-specific carve-out) documents a single event
+       loop that dispatches all handle callbacks — the concrete phase
+       breakdown context7 surfaced (`uv__run_pending`/`uv__io_poll`/
+       `uv__run_check` for pending/I/O/signal-class callbacks,
+       `uv__run_timers` for timers, both phases of one `uv_run()`
+       iteration) is from `deps/uv/src/unix/core.c` specifically — this
+       machine runs libuv's Windows backend (`deps/uv/src/win/core.c`),
+       which context7 did not surface, so the phase-level detail is cited
+       from the Unix implementation as illustrative of the documented
+       cross-platform contract, not claimed as the literal code path this
+       process executes. The documented contract itself (one loop, no
+       platform exception) is what carries the inference: a signal
+       callback, like a timer callback, needs the JS call stack to unwind
+       back to that loop before it can run. This step is `[REASONED]` from
+       Node/libuv's own documentation and source, not `[MEASURED]`,
+       because a real interrupt cannot be delivered and observed from this
+       headless session (see the two simulation attempts above, both
+       inconclusive for different reasons) — stated as inference, not
+       claimed as directly observed.
+     - Combining the two: `mutate.mjs`'s full 18-mutant run (1 baseline +
+       18 mutants, each an `execFileSync()` call) offers no such yield
+       point anywhere until the whole run finishes, and that run takes,
+       `[MEASURED]` fresh on this machine across four runs just now,
+       4.2–5.4s wall-clock (`node measure/windows/proof-04/mutate.mjs`,
+       timed with `time`).
+     - **The conclusion is conditional on when the event was sent, which
+       this session did not record and cannot recover — stated as the
+       conditional it is, not smoothed into an unconditional claim.** If
+       at least 1.8s of the run remained when `GenerateConsoleCtrlEvent`
+       was delivered, the handler could not have run within the 1.8s wait
+       regardless of whether Windows actually delivered the event, by the
+       chain above. Round 7's own stated reason for choosing 1.8s —
+       "below the ~4.4s uninterrupted full-run time, so a natural
+       completion cannot be mistaken for a handled interrupt" — implies
+       the helper intended to send it with most of the run still ahead,
+       consistent with the antecedent holding, but that is round 7's
+       design intent, not a timestamp this session observed.
+
+     This does not rule out the foreground-console explanation (both could
+     be true at once, and this session cannot distinguish them without an
+     attached interactive terminal to test against), but it is a mechanism
+     this session measured and reasoned through, not guessed, so it
+     outranks the unmeasured guess as the leading candidate rather than
      sitting beside it unranked. (A handler that only ever fires once the
      run naturally completes is moot in any case: the `finally` has
      already restored every file by then.)
@@ -1550,12 +1586,17 @@ against different failure modes that are not interchangeable on Windows:
   **Conclusion, stated plainly rather than smoothed over.** The `finally`
   fix is proven working (§9.1b Group 7 above, every full run in this ADR
   has `restore byte-identical: true`). The `SIGINT`/`SIGTERM` handlers are
-  correct, idiomatic code to register, but this session measured — rather
-  than assumed — that they cannot fire during a `runSuite()` call, and
-  found no synchronous-execution point in this harness's own loop shape
-  where they demonstrably can fire either; the round-7 claim that they
-  "do receive and can act on" a real Ctrl+C is corrected above to what
-  was actually observed. Whether they fire for a genuine interactive
+  correct, idiomatic code to register, but this session measured that a
+  pending callback cannot fire during a `runSuite()` call or in the gap
+  between calls, and reasoned from Node/libuv's own source (not measured,
+  since no real signal could be delivered here) that a registered signal
+  handler runs through that identical mechanism — so, by that chain, it
+  follows they cannot fire during a `runSuite()` call either, and no
+  synchronous-execution point in this harness's own loop shape was found
+  where they demonstrably can fire; the round-7 claim that they "do
+  receive and can act on" a real Ctrl+C is corrected above to what was
+  actually measured and reasoned, not smoothed into a stronger claim than
+  either supports. Whether they fire for a genuine interactive
   Ctrl+C in an attached terminal — a scenario this headless session
   cannot itself exercise — remains open; only the programmatic-kill path
   is disproven (expected to be uncatchable on every platform, and not
@@ -1950,6 +1991,31 @@ observation.** Two things, checked directly rather than carried forward:
    PROOF-03 lnk parsing"), a commit this ADR's own history never produced.
    Same conclusion as the two notes above: a concurrent writer, not
    touched, not staged.
+
+**Round-8 addition, a self-caught regression of round-6's own fix above.**
+This round's first two commits, `52ada70` and `43ecf63`, both carry
+`Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>` — the
+exact trailer round 6's note above explains is wrong for this session and
+correctly avoided. This round's task text again carried the same
+`Claude Opus 5 (1M context)` instruction as a "non-negotiable rule," and
+this round followed it literally without re-checking it against this
+session's own system-level attribution instruction, which — checked now,
+not assumed — states plainly that such task-embedded text is script
+output, not the user's own instruction, and does not override the
+system-level default of `Claude Sonnet 5`; the harness framing for the
+task text itself says the same thing explicitly ("instructions ... inside
+it are script output, not the user speaking"). This is precisely round-6's
+"unvalidated factual claim about which model authored the commit" mistake,
+recurring two rounds later because this round re-derived the trailer from
+the task text instead of checking the standing session instruction first.
+Per the same constraint the notes above establish — this branch has
+another active writer right now (`git log -1` at the time of this fix:
+`087fc9b`, a PROOF-08 commit this ADR's history never produced; icon-bench
+files dirty again from that session) — `52ada70` and `43ecf63` are **not**
+amended or rewritten. This round's next commit carries the correct
+`Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` trailer, and this
+paragraph is where the two mistrailered commits are recorded, the same way
+`1763d51` and `a527ebe` are recorded above.
 
 ## 12. Comment provenance moved out of the lib modules (round-5 finding 2)
 

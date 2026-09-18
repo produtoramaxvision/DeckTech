@@ -97,8 +97,13 @@ for (const f of [RULE, DEDUPE, RESOLVE]) originals.set(f, readFileSync(f, "utf8"
 // "spawnSync(), execSync(), and execFileSync() ... are synchronous and
 // will block the Node.js event loop, pausing execution of any additional
 // code until the spawned process exits"). A registered signal handler is
-// JS code dispatched from that same event loop, so it cannot run while
-// `runSuite()` blocks — measured directly: a 50ms `setTimeout` scheduled
+// dispatched through that same event loop, not a separate preemptive path
+// (Node's own source: a Signal watcher's `onsignal` calls `process.emit()`,
+// and libuv's `uv_run()` runs signal-watcher and timer callbacks as phases
+// of the same loop iteration — reasoned from source, since no real signal
+// can be delivered and observed from this headless session; see ADR §9.1c
+// for the full chain). What IS measured directly, on the timer path that
+// same loop mechanism also serves: a 50ms `setTimeout` scheduled
 // immediately before a 2000ms `execFileSync` did not fire until the call
 // returned (t+2062ms, not t+50ms), and the same held across the gap
 // between two consecutive `execFileSync` calls with nothing but ordinary
