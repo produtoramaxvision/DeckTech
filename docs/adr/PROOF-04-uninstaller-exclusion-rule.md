@@ -50,7 +50,9 @@ findings, all addressed here:
 
 **Round 7 (commit `16d0794`, 2026-09-18 01:01).** A rigorous review
 rejected round 6 on four findings against `measure/windows/proof-04/mutate.mjs`
-itself, not the rule it tests, all addressed there and proven in §9.1c: (1)
+itself, not the rule it tests, all addressed there and proven in §9.1c —
+findings 1–2's own evidence lives in §9.1b Group 7, since both are the
+name-capture fix Group 7's re-run transcript already demonstrates: (1)
 [blocker] the Group 7 evidence block's failure names were hand-typed
 because the harness's own name-capture regex truncated and duplicated
 them — fixed and regenerated programmatically, verified byte-identical to
@@ -1510,26 +1512,40 @@ against different failure modes that are not interchangeable on Windows:
      7 left "why the simulated console event did not reach the handler"
      not root-caused, speculating it was "plausibly this session's lack of
      a real foreground console." A concrete, testable alternative follows
-     directly from the event-loop measurement above: the full 18-mutant
-     harness run takes, measured fresh on this machine across four runs
-     just now, 4.2–5.4s wall-clock (`node measure/windows/proof-04/mutate.mjs`,
-     timed with `time`), almost entirely spent inside 19 sequential
-     `execFileSync()` calls (1 baseline + 18 mutants) averaging ~200ms
-     each, with negligible synchronous JS between them — and the gap-probe
-     above already shows that inter-call JS gap does not give the event
-     loop a chance to run a pending callback either. The 1.8s
-     `GenerateConsoleCtrlEvent` wait, sent at an arbitrary point after the
-     harness started, therefore had a high chance of landing inside one of
-     those 19 blocking calls purely from their share of the run's total
-     wall-clock time, and — per the measurement above — no JS signal
-     handler can execute during a blocking `execFileSync()` regardless of
-     whether Windows actually delivered `CTRL_C_EVENT` to the process.
-     This does not rule out the foreground-console explanation (both could
-     be true at once, and this session cannot distinguish them without an
-     attached interactive terminal to test against), but it is a
-     mechanism this session *can* measure and *did* measure, so it
+     directly from the event-loop measurement above — and it does not
+     depend on *when* inside the run the event was delivered, only on
+     *whether the runtime ever regains control at all before the run
+     ends*. `CTRL_C_EVENT` is delivered at an instant, but a signal landing
+     mid-`execFileSync()` does not vanish — Node queues it and the handler
+     runs at the first point the event loop regains control, exactly like
+     the queued `setTimeout` in both probes above. The gap-probe already
+     shows there is **no such point anywhere in this script**: the pending
+     timer did not fire in the JS-only gap between two consecutive
+     `execFileSync()` calls either — only once the whole top-level
+     synchronous script had finished. `mutate.mjs`'s full 18-mutant run is
+     that same shape at 19x the length (1 baseline + 18 mutants, each an
+     `execFileSync()` call), and takes, measured fresh on this machine
+     across four runs just now, 4.2–5.4s wall-clock
+     (`node measure/windows/proof-04/mutate.mjs`, timed with `time`) — no
+     shorter than the 1.8s the round-7 helper waited. The helper attached
+     and sent `GenerateConsoleCtrlEvent` immediately after launching the
+     harness, so nearly the full 4.2–5.4s run was still ahead of it at
+     delivery — comfortably more than its 1.8s cap. Combining the two
+     measurements: this script offers the event loop no yield point until
+     the entire run completes, and the entire run takes longer than the
+     helper waited, so the handler could not have run within that window
+     **regardless of whether or precisely when Windows delivered
+     `CTRL_C_EVENT`** — a stronger, deterministic claim than "landed
+     inside a blocking call," which would not by itself explain 1.8s of
+     silence (a mid-call signal would still fire at the next yield, if one
+     existed). This does not rule out the foreground-console explanation
+     (both could be true at once, and this session cannot distinguish them
+     without an attached interactive terminal to test against), but it is
+     a mechanism this session *can* measure and *did* measure, so it
      replaces the unmeasured guess as the leading candidate rather than
-     sitting beside it unranked.
+     sitting beside it unranked. (A handler that only ever fires once the
+     run naturally completes is moot in any case: the `finally` has
+     already restored every file by then.)
 
   **Conclusion, stated plainly rather than smoothed over.** The `finally`
   fix is proven working (§9.1b Group 7 above, every full run in this ADR
@@ -1963,11 +1979,21 @@ restatement:
 **Cross-reference audit (finding 5's required fix, done systematically, not
 as a one-off grep):** `grep -oE '§[0-9]+(\.[0-9]+)?[a-z]?'` run over this
 document, the three lib modules, `scan-apps.mjs`, and the three test files,
-deduplicated, gives 22 distinct tokens. Checked one at a time against this
-document's own heading list (`§1`–`§12`, `§4a`–`§4c`, `§6.1`, `§9.1`–`§9.5`,
-`§9.1b`, `§9.1c` — the last added by round 7, after this audit was first
-run in round 5; every `§9.1c` self-reference added by round 7 and round 8
-resolves against it):
+deduplicated, gave 22 distinct tokens **when this audit was first run in
+round 5** — a round-5-historical count, same status this document gives
+every other stale-count trap (§9's opening paragraph, §9.2's round-5
+correction), not re-run against every later round's additions to keep
+"current." **Re-run fresh for round 8**, adding `measure/windows/proof-04/*.mjs`
+(new this round; contribute no `§` tokens of their own) to the file set,
+the same command gives 24 distinct tokens — the delta from 22 being two
+tokens neither in round 5's own snapshot (verified directly: `git show
+cc793b6:...` over the same file list gives exactly 22, matching round 5's
+count): `§9.1c` (the heading round 7 added) and a bare `§8` inside §9.1b
+Group 7's `X8`-equivalent-mutant discussion (added by round 6, in
+`docs/adr/PROOF-04-uninstaller-exclusion-rule.md`'s own prose, not in
+code), neither audited since. Checked one at a time, today's 24 tokens against
+this document's own heading list (`§1`–`§12`, `§4a`–`§4c`, `§6.1`,
+`§9.1`–`§9.5`, `§9.1b`, `§9.1c`):
 
 - `§9.6` — the one genuinely dangling token, only in prose *naming* the
   round-4 defect (this line, and the Round 5 header block's finding 5) —
@@ -1984,11 +2010,14 @@ resolves against it):
   blanket check against only this ADR's own heading list would have
   wrongly flagged these three as dangling — checked against the document
   each one actually names, not assumed from the `§` sigil alone.
-- Every other token (`§1`–`§9.5`, `§9.1b`, `§4a`–`§4c`, `§6.1`) resolves
-  against this document's own heading list, including every occurrence
-  inside `measure/windows/lib/*.mjs`, `measure/windows/scan-apps.mjs` and
-  the three test files — those files were NOT emptied of `§` references by
-  this round's comment trim (finding 2's fix kept durable pointers like
-  "see ADR §3" and "see ADR §4c" precisely because a bare file-name
-  citation with no section would send a future reader hunting through a
-  1300+ line document for the right paragraph).
+- Every other token (`§1`–`§9.5`, `§9.1b`, `§9.1c`, `§4a`–`§4c`, `§6.1`,
+  including the standalone `§8` inside §9.1b Group 7 and every
+  round-7/round-8 `§9.1c` self-reference) resolves against this document's
+  own heading list, including every occurrence inside
+  `measure/windows/lib/*.mjs`, `measure/windows/scan-apps.mjs`,
+  `measure/windows/proof-04/mutate.mjs` and the three test files — those
+  files were NOT emptied of `§` references by round 5's comment trim
+  (finding 2's fix kept durable pointers like "see ADR §3" and "see ADR
+  §4c" precisely because a bare file-name citation with no section would
+  send a future reader hunting through a 2000+ line document for the
+  right paragraph).
