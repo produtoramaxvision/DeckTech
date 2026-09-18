@@ -918,12 +918,26 @@ export function makeApp(deps = {}) {
             .then(() => { log.debug("action.activate.ok", { requestId, name, pid: pid ?? null }); ok({ ok: true }); })
             .then(() => { if (onStatusChange) onStatusChange(); })
             .catch(err => {
+              const code = typeof err?.code === "string" ? err.code : null;
               log.warn("action.activate.failed", {
                 requestId, name, pid: pid ?? null,
-                code: typeof err?.code === "string" ? err.code : null,
+                code,
                 message: err?.message ?? String(err),
               });
               fail(res, err);
+              // PLAT-05 (achado de review da Fase 2): FOCUS_RESTRICTED
+              // significa que o fallback do PRD §15 (nova instância) FUNCIONOU
+              // — o app abriu de verdade, só não do jeito "limpo" (janela
+              // existente trazida pra frente). Sem este empurrão, outros
+              // devices conectados nunca ficam sabendo que uma nova instância
+              // apareceu até o próximo poll de STATUS_POLL_MS (1,5s) — o
+              // mesmo atraso que o WS inteiro existe pra eliminar. Nunca deixa
+              // um listener que lança derrubar esta resposta HTTP, que já foi
+              // enviada por fail() acima.
+              if (code === "FOCUS_RESTRICTED" && onStatusChange) {
+                try { onStatusChange(); }
+                catch (e) { log.warn("action.activate.status_change_failed", { requestId, message: e?.message ?? String(e) }); }
+              }
             });
         });
         return;

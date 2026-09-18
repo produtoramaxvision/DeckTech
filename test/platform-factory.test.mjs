@@ -6,6 +6,10 @@ import { createPlatform, PlatformNotImplementedError } from "../platform/index.j
 import { realIconService, listInstalledApps } from "../apps.js";
 import { listInstalledApps as win32ListInstalledApps } from "../platform/windows/apps.js";
 import { makeWindowsIconService } from "../platform/windows/icon.js";
+import {
+  listAppProcesses as win32ListAppProcesses,
+  activateApp as win32ActivateApp,
+} from "../platform/windows/actions.js";
 
 const CONTRACT_MEMBERS = ["listInstalledApps", "listAppProcesses", "activateApp", "openWebsite", "iconService"];
 
@@ -61,37 +65,49 @@ test("PLAT-01: createPlatform(nome) ignora process.platform ambiente — win32 e
   t.mock.property(process, "platform", "darwin");
   const platform = createPlatform("win32");
   assert.deepEqual(Object.keys(platform).sort(), [...CONTRACT_MEMBERS].sort());
-  // listInstalledApps já tem provider real (PLAT-02); os outros quatro
-  // membros de Fase 3 ainda não — a chamada deve falhar alto e tipado,
-  // nunca devolver [] / null em silêncio.
+  // listInstalledApps (PLAT-02), iconService (PLAT-03+09), listAppProcesses
+  // e activateApp (PLAT-05) já têm provider real; só openWebsite continua
+  // sem — a chamada deve falhar alto e tipado, nunca devolver undefined em
+  // silêncio.
   await assertAllRejectTyped(platform);
 });
 
-// listInstalledApps e iconService deliberadamente FORA desta lista: PLAT-02
-// e PLAT-03+09 já implementaram os providers reais (platform/windows/apps.js
-// e platform/windows/icon.js) — ver os testes dedicados "PLAT-02: win32
-// listInstalledApps..." e "PLAT-03: win32 iconService..." abaixo, que provam
-// a referência real em vez de reusar este helper.
+// listInstalledApps, iconService, listAppProcesses e activateApp
+// deliberadamente FORA desta lista: PLAT-02, PLAT-03+09 e PLAT-05 já
+// implementaram os providers reais (platform/windows/apps.js e
+// platform/windows/actions.js) — ver os testes dedicados "PLAT-02: win32
+// listInstalledApps...", "PLAT-03: win32 iconService..." e "PLAT-05: win32
+// listAppProcesses/activateApp..." abaixo, que provam a referência real em
+// vez de reusar este helper.
 async function assertAllRejectTyped(platform) {
-  for (const member of ["listAppProcesses"]) {
-    await assert.rejects(platform[member](), PlatformNotImplementedError);
-  }
-  await assert.rejects(platform.activateApp({ name: "Notepad" }), PlatformNotImplementedError);
   await assert.rejects(platform.openWebsite("https://example.com"), PlatformNotImplementedError);
 }
 
-test("PLAT-01/PLAT-06: cada membro win32 ainda-não-implementado falha alto com PlatformNotImplementedError e code estável", async () => {
+test("PLAT-01/PLAT-06: openWebsite win32 (único membro ainda sem provider) falha alto com PlatformNotImplementedError e code estável", async () => {
   const platform = createPlatform("win32");
   await assertAllRejectTyped(platform);
   try {
-    await platform.listAppProcesses();
+    await platform.openWebsite("https://example.com");
     assert.fail("deveria ter lançado");
   } catch (err) {
     assert.equal(err.code, "PLATFORM_NOT_IMPLEMENTED");
     assert.equal(err.platform, "win32");
-    assert.equal(err.member, "listAppProcesses");
-    assert.match(err.message, /listAppProcesses/);
+    assert.equal(err.member, "openWebsite");
+    assert.match(err.message, /openWebsite/);
   }
+});
+
+// Critério discriminante equivalente pro PLAT-05: sem esta asserção de
+// referência, um win32Platform() que devolvesse `notImplemented(...)` de
+// novo pra listAppProcesses/activateApp passaria em "devolve os 5 membros"
+// do mesmo jeito (typeof função ainda bate). Prova de discriminação em
+// discrimination_proof.
+test("PLAT-05: win32 listAppProcesses/activateApp são os providers reais de platform/windows/actions.js, não notImplemented", () => {
+  const platform = createPlatform("win32");
+  assert.equal(platform.listAppProcesses, win32ListAppProcesses);
+  assert.equal(platform.activateApp, win32ActivateApp);
+  assert.equal(typeof platform.listAppProcesses, "function");
+  assert.equal(typeof platform.activateApp, "function");
 });
 
 // Critério 1 discriminante para PLAT-02: sem esta asserção de referência, um

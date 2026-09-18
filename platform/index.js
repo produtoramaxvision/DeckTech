@@ -9,6 +9,10 @@ import {
 import { activateApp, openWebsite } from "../actions.js";
 import { listInstalledApps as win32ListInstalledApps } from "./windows/apps.js";
 import { makeWindowsIconService } from "./windows/icon.js";
+import {
+  listAppProcesses as win32ListAppProcesses,
+  activateApp as win32ActivateApp,
+} from "./windows/actions.js";
 
 /**
  * Erro tipado para um membro do contrato de plataforma ainda sem provider
@@ -65,26 +69,32 @@ function darwinPlatform(deps = {}) {
 /**
  * Contrato Windows: Fase 3 (PLAT-02..PLAT-07) chegando membro a membro.
  * PLAT-02+10 (descoberta de apps: atalhos do Menu Iniciar via o leitor
- * binário .lnk, UWP, dedupe por target, exclusão de desinstaladores) e
- * PLAT-03+09 (ícone 256px via addon N-API, cache persistente cancelável)
- * já existem de verdade — `listInstalledApps` e `iconService` usam as
- * instâncias reais de platform/windows/apps.js e platform/windows/icon.js.
- * Os três membros restantes (PLAT-04, 05, 07) continuam ausentes e falham
- * alto com erro tipado em vez de devolver lista vazia, null silencioso ou
- * lançar TypeError sem código.
+ * binário .lnk, UWP, dedupe por target, exclusão de desinstaladores),
+ * PLAT-03+09 (ícone 256px via addon N-API, cache persistente cancelável) e
+ * PLAT-05 (listagem de processos + ativação de janela, com o fallback do
+ * PRD §15) já existem de verdade — `listInstalledApps`, `iconService`,
+ * `listAppProcesses` e `activateApp` usam as instâncias reais de
+ * platform/windows/apps.js e platform/windows/actions.js. Só `openWebsite`
+ * (PLAT-07 é outra coisa — ver .maxvision/REQUIREMENTS.md; não há
+ * requisito de Fase 3 que cubra abrir URL no Windows) continua ausente e
+ * falha alto com erro tipado em vez de devolver lista vazia, null
+ * silencioso ou lançar TypeError sem código.
  */
 function win32Platform(deps = {}) {
   const platformName = "win32";
   const { makeIconService = makeWindowsIconService } = deps;
   return {
     listInstalledApps: win32ListInstalledApps,
-    listAppProcesses: notImplemented("listAppProcesses", platformName),
-    activateApp: notImplemented("activateApp", platformName),
+    listAppProcesses: win32ListAppProcesses,
+    activateApp: win32ActivateApp,
     openWebsite: notImplemented("openWebsite", platformName),
     // scan reusa a MESMA instância TTL-cacheada de win32ListInstalledApps —
     // não um segundo scan PowerShell independente (ver comentário de topo
     // de platform/windows/icon.js sobre o double-layer de TTL, que já
-    // existe em apps.js/realIconService pro macOS).
+    // existe em apps.js/realIconService pro macOS). listAppProcesses e
+    // activateApp (platform/windows/actions.js) seguem a mesma regra: suas
+    // próprias instâncias default já resolvem `resolveApps` para
+    // win32ListInstalledApps sem precisar de injeção aqui.
     iconService: makeIconService({ scan: win32ListInstalledApps }),
   };
 }
