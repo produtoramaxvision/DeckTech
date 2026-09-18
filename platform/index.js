@@ -7,6 +7,7 @@ import {
   MAC_ICON_HELPER,
 } from "../apps.js";
 import { activateApp, openWebsite } from "../actions.js";
+import { listInstalledApps as win32ListInstalledApps } from "./windows/apps.js";
 
 /**
  * Erro tipado para um membro do contrato de plataforma ainda sem provider
@@ -61,15 +62,18 @@ function darwinPlatform(deps = {}) {
 }
 
 /**
- * Contrato Windows: Fase 3 (PLAT-02..PLAT-07) ainda não existe. Os cinco
- * membros do contrato estão todos presentes — o port não pode ficar sem
- * nenhum deles — mas cada chamada falha alto com um erro tipado em vez de
- * devolver lista vazia, null silencioso ou lançar TypeError sem código.
+ * Contrato Windows: Fase 3 (PLAT-02..PLAT-07) chegando membro a membro.
+ * PLAT-02+10 (descoberta de apps: atalhos do Menu Iniciar via o leitor
+ * binário .lnk, UWP, dedupe por target, exclusão de desinstaladores) é o
+ * primeiro a existir de verdade — `listInstalledApps` usa a instância real
+ * de platform/windows/apps.js. Os outros quatro membros (PLAT-03..05, 07)
+ * continuam ausentes e falham alto com erro tipado em vez de devolver
+ * lista vazia, null silencioso ou lançar TypeError sem código.
  */
 function win32Platform() {
   const platformName = "win32";
   return {
-    listInstalledApps: notImplemented("listInstalledApps", platformName),
+    listInstalledApps: win32ListInstalledApps,
     listAppProcesses: notImplemented("listAppProcesses", platformName),
     activateApp: notImplemented("activateApp", platformName),
     openWebsite: notImplemented("openWebsite", platformName),

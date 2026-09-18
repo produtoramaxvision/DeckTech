@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { createPlatform, PlatformNotImplementedError } from "../platform/index.js";
 import { realIconService, listInstalledApps } from "../apps.js";
+import { listInstalledApps as win32ListInstalledApps } from "../platform/windows/apps.js";
 
 const CONTRACT_MEMBERS = ["listInstalledApps", "listAppProcesses", "activateApp", "openWebsite", "iconService"];
 
@@ -30,11 +31,12 @@ test("PLAT-01: createPlatform() sem argumento lê process.platform — forçado 
   const platform = createPlatform();
   assert.deepEqual(Object.keys(platform).sort(), [...CONTRACT_MEMBERS].sort());
   // Discrimina o ramo de verdade: sob win32 forçado, listInstalledApps tem
-  // que ser o stub notImplemented (rejeita tipado), não a implementação real
-  // do macOS. Sem esta asserção, uma fábrica que sempre devolve o bundle
-  // darwin (ou sempre win32) passaria aqui do mesmo jeito — só o conjunto de
-  // chaves é idêntico nos dois SOs.
-  await assert.rejects(platform.listInstalledApps(), PlatformNotImplementedError);
+  // que ser o provider real de platform/windows/apps.js (PLAT-02), não a
+  // implementação real do macOS nem um stub genérico. Sem esta asserção,
+  // uma fábrica que sempre devolve o bundle darwin (ou sempre win32)
+  // passaria aqui do mesmo jeito — só o conjunto de chaves é idêntico nos
+  // dois SOs.
+  assert.equal(platform.listInstalledApps, win32ListInstalledApps);
 });
 
 test("PLAT-01: createPlatform() sem argumento lê process.platform — forçado para darwin", (t) => {
@@ -58,13 +60,18 @@ test("PLAT-01: createPlatform(nome) ignora process.platform ambiente — win32 e
   t.mock.property(process, "platform", "darwin");
   const platform = createPlatform("win32");
   assert.deepEqual(Object.keys(platform).sort(), [...CONTRACT_MEMBERS].sort());
-  // win32 ainda não tem provider real (Fase 3): a chamada deve falhar alto e tipado,
+  // listInstalledApps já tem provider real (PLAT-02); os outros quatro
+  // membros de Fase 3 ainda não — a chamada deve falhar alto e tipado,
   // nunca devolver [] / null em silêncio.
   await assertAllRejectTyped(platform);
 });
 
+// listInstalledApps deliberadamente FORA desta lista: PLAT-02 já implementou
+// o provider real (platform/windows/apps.js) — ver o teste dedicado acima
+// ("...devolve os 5 membros...") e "PLAT-02: win32 listInstalledApps..."
+// abaixo, que prova a referência real em vez de reusar este helper.
 async function assertAllRejectTyped(platform) {
-  for (const member of ["listInstalledApps", "listAppProcesses"]) {
+  for (const member of ["listAppProcesses"]) {
     await assert.rejects(platform[member](), PlatformNotImplementedError);
   }
   await assert.rejects(platform.activateApp({ name: "Notepad" }), PlatformNotImplementedError);
@@ -72,18 +79,28 @@ async function assertAllRejectTyped(platform) {
   await assert.rejects(platform.iconService.getIconPng("Notepad"), PlatformNotImplementedError);
 }
 
-test("PLAT-01/PLAT-06: cada membro win32 falha alto com PlatformNotImplementedError e code estável", async () => {
+test("PLAT-01/PLAT-06: cada membro win32 ainda-não-implementado falha alto com PlatformNotImplementedError e code estável", async () => {
   const platform = createPlatform("win32");
   await assertAllRejectTyped(platform);
   try {
-    await platform.listInstalledApps();
+    await platform.listAppProcesses();
     assert.fail("deveria ter lançado");
   } catch (err) {
     assert.equal(err.code, "PLATFORM_NOT_IMPLEMENTED");
     assert.equal(err.platform, "win32");
-    assert.equal(err.member, "listInstalledApps");
-    assert.match(err.message, /listInstalledApps/);
+    assert.equal(err.member, "listAppProcesses");
+    assert.match(err.message, /listAppProcesses/);
   }
+});
+
+// Critério 1 discriminante para PLAT-02: sem esta asserção de referência, um
+// win32Platform() que devolvesse qualquer função (inclusive um novo stub
+// notImplemented) passaria nos testes de forma/contrato acima do mesmo
+// jeito. Prova de discriminação em discrimination_proof.
+test("PLAT-02: win32 listInstalledApps é o provider real de platform/windows/apps.js, não notImplemented", () => {
+  const platform = createPlatform("win32");
+  assert.equal(platform.listInstalledApps, win32ListInstalledApps);
+  assert.equal(typeof platform.listInstalledApps, "function");
 });
 
 test("createPlatform(plataforma desconhecida) falha alto e tipado, nunca undefined em silêncio", () => {
