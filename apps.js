@@ -10,7 +10,10 @@ import { deflateSync, inflateSync } from "node:zlib";
 const ex = promisify(execFile);
 const LSAPPINFO = "/usr/bin/lsappinfo";
 const ICON_CACHE_DIR = join(import.meta.dirname, ".icon-cache");
-const MAC_ICON_HELPER = join(import.meta.dirname, "bin", "DokkeIconHelper.app");
+// Exportado para platform/index.js: a fábrica de plataforma precisa resolver
+// o iconHelper do macOS explicitamente, em vez de depender do default
+// implícito de realIconService() (linha ~571 abaixo).
+export const MAC_ICON_HELPER = join(import.meta.dirname, "bin", "DokkeIconHelper.app");
 const MAC_ICON_APPEARANCE_TTL_MS = 1000;
 const registeredMacIconHelpers = new Set();
 /** Ícone servido em até 512px para acompanhar telas de alta densidade. */
