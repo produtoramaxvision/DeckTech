@@ -350,21 +350,35 @@ test("realIconService miss em memória não rescaneia a cada miss", async () => 
   // Assunto real deste teste é o branch de cache negativo em apps.js
   // (memMiss.has(cacheKey) -> return null, apps.js:700): quando NEM o app é
   // encontrado NEM o monograma consegue ser rasterizado, getIconPng deve
-  // devolver null nas duas chamadas sem rodar um segundo scan. exec é um
-  // no-op deliberado (não escreve o PNG de saída) para que monogramPng caia
-  // no catch{return null} de forma determinística em qualquer plataforma —
-  // reproduz exatamente o que acontece hoje no Windows sem `sips`, sem
-  // depender do binário real nem mockar sucesso onde a produção falha.
+  // devolver null nas duas chamadas sem rodar um segundo scan NEM uma
+  // segunda tentativa de rasterizar. exec é um no-op deliberado (não escreve
+  // o PNG de saída) para que monogramPng caia no catch{return null} de forma
+  // determinística em qualquer plataforma — reproduz exatamente o que
+  // acontece hoje no Windows sem `sips`, sem depender do binário real nem
+  // mockar sucesso onde a produção falha.
+  //
+  // scans sozinho não discrimina o branch: com ttlMs alto, resolveApps já
+  // cacheia o resultado do 1º scan (apps.js:597-599), então scans === 1
+  // também seria verdade se o cache negativo (memMiss) não existisse — a
+  // segunda chamada só evitaria um novo scan, não uma nova tentativa de
+  // monogramPng. execCalls é a asserção que de fato prova o cache negativo:
+  // sem memMiss, o 2º getIconPng reentraria em monogramPng (seu
+  // readFile(cacheFile) segue falhando, já que o exec nunca escreveu o
+  // arquivo) e chamaria exec de novo. iconHelper:null remove a variável do
+  // helper nativo do macOS (que gastaria um exec extra em
+  // resolveAppearanceToken) para o contador de exec valer em qualquer SO.
   const dir = await mkdtemp(join(tmpdir(), "j5-miss-null-"));
   try {
     let scans = 0;
-    const exec = async () => {};
+    let execCalls = 0;
+    const exec = async () => { execCalls++; };
     const svc = realIconService({
       scan: async () => {
         scans++;
         return [];
       },
       exec,
+      iconHelper: null,
       cacheDir: dir,
       ttlMs: 60_000,
     });
@@ -373,6 +387,7 @@ test("realIconService miss em memória não rescaneia a cada miss", async () => 
     assert.equal(buf1, null, "sem app e sem monograma rasterizável, deve devolver null");
     assert.equal(buf2, null, "segunda chamada deve continuar null (cache negativo em memória)");
     assert.equal(scans, 1, "scan deve rodar apenas uma vez, mesmo com dois misses");
+    assert.equal(execCalls, 1, "2º miss vem do cache negativo (memMiss), não de um novo monogramPng");
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
