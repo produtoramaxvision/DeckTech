@@ -42,11 +42,41 @@
 //   - Round-7 minor 3: no fixture in this file used a path containing a
 //     space, despite task rule 5 naming that explicitly. The env-var
 //     expansion test's target now does.
+//   - Round-10 blocker 1: a Start Menu scan ROOT that does not exist was
+//     silently swallowed identically to a directory that vanishes
+//     mid-walk (both ENOENT, both previously "expected, skip silently"),
+//     dropping up to a third of the corpus with zero signal and a clean
+//     exit 0. walkLnkFiles now distinguishes the two: a missing ROOT is
+//     recorded as `MISSING_SCAN_ROOT`; a directory that disappears
+//     mid-walk stays benign and silent, exactly as before.
+//   - Round-10 minor 3: the 113 lines of --write-canonical gate logic
+//     (gitPorcelainStatusForPath, gitPathIsTracked, resolveReportPath,
+//     isoForFilename) had zero automated coverage -- every branch was
+//     verified only by hand. resolveReportPath now throws
+//     `ReportPathRefusal` (with a machine-checkable `reason`) instead of
+//     calling `process.exit(1)` directly, and accepts injectable
+//     `isTracked`/`porcelainStatus`/`log`/`logError` deps, so its four
+//     outcomes (tracked+clean, dirty, untracked, git-unreadable) are
+//     testable in-process without spawning real git or killing the test
+//     runner. The two git helpers are separately integration-tested
+//     against real throwaway git repos.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { parseLnk, expandEnvVars } from '../measure/windows/lnk-parser.mjs';
-import { compareTiered } from '../measure/windows/proof-03-lnk-benchmark.mjs';
+import {
+  compareTiered,
+  walkLnkFiles,
+  resolveReportPath,
+  ReportPathRefusal,
+  gitPorcelainStatusForPath,
+  gitPathIsTracked,
+  isoForFilename,
+} from '../measure/windows/proof-03-lnk-benchmark.mjs';
 
 const LINK_CLSID_BYTES = [
   0x01, 0x14, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -485,5 +515,266 @@ test('expandEnvVars picks up a process.env var set AFTER an earlier call -- roun
     );
   } finally {
     delete process.env[name];
+  }
+});
+
+// --- Round-10 blocker finding 1: walkLnkFiles root-vs-mid-walk ENOENT ---
+
+test('walkLnkFiles: a scan ROOT that does not exist is recorded as MISSING_SCAN_ROOT, not silently skipped -- round-10 blocker finding 1', () => {
+  const dirErrors = [];
+  // A path containing a space, per task rule 5.
+  const files = walkLnkFiles('C:\\Definitely Not A Real Path\\Sub Dir 42', dirErrors);
+
+  assert.deepEqual(files, []);
+  assert.equal(dirErrors.length, 1);
+  assert.equal(dirErrors[0].code, 'MISSING_SCAN_ROOT');
+  assert.match(dirErrors[0].message, /never expected to be missing/);
+});
+
+test('walkLnkFiles: a directory that disappears MID-WALK (ENOENT below the root) stays silent -- no dirErrors entry -- round-10 blocker finding 1', () => {
+  const dirErrors = [];
+  const seen = [];
+  // Injected readdirImpl: the ROOT resolves fine and reports one
+  // subdirectory; that subdirectory itself throws ENOENT when walked --
+  // simulating a directory that vanished between the root's own
+  // readdirSync call and the recursive one for 'sub', without racing a
+  // real filesystem deletion.
+  const fakeReaddir = (dir) => {
+    seen.push(dir);
+    if (dir === 'C:\\root') {
+      return [{ name: 'sub', isSymbolicLink: () => false, isDirectory: () => true, isFile: () => false }];
+    }
+    if (dir === 'C:\\root\\sub') {
+      const err = new Error('simulated: directory vanished mid-walk');
+      err.code = 'ENOENT';
+      throw err;
+    }
+    throw new Error(`unexpected dir in fake readdir: ${dir}`);
+  };
+
+  const files = walkLnkFiles('C:\\root', dirErrors, { readdirImpl: fakeReaddir });
+
+  assert.deepEqual(files, []);
+  assert.deepEqual(dirErrors, [], 'a mid-walk ENOENT must stay benign -- no MISSING_SCAN_ROOT, no entry at all');
+  assert.deepEqual(seen, ['C:\\root', 'C:\\root\\sub'], 'sanity: the recursive call into the vanished subdirectory must actually have happened');
+});
+
+test('walkLnkFiles: a non-ENOENT error at the ROOT (e.g. EACCES) is recorded with its real code, not MISSING_SCAN_ROOT', () => {
+  const dirErrors = [];
+  const fakeReaddir = () => {
+    const err = new Error('simulated: permission denied');
+    err.code = 'EACCES';
+    throw err;
+  };
+  const files = walkLnkFiles('C:\\root', dirErrors, { readdirImpl: fakeReaddir });
+
+  assert.deepEqual(files, []);
+  assert.equal(dirErrors.length, 1);
+  assert.equal(dirErrors[0].code, 'EACCES', 'a real permission error at the root must keep its own code, not be relabeled MISSING_SCAN_ROOT');
+});
+
+// --- Round-10 minor finding 3: --write-canonical gate coverage ---
+
+test('isoForFilename never produces a ":" -- Windows basenames cannot contain it', () => {
+  const name = isoForFilename(new Date('2026-09-18T12:34:56.789Z'));
+  assert.ok(!name.includes(':'), `isoForFilename output must not contain ':': got "${name}"`);
+  assert.equal(name, '2026-09-18T12-34-56.789Z');
+});
+
+test('resolveReportPath: default (no --write-canonical) returns an untracked timestamped path and never touches git', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'decktech-proof03-test-'));
+  try {
+    let isTrackedCalls = 0;
+    let porcelainCalls = 0;
+    const logs = [];
+    const path = resolveReportPath([], tmp, {
+      isTracked: () => { isTrackedCalls += 1; return true; },
+      porcelainStatus: () => { porcelainCalls += 1; return ''; },
+      log: (...a) => logs.push(a.join(' ')),
+      logError: () => { throw new Error('logError must not be called on the default path'); },
+    });
+    assert.match(path, /proof-03-results-.*\.json$/);
+    assert.ok(path.includes(join(tmp, 'out')));
+    assert.equal(isTrackedCalls, 0, 'the default (no --write-canonical) branch must never call the git helpers');
+    assert.equal(porcelainCalls, 0);
+    assert.ok(logs.some((l) => l.includes('untracked, timestamped')));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('resolveReportPath: --write-canonical with a tracked, clean path returns the canonical path', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'decktech-proof03-test-'));
+  try {
+    const path = resolveReportPath(['--write-canonical'], tmp, {
+      isTracked: () => true,
+      porcelainStatus: () => '', // empty porcelain output == clean
+      log: () => {},
+      logError: () => { throw new Error('logError must not be called on the clean/tracked path'); },
+    });
+    assert.equal(path, join(tmp, 'proof-03-results.json'));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('resolveReportPath: --write-canonical on a DIRTY tracked path refuses with reason "dirty"', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'decktech-proof03-test-'));
+  try {
+    const errors = [];
+    assert.throws(
+      () => resolveReportPath(['--write-canonical'], tmp, {
+        isTracked: () => true,
+        porcelainStatus: () => ' M measure/windows/proof-03-results.json\n',
+        log: () => {},
+        logError: (...a) => errors.push(a.join(' ')),
+      }),
+      (err) => {
+        assert.ok(err instanceof ReportPathRefusal);
+        assert.equal(err.reason, 'dirty');
+        return true;
+      },
+    );
+    assert.ok(errors.some((l) => l.includes('uncommitted diff')));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('resolveReportPath: --write-canonical on an UNTRACKED path refuses with reason "untracked"', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'decktech-proof03-test-'));
+  try {
+    assert.throws(
+      () => resolveReportPath(['--write-canonical'], tmp, {
+        isTracked: () => false,
+        porcelainStatus: () => '', // git ran fine, path just isn't tracked
+        log: () => {},
+        logError: () => {},
+      }),
+      (err) => {
+        assert.ok(err instanceof ReportPathRefusal);
+        assert.equal(err.reason, 'untracked');
+        return true;
+      },
+    );
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('resolveReportPath: --write-canonical when git itself is unreadable refuses with reason "git-unreadable", NOT "untracked" -- git-unreadable must win the precedence -- round-10 minor finding 3', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'decktech-proof03-test-'));
+  try {
+    // With git unreachable, `ls-files` would independently fail too --
+    // isTracked returning false here models that correctly (this state,
+    // where git is gone but isTracked still claims "true", cannot occur
+    // in reality and is deliberately NOT what this test injects).
+    assert.throws(
+      () => resolveReportPath(['--write-canonical'], tmp, {
+        isTracked: () => false,
+        porcelainStatus: () => null, // git status/ls-files could not be run at all
+        log: () => {},
+        logError: () => {},
+      }),
+      (err) => {
+        assert.ok(err instanceof ReportPathRefusal);
+        assert.equal(err.reason, 'git-unreadable', 'statusOutput === null must be diagnosed as git-unreadable, not misreported as untracked');
+        return true;
+      },
+    );
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// --- Round-10 minor finding 3: gitPorcelainStatusForPath / gitPathIsTracked
+// integration-tested against REAL throwaway git repos (not mocks), so the
+// actual `git status --porcelain`/`git ls-files --error-unmatch` subprocess
+// interaction is verified, not just resolveReportPath's branching on top
+// of it. ---
+
+function initThrowawayRepo() {
+  const dir = mkdtempSync(join(tmpdir(), 'decktech-proof03-gitrepo-'));
+  const env = {
+    ...process.env,
+    GIT_AUTHOR_NAME: 'decktech-test',
+    GIT_AUTHOR_EMAIL: 'decktech-test@example.invalid',
+    GIT_COMMITTER_NAME: 'decktech-test',
+    GIT_COMMITTER_EMAIL: 'decktech-test@example.invalid',
+  };
+  const run = (args) => {
+    const proc = spawnSync('git', args, { cwd: dir, encoding: 'utf8', env });
+    if (proc.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${proc.stderr}`);
+    return proc.stdout;
+  };
+  run(['init', '--quiet']);
+  run(['config', 'commit.gpgsign', 'false']);
+  return { dir, run };
+}
+
+test('gitPathIsTracked / gitPorcelainStatusForPath: a committed, unmodified file is tracked and clean', () => {
+  const { dir, run } = initThrowawayRepo();
+  try {
+    const filePath = join(dir, 'tracked-clean.txt');
+    writeFileSync(filePath, 'hello\n', 'utf8');
+    run(['add', 'tracked-clean.txt']);
+    run(['commit', '--quiet', '-m', 'add tracked-clean.txt']);
+
+    assert.equal(gitPathIsTracked(dir, filePath), true);
+    assert.equal(gitPorcelainStatusForPath(dir, filePath), '');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('gitPathIsTracked / gitPorcelainStatusForPath: a committed file with an uncommitted edit is tracked but dirty', () => {
+  const { dir, run } = initThrowawayRepo();
+  try {
+    const filePath = join(dir, 'tracked-dirty.txt');
+    writeFileSync(filePath, 'hello\n', 'utf8');
+    run(['add', 'tracked-dirty.txt']);
+    run(['commit', '--quiet', '-m', 'add tracked-dirty.txt']);
+    writeFileSync(filePath, 'hello, modified\n', 'utf8');
+
+    assert.equal(gitPathIsTracked(dir, filePath), true);
+    const status = gitPorcelainStatusForPath(dir, filePath);
+    assert.notEqual(status, '');
+    assert.notEqual(status, null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('gitPathIsTracked / gitPorcelainStatusForPath: a file that was never `git add`-ed is untracked', () => {
+  const { dir, run } = initThrowawayRepo();
+  try {
+    // Repo needs at least one commit for `git status` to behave normally
+    // on an otherwise-empty repo.
+    writeFileSync(join(dir, 'seed.txt'), 'seed\n', 'utf8');
+    run(['add', 'seed.txt']);
+    run(['commit', '--quiet', '-m', 'seed']);
+
+    const filePath = join(dir, 'never-added.txt');
+    writeFileSync(filePath, 'orphan\n', 'utf8');
+
+    assert.equal(gitPathIsTracked(dir, filePath), false);
+    const status = gitPorcelainStatusForPath(dir, filePath);
+    assert.notEqual(status, null, 'git ran fine here -- an untracked file is a valid (non-null) porcelain result, distinct from git being unreachable');
+    assert.match(status, /^\?\? /);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('gitPathIsTracked / gitPorcelainStatusForPath: outside any git repo, both fail closed (false / null), never a false "clean"', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'decktech-proof03-nonrepo-'));
+  try {
+    const filePath = join(dir, 'whatever.txt');
+    writeFileSync(filePath, 'x\n', 'utf8');
+
+    assert.equal(gitPathIsTracked(dir, filePath), false);
+    assert.equal(gitPorcelainStatusForPath(dir, filePath), null, 'outside a repo, status must be null (unknown), never empty-string (which resolveReportPath reads as clean)');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });

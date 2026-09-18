@@ -31,7 +31,19 @@
 // figure this script derives a ratio from. Round-2 major finding 2,
 // round-3 blocker 1.
 //
-// Usage: node measure/windows/proof-03-lnk-benchmark.mjs [--write-canonical]
+// Scan roots: the two Start Menu \Programs folders (all-users, then
+// per-user) are resolved via the OS known-folder mechanism (the `Shell
+// Folders` registry key), which reflects whatever redirection (GPO,
+// roaming profile relocation, OneDrive Known Folder Move) is currently in
+// effect -- falling back, per root independently, to the original
+// %ProgramData%/%APPDATA% + 'Microsoft\Windows\Start Menu\Programs'
+// reconstruction only if that registry lookup itself fails. `--scan-root
+// <path>` (repeatable) bypasses both and scans exactly the given path(s)
+// instead -- see resolveStartMenuRoots's docblock. Round-10 blocker
+// finding 1: a scan root that does not exist on disk is no longer
+// silently dropped -- see walkLnkFiles's docblock for MISSING_SCAN_ROOT.
+//
+// Usage: node measure/windows/proof-03-lnk-benchmark.mjs [--write-canonical] [--scan-root <path> ...]
 // Writes (default, no flag): an UNTRACKED, timestamped copy of the full
 // per-shortcut report under measure/windows/out/, e.g.
 // measure/windows/out/proof-03-results-2026-09-18T12-34-56.789Z.json --
@@ -67,12 +79,30 @@ const WARMUP_ITERATIONS = 1; // iteration 0: cold, reported separately, not in t
 const TIMED_ITERATIONS = 5; // iterations 1..5: warm, aggregated (median/min/max/stddev)
 
 /**
- * Enumerates *.lnk under `root`. A directory that genuinely does not exist
- * (ENOENT) is silently skipped -- expected on a machine without that root.
- * Any OTHER readdir error (EACCES, EPERM, ENOTDIR, EMFILE, ...) is recorded
- * into `dirErrors` instead of being swallowed, so a permission-denied or
- * otherwise-unreadable subtree shrinks the measured set VISIBLY rather than
- * silently. Round-2 major finding 5.
+ * Enumerates *.lnk under `root`. `root` itself is a SCAN ROOT -- Windows
+ * guarantees a Start Menu Programs folder resolved via the OS known-folder
+ * mechanism (or, as a fallback, the env-var reconstruction) exists, so a
+ * ROOT that does not exist (ENOENT) is NEVER expected and is recorded into
+ * `dirErrors` with its own code, `MISSING_SCAN_ROOT` -- it reaches the
+ * WARNING line and gates the exit code, the same as any other under-count.
+ * Round-10 blocker finding 1: this file previously treated ROOT-level
+ * ENOENT identically to every other ENOENT encountered mid-walk (silently
+ * skipped, "expected on a machine without that root") -- but a scan root
+ * can only be missing because GPO/roaming Start-Menu-specific redirection
+ * points somewhere this account cannot see, a service-account profile has
+ * no Start Menu, or the resolved path is itself wrong; none of those is
+ * "expected," and the previous wording blessed exactly the defect this
+ * fix closes. A directory that disappears MID-WALK (a subfolder deleted
+ * between `readdirSync` calls, e.g.) is still genuinely benign and stays
+ * silently skipped, not recorded -- only the two top-level roots this
+ * benchmark passes in at :N below get the ROOT treatment, via the `isRoot`
+ * flag `walk()` carries through its own recursion.
+ *
+ * Any OTHER readdir error (EACCES, EPERM, ENOTDIR, EMFILE, ...), at any
+ * depth including the root, is recorded into `dirErrors` instead of being
+ * swallowed, so a permission-denied or otherwise-unreadable subtree
+ * shrinks the measured set VISIBLY rather than silently. Round-2 major
+ * finding 5.
  *
  * A directory ENTRY that is a reparse point (junction or symlink --
  * `entry.isSymbolicLink()`) is neither `isDirectory()` nor `isFile()` per
@@ -89,18 +119,41 @@ const TIMED_ITERATIONS = 5; // iterations 1..5: warm, aggregated (median/min/max
  * NOT followed (no realpath loop-guard is needed as a result): a reparse
  * point can point outside either scanned root or form a cycle, and this
  * benchmark's job is to report what it did NOT scan, honestly, not to
- * silently widen its own scope.
+ * silently widen its own scope. This covers REPARSE-POINT redirection
+ * (roaming profile relocation, OneDrive KFM) only -- a scan root that is
+ * simply absent (a plain missing directory, no reparse point involved,
+ * the round-10 GPO/service-account/wrong-env-var shape) is the separate
+ * `MISSING_SCAN_ROOT` case above; the two are DIFFERENT failure shapes
+ * and this file no longer conflates "redirection is covered" with "a
+ * missing root is covered" -- only the former was true before this round.
+ *
+ * `readdirImpl` is injectable (default `readdirSync`) purely so
+ * test/windows-lnk-parser.test.mjs can exercise the root-vs-mid-walk
+ * ENOENT distinction deterministically, without racing a real directory
+ * deletion against a real `readdirSync` call (round-10 minor finding 3).
  */
-function walkLnkFiles(root, dirErrors) {
+export function walkLnkFiles(root, dirErrors, deps = {}) {
+  const { readdirImpl = readdirSync } = deps;
   const out = [];
-  function walk(dir) {
+  function walk(dir, isRoot) {
     let entries;
     try {
-      entries = readdirSync(dir, { withFileTypes: true });
+      entries = readdirImpl(dir, { withFileTypes: true });
     } catch (err) {
-      if (err && err.code !== 'ENOENT') {
-        dirErrors.push({ dir, code: err.code ?? 'UNKNOWN', message: err.message });
+      if (err && err.code === 'ENOENT') {
+        if (isRoot) {
+          dirErrors.push({
+            dir,
+            code: 'MISSING_SCAN_ROOT',
+            message: 'this Start Menu scan root does not exist. A ROOT (unlike a directory reached mid-walk) is never expected to be missing -- see walkLnkFiles docblock. Likely causes: GPO/roaming Start-Menu-specific redirection pointing somewhere this account cannot see, a service-account profile with no Start Menu, or a wrong known-folder/env-var resolution.',
+          });
+        }
+        // A non-root ENOENT (mid-walk) stays genuinely benign and silent:
+        // a subfolder that disappears between readdirSync calls is not a
+        // sign of anything wrong with the scan.
+        return;
       }
+      dirErrors.push({ dir, code: err.code ?? 'UNKNOWN', message: err.message });
       return;
     }
     for (const entry of entries) {
@@ -113,11 +166,11 @@ function walkLnkFiles(root, dirErrors) {
         });
         continue;
       }
-      if (entry.isDirectory()) walk(full);
+      if (entry.isDirectory()) walk(full, false);
       else if (entry.isFile() && entry.name.toLowerCase().endsWith('.lnk')) out.push(full);
     }
   }
-  walk(root);
+  walk(root, true);
   return out;
 }
 
@@ -127,7 +180,7 @@ function walkLnkFiles(root, dirErrors) {
  * path). Replace ':' with '-' so the default timestamped report path is a
  * valid Windows filename, not merely POSIX-safe -- rule 5 of this task:
  * Windows path handling is the whole point of the project. */
-function isoForFilename(date) {
+export function isoForFilename(date) {
   return date.toISOString().replace(/:/g, '-');
 }
 
@@ -136,7 +189,7 @@ function isoForFilename(date) {
  * (possibly empty) stdout, or null if git could not be asked at all
  * (missing binary, not a repo, non-zero exit) -- callers must treat null
  * as "unknown," never as "clean." */
-function gitPorcelainStatusForPath(cwd, absPath) {
+export function gitPorcelainStatusForPath(cwd, absPath) {
   try {
     const proc = spawnSync('git', ['status', '--porcelain', '--', absPath], { cwd, encoding: 'utf8' });
     if (proc.error || proc.status !== 0) return null;
@@ -149,7 +202,7 @@ function gitPorcelainStatusForPath(cwd, absPath) {
 /** `git ls-files --error-unmatch -- <path>`: true only if git itself ran
  * successfully AND reported the path as tracked. Any failure to run git
  * (missing binary, not a repo) or a nonzero exit (untracked) is false. */
-function gitPathIsTracked(cwd, absPath) {
+export function gitPathIsTracked(cwd, absPath) {
   try {
     const proc = spawnSync('git', ['ls-files', '--error-unmatch', '--', absPath], { cwd, encoding: 'utf8' });
     return !proc.error && proc.status === 0;
@@ -158,11 +211,40 @@ function gitPathIsTracked(cwd, absPath) {
   }
 }
 
+/** Thrown by `resolveReportPath` on a `--write-canonical` refusal.
+ * `reason` is a machine-checkable discriminant -- `'git-unreadable'`,
+ * `'untracked'`, or `'dirty'` -- so a test (or a caller) can assert WHICH
+ * refusal fired without parsing stderr prose. Round-10 minor finding 3:
+ * the previous version signaled refusal only via `process.exit(1)`
+ * inside this function, which is untestable in-process (it would kill the
+ * test runner), and via stderr text a wording tweak could silently
+ * decouple from the actual branch taken. */
+export class ReportPathRefusal extends Error {
+  constructor(reason, message) {
+    super(message);
+    this.name = 'ReportPathRefusal';
+    this.reason = reason;
+  }
+}
+
 /** Decides where this run's report gets written and enforces the
  * --write-canonical gate (round-9 blocker finding 4). Runs BEFORE the
  * (expensive) benchmark loop so a refusal fails fast instead of burning a
- * full COM+parser measurement run first. */
-function resolveReportPath(argv, dirnameOfThisFile) {
+ * full COM+parser measurement run first.
+ *
+ * Throws `ReportPathRefusal` on refusal instead of calling
+ * `process.exit(1)` directly (round-10 minor finding 3) -- the caller
+ * (`main`) is responsible for turning that into exit code 1. `deps` lets
+ * tests inject fake git results and capture the printed messages without
+ * spawning real git or exiting the test process. */
+export function resolveReportPath(argv, dirnameOfThisFile, deps = {}) {
+  const {
+    isTracked = gitPathIsTracked,
+    porcelainStatus = gitPorcelainStatusForPath,
+    log = (...a) => console.log(...a),
+    logError = (...a) => console.error(...a),
+  } = deps;
+
   const writeCanonical = argv.includes('--write-canonical');
   const canonicalPath = join(dirnameOfThisFile, 'proof-03-results.json');
 
@@ -170,38 +252,47 @@ function resolveReportPath(argv, dirnameOfThisFile) {
     const outDir = join(dirnameOfThisFile, 'out');
     mkdirSync(outDir, { recursive: true });
     const path = join(outDir, `proof-03-results-${isoForFilename(new Date())}.json`);
-    console.log(`Report destination: ${path} (untracked, timestamped -- default; the tracked canonical`);
-    console.log(`  measure/windows/proof-03-results.json is left untouched. Pass --write-canonical to`);
-    console.log(`  deliberately overwrite it instead, which only succeeds when that file is tracked and`);
-    console.log('  currently clean.\n');
+    log(`Report destination: ${path} (untracked, timestamped -- default; the tracked canonical`);
+    log(`  measure/windows/proof-03-results.json is left untouched. Pass --write-canonical to`);
+    log(`  deliberately overwrite it instead, which only succeeds when that file is tracked and`);
+    log('  currently clean.\n');
     return path;
   }
 
-  const tracked = gitPathIsTracked(dirnameOfThisFile, canonicalPath);
-  const statusOutput = gitPorcelainStatusForPath(dirnameOfThisFile, canonicalPath);
+  const tracked = isTracked(dirnameOfThisFile, canonicalPath);
+  const statusOutput = porcelainStatus(dirnameOfThisFile, canonicalPath);
   const clean = statusOutput !== null && statusOutput.trim() === '';
 
   if (!tracked || statusOutput === null || !clean) {
-    console.error('--write-canonical REFUSED. measure/windows/proof-03-results.json is the repo\'s');
-    console.error('committed canonical baseline. It is overwritten only when it is BOTH (a) tracked by');
-    console.error('git and (b) currently clean (no uncommitted diff) for that exact path -- so this');
-    console.error('run\'s own diff is the only thing `git diff` shows afterward, and no other session\'s');
-    console.error('in-progress edit to that same file is silently clobbered.');
+    logError('--write-canonical REFUSED. measure/windows/proof-03-results.json is the repo\'s');
+    logError('committed canonical baseline. It is overwritten only when it is BOTH (a) tracked by');
+    logError('git and (b) currently clean (no uncommitted diff) for that exact path -- so this');
+    logError('run\'s own diff is the only thing `git diff` shows afterward, and no other session\'s');
+    logError('in-progress edit to that same file is silently clobbered.');
+    // statusOutput === null (git itself unreachable) is checked FIRST and
+    // wins over "not tracked": with git gone or this not being a repo,
+    // `ls-files` would independently fail too, so the precise, actionable
+    // reason is "we could not ask git at all," never a misleading "not
+    // tracked" that implies git ran fine and simply said no.
+    let reason;
     if (statusOutput === null) {
-      console.error('Reason: `git status`/`git ls-files` could not be run (git missing, or this is not');
-      console.error('a git working tree) -- refusing CLOSED rather than assuming clean.');
+      logError('Reason: `git status`/`git ls-files` could not be run (git missing, or this is not');
+      logError('a git working tree) -- refusing CLOSED rather than assuming clean.');
+      reason = 'git-unreadable';
     } else if (!tracked) {
-      console.error('Reason: that path is not tracked by git.');
+      logError('Reason: that path is not tracked by git.');
+      reason = 'untracked';
     } else {
-      console.error('Reason: that path has an uncommitted diff:');
-      console.error(statusOutput);
+      logError('Reason: that path has an uncommitted diff:');
+      logError(statusOutput);
+      reason = 'dirty';
     }
-    console.error('Commit or `git checkout --` your changes to that file first, or drop');
-    console.error('--write-canonical to write an untracked timestamped copy instead (the default).');
-    process.exit(1);
+    logError('Commit or `git checkout --` your changes to that file first, or drop');
+    logError('--write-canonical to write an untracked timestamped copy instead (the default).');
+    throw new ReportPathRefusal(reason, `--write-canonical refused: ${reason}`);
   }
 
-  console.log(`Report destination: ${canonicalPath} (--write-canonical: tracked and clean, overwriting deliberately)\n`);
+  log(`Report destination: ${canonicalPath} (--write-canonical: tracked and clean, overwriting deliberately)\n`);
   return canonicalPath;
 }
 
@@ -209,6 +300,97 @@ function requireEnv(name) {
   const value = process.env[name];
   if (!value) throw new Error(`Required environment variable ${name} is not set on this machine.`);
   return value;
+}
+
+/** Reads one value from the RESOLVED `Shell Folders` registry key -- never
+ * `User Shell Folders`, which can hold an unexpanded `%VAR%` form on some
+ * Windows versions. `Shell Folders` always holds the fully-resolved
+ * absolute path Explorer itself uses, already reflecting whatever
+ * redirection (GPO, roaming profile relocation, OneDrive Known Folder
+ * Move) is currently in effect for this session -- unlike reconstructing
+ * the path from `%APPDATA%`/`%ProgramData%` plus a hardcoded
+ * `Microsoft\Windows\Start Menu\Programs` suffix, which only reflects
+ * redirection of the PARENT profile folder, not a Start-Menu-specific
+ * redirect (round-10 blocker finding 1, "preferably also" clause).
+ * Returns null on ANY failure -- missing value, `reg.exe` not found, wrong
+ * platform, malformed output -- NEVER throws; callers must fall back to
+ * env-var reconstruction in that case, not treat null as "this folder
+ * does not exist on disk." `spawnImpl` is injectable for tests. */
+export function knownFolderFromRegistry(fullKeyPath, valueName, deps = {}) {
+  const { spawnImpl = spawnSync } = deps;
+  try {
+    const proc = spawnImpl('reg', ['query', fullKeyPath, '/v', valueName], { encoding: 'utf8' });
+    if (proc.error || proc.status !== 0 || !proc.stdout) return null;
+    // `reg query <key> /v <name>` prints one matching line shaped like
+    // "    Start Menu    REG_SZ    C:\Users\...\Start Menu" -- find the
+    // REG_SZ line and take everything after the type token as the value
+    // (a path can itself contain runs of whitespace-adjacent segments, so
+    // this deliberately does not split-and-rejoin on whitespace).
+    const line = proc.stdout.split(/\r?\n/).find((l) => l.includes('REG_SZ'));
+    if (!line) return null;
+    const match = line.match(/REG_SZ\s+(.+?)\s*$/);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Parses repeatable `--scan-root <path>` CLI overrides. Returns an array
+ * of paths (order preserved) if at least one was given, else null.
+ *
+ * This flag exists ONLY to make the `MISSING_SCAN_ROOT` gate (see
+ * `walkLnkFiles` above) exercisable end-to-end without needing to break
+ * this machine's real Start Menu -- round-10 blocker finding 1 was
+ * reproduced by the reviewer via `APPDATA=<bogus-path>`, which no longer
+ * relocates the scan roots now that they are resolved from the registry
+ * first (see `resolveStartMenuRoots` below); `--scan-root` is the
+ * documented replacement lever for exercising the same scenario. When
+ * given, it BYPASSES both the registry lookup and the env-var fallback
+ * entirely -- the given path(s) are used exactly as given, nothing else
+ * is scanned. */
+export function parseScanRootOverrides(argv) {
+  const roots = [];
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === '--scan-root') {
+      const value = argv[i + 1];
+      if (!value) throw new Error('--scan-root requires a path argument');
+      roots.push(value);
+      i += 1;
+    }
+  }
+  return roots.length > 0 ? roots : null;
+}
+
+/** Resolves the two Start Menu \Programs roots to scan (all-users, then
+ * per-user, matching this script's original order) via, in order:
+ * (1) `--scan-root` CLI overrides, if any (see `parseScanRootOverrides`);
+ * (2) the OS known-folder mechanism, read via the `Shell Folders` registry
+ *     key (see `knownFolderFromRegistry`), independently per root;
+ * (3) for whichever root the registry lookup could not resolve, the
+ *     original env-var reconstruction (`%ProgramData%`/`%APPDATA%` +
+ *     the standard suffix) as a fallback.
+ * Each returned root carries `source` so the run's own output/report is
+ * explicit about which mechanism actually produced each path -- never
+ * silently either one. */
+export function resolveStartMenuRoots(argv, deps = {}) {
+  const { regQuery = knownFolderFromRegistry } = deps;
+
+  const overrides = parseScanRootOverrides(argv);
+  if (overrides) {
+    return overrides.map((path) => ({ path, source: 'cli-override' }));
+  }
+
+  const registryCommon = regQuery('HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders', 'Common Programs');
+  const registryUser = regQuery('HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders', 'Programs');
+
+  const common = registryCommon
+    ? { path: registryCommon, source: 'registry-known-folder' }
+    : { path: join(requireEnv('ProgramData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs'), source: 'env-var-reconstruction-fallback' };
+  const user = registryUser
+    ? { path: registryUser, source: 'registry-known-folder' }
+    : { path: join(requireEnv('APPDATA'), 'Microsoft', 'Windows', 'Start Menu', 'Programs'), source: 'env-var-reconstruction-fallback' };
+
+  return [common, user];
 }
 
 function readJsonStrippingBom(path) {
@@ -433,24 +615,35 @@ function scanForUwpMarkers(files) {
 }
 
 async function main() {
+  const argv = process.argv.slice(2);
+
   // Resolved and gated BEFORE the expensive benchmark loop below, so a
   // --write-canonical refusal fails fast (round-9 blocker finding 4).
-  const reportPath = resolveReportPath(process.argv.slice(2), __dirname);
+  // resolveReportPath throws ReportPathRefusal (never calls process.exit
+  // itself, round-10 minor finding 3) -- turn that into exit code 1 here,
+  // with nothing else run and nothing written, same observable behavior
+  // as before this round's refactor.
+  let reportPath;
+  try {
+    reportPath = resolveReportPath(argv, __dirname);
+  } catch (err) {
+    if (err instanceof ReportPathRefusal) process.exit(1);
+    throw err;
+  }
 
-  const programData = requireEnv('ProgramData');
-  const appData = requireEnv('APPDATA');
-
-  const startMenuDirs = [
-    join(programData, 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
-    join(appData, 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
-  ];
+  // Scan roots: registry known-folder first, env-var reconstruction
+  // fallback per-root, or a `--scan-root` CLI override -- see
+  // resolveStartMenuRoots's docblock. Round-10 blocker finding 1.
+  const startMenuRoots = resolveStartMenuRoots(argv);
+  const startMenuDirs = startMenuRoots.map((r) => r.path);
 
   const dirErrors = [];
   let files = startMenuDirs.flatMap((d) => walkLnkFiles(d, dirErrors));
   files = Array.from(new Set(files)).sort();
 
   console.log('=== PROOF-03: Node binary .lnk parser vs COM (WScript.Shell) baseline ===\n');
-  console.log(`Scanned:\n  ${startMenuDirs[0]}\n  ${startMenuDirs[1]}`);
+  console.log('Scanned:');
+  for (const r of startMenuRoots) console.log(`  ${r.path}  (source: ${r.source})`);
   console.log(`Enumerated ${files.length} .lnk files.`);
   if (dirErrors.length > 0) {
     console.log(`WARNING: ${dirErrors.length} directory enumeration error(s) -- the scanned set may be UNDER-counted:`);
@@ -801,6 +994,7 @@ async function main() {
 
   const report = {
     generatedAt: new Date().toISOString(),
+    startMenuRoots,
     baseline: {
       count: BASELINE_COUNT,
       totalMs: BASELINE_MS,
@@ -873,6 +1067,20 @@ async function main() {
       + (unexpectedParserEmptyGapCount > 0 ? `; ${unexpectedParserEmptyGapCount} additional gap(s) are NOT accounted for by that classification and need investigation.` : ' -- PLAT-10 needs a COM/IShellLinkW fallback for these, per docs/adr/0003.'));
   } else {
     console.log('\nRESULT: parser\'s primary output matches COM output for every shortcut COM resolved, with full coverage.');
+  }
+
+  // Printed AFTER whichever RESULT branch above fired, regardless of which
+  // one -- a scan with directory-enumeration errors (including a missing
+  // scan root, round-10 blocker finding 1) can still have zero mismatches
+  // among the files it DID manage to enumerate, and that branch's "zero
+  // mismatches"/"full coverage" wording must never be read on its own as
+  // "this was a complete scan" when it was not. This line does not change
+  // the exit-code gate below (dirErrors.length already gates it
+  // independently) -- it exists so the text output alone, not just the
+  // exit code, makes an incomplete scan impossible to mistake for a clean
+  // one.
+  if (dirErrors.length > 0) {
+    console.log(`RESULT ALSO: this scan is INCOMPLETE -- ${dirErrors.length} directory enumeration error(s) above (see WARNING near the top of this output), so the "RESULT" line above describes only the ${files.length} .lnk file(s) actually enumerated, not the full Start Menu.`);
   }
 
   // Exit code is decided ONCE, independently of which RESULT branch printed

@@ -1,6 +1,6 @@
 # ADR-0003: Binary `.lnk` parsing in Node vs COM (`WScript.Shell`)
 
-- Status: Accepted (revised through round 9 — see "Revision history" below)
+- Status: Accepted (revised through round 10 — see "Revision history" below)
 - Date: 2026-09-17
 - Requirement: PROOF-03 (`.maxvision/REQUIREMENTS.md` Fase 0), gates PLAT-10
 - Supersedes: nothing. First measurement of unvalidated assumption U5
@@ -387,7 +387,12 @@ below now carries this exact same bidirectional hedge, for the same
 reason (round-9 blocker finding 2) — it is a planning input with the same
 shape of defect, not an immovable one; see "Decision" item 2 for the
 actual round-9 movement on each edge, which is not smaller here than the
-ratio's, and for why "Decision" still leads with it anyway.
+ratio's, and for why "Decision" still leads with it anyway. As of round
+10 (major finding 2), "Decision" item 2 no longer tells PLAT-10 to plan
+against this band's own edges either — that instruction carried the exact
+contradiction this paragraph already describes, and round 10's own
+reviewer sample broke the low edge within a single round to prove it; see
+"Decision" item 2 for the engineering-margin directive that replaces it.
 
 **Absolute magnitude — a sample range observed to date, not a bound
 (round-4 blocker finding 1 first isolated this figure from the ratio;
@@ -978,30 +983,58 @@ parser produced somewhere in a candidate list:
    tier, checked against the parser's actual returned value — verified by
    the discriminating `135 + 35 = 170` decomposition and a real mutation
    test (see "Verifying the fix" above).
-2. **The ABSOLUTE time saved, which is what PLAT-10 should plan around
-   (round-4 blocker finding 1; canonicalized in round 7 — round-7 blocker
-   finding 1; carries the same bidirectional "observed range, not a
-   bound" hedge as item 3 below, as of round 9 — round-9 blocker finding
-   2):** the binary reader saves **0.22–0.59 s per full 182-shortcut
-   Start Menu scan** on this machine, not the ~2.4 s the research
-   baseline's 16 ms/shortcut premise would suggest for a similarly-sized
-   set. Thirty-three independent samples across all nine review rounds
-   land inside this range as of round 9 — see "Measured result" →
-   "Absolute magnitude" → "Round-9 sampling" above for the full sample
-   list and arithmetic, including exactly where round 9 moved both
-   edges. This remains the number this Decision leads with: PLAT-10 can
-   size a wait against wall-clock seconds directly, which a dimensionless
-   ratio does not offer — not because this figure proved more stable
-   than the ratio this round. It did not: round 9's own low edge moved
-   only ≈1% (226.5 → 223.82 ms) but its high edge moved ≈29% (456.3 →
-   586.95 ms, driven by the one reviewer run disclosed as unstable
-   above) — wider than the run-median ratio edges moved this round (≈6%
-   on the floor, 0% on the ceiling), though narrower than the
-   single-iteration ratio edges (≈24–25% on each). Movement is not
-   uniform across any of these figures, in either direction; the point
-   is that none of the four is exempt, this figure included, not that
-   one moves less than the others. Plan against the band stated above,
-   not a single point estimate drawn from it.
+2. **The ABSOLUTE time saved — the metric PLAT-10 should reason about
+   (wall-clock seconds, not a dimensionless ratio; round-4 blocker
+   finding 1; canonicalized in round 7 — round-7 blocker finding 1;
+   carried the same bidirectional "observed range, not a bound" hedge as
+   item 3 below as of round 9 — round-9 blocker finding 2; round 10
+   closes the contradiction that hedge itself still left open — see
+   below, round-10 major finding 2):** the binary reader saves, across
+   thirty-three independent samples spanning all nine review rounds
+   through round 9, somewhere in the observed range **0.22–0.59 s per
+   full 182-shortcut Start Menu scan** on this machine, not the ~2.4 s
+   the research baseline's 16 ms/shortcut premise would suggest for a
+   similarly-sized set. See "Measured result" → "Absolute magnitude" →
+   "Round-9 sampling" above for the full sample list and arithmetic,
+   including exactly where round 9 moved both edges (low edge ≈1%,
+   226.5 → 223.82 ms; high edge ≈29%, 456.3 → 586.95 ms, driven by the
+   one reviewer run disclosed as unstable above). A round-10 worker
+   confirmation run on this machine (COM loop-only median 257.9 ms, Node
+   parser median 29.90 ms) saved 228.0 ms, inside the range.
+
+   **Round-10 major finding 2: this paragraph previously instructed
+   PLAT-10 to "plan against the band stated above" — a specific
+   instruction to plan against this paragraph's own min/max — in the
+   same paragraph that calls the band "not a bound" and states outright
+   that "the very next run … can move either edge again." A round-10
+   reviewer's own six fresh runs on this machine, at this commit,
+   demonstrated the contradiction directly: two of the six (216.43 ms and
+   220.06 ms) landed BELOW the 223.82 ms low edge PLAT-10 was told to
+   plan against, inside a single review round. That instruction is
+   withdrawn, not re-derived from a wider band — widening the band again
+   is the exact treadmill round 9 already named (see "Round-9 sampling"
+   above) and would only reproduce the same defect with new numbers.**
+   As of round 10, item 2 and item 3 give PLAT-10 the IDENTICAL rule:
+   **do not plan capacity or set an SLA against any specific number —
+   median, minimum, or maximum — drawn from either distribution in this
+   document.** What PLAT-10 plans against instead: an independently
+   chosen, conservative ENGINEERING MARGIN, owned by PLAT-10, not derived
+   from this document's sample range — **assume the per-scan saving may
+   be as low as ~0.2 s** when sizing any user-facing wait or timeout that
+   depends on it. This is a DESIGN CHOICE, not a re-assertion of a
+   measured floor: it is deliberately round, deliberately conservative
+   relative to every sample observed to date on either side of this
+   document's contributors, and — unlike "plan against the band" — it is
+   NOT falsifiable by a future run landing below it. A measured floor is
+   an empirical claim about the distribution, and every floor this
+   document has ever published — the ratio floors in rounds 5 and 6 (see
+   item 3 below), and this absolute-saving band's own round-8 low edge —
+   has since been broken by the next round's fresh measurement; this
+   round's reviewer runs show it happening again, inside a single round,
+   to the band round 9 just widened. An engineering margin is a policy
+   choice about how much slack to keep; it
+   is not a claim about the distribution at all, and no future
+   measurement — however low — can prove PLAT-10's own margin "wrong."
 3. **The ratio (ancillary context, not a planning floor — round-7 blocker
    finding 1):** across thirty-eight n=5 runs measured for this ADR over
    nine review rounds, the binary reader has been faster than COM in every
@@ -1024,7 +1057,10 @@ parser produced somewhere in a candidate list:
    result" → "Ratio evidence — canonical statement" above for the full
    reasoning, including why a pooled percentile was considered and
    rejected. **PLAT-10 must not plan capacity or set an SLA against any
-   number in this paragraph** — use item 2 above instead.
+   number in this paragraph** — item 2 above states the identical
+   prohibition for the absolute-saving figure (round-10 major finding 2)
+   and gives PLAT-10 the actual planning directive: an owned engineering
+   margin, not a number drawn from either distribution in this document.
 4. A well-defined, honestly-scoped gap (shortcuts with no usable
    target-path source and a non-empty COM target, 8/182 ≈ 4.4% of this
    machine's set) with an unambiguous signal when it occurs
@@ -1034,10 +1070,46 @@ parser produced somewhere in a candidate list:
    no longer indistinguishable from an honest coverage gap, even though
    this machine's real data does not exercise that path.
 5. A reparse-point-aware directory walk (round-4 major finding 3),
-   live-verified with a real NTFS junction in both states on this machine:
-   a redirected-profile Start Menu subtree is now reported as a visible
-   `WARNING`/`dirErrors` entry and gates the exit code, instead of
-   silently shrinking the scanned set with no signal.
+   live-verified with a real NTFS junction in both states on this
+   machine: a Start Menu subtree redirected via a REPARSE POINT (junction
+   or symlink — roaming profile relocation, OneDrive Known Folder Move)
+   is reported as a visible `WARNING`/`dirErrors` entry
+   (`SKIPPED_REPARSE_POINT`) and gates the exit code, instead of silently
+   shrinking the scanned set with no signal. **Round-10 blocker finding
+   1: this item, and the module comment it was drawn from, overclaimed
+   coverage of a DIFFERENT failure shape — a scan root that is simply
+   ABSENT on disk, no reparse point involved (GPO/roaming Start-Menu-
+   specific redirection to a path this account cannot see, a
+   service-account profile with no Start Menu, or a wrong known-folder
+   resolution). A reviewer demonstrated this directly: pointing a scan
+   root at a nonexistent path dropped 59 of 182 files (32%) with zero
+   `dirErrors`, no `WARNING`, and exit 0 — indistinguishable from a
+   complete scan, contradicting this very item and the module comment
+   near `walkLnkFiles`.** Fixed: `walkLnkFiles` now distinguishes a
+   missing ROOT from a directory that disappears mid-walk (the latter
+   stays benign, as it always was) and records the former as its own
+   `dirErrors` code, `MISSING_SCAN_ROOT`, which reaches the same
+   `WARNING` line and exit-code gate as `SKIPPED_REPARSE_POINT` already
+   did. Separately, and preferably (per the finding's required fix): the
+   two scan roots are now resolved primarily via the OS known-folder
+   mechanism (the `Shell Folders` registry key, read through
+   `resolveStartMenuRoots`/`knownFolderFromRegistry` in
+   `proof-03-lnk-benchmark.mjs`), which reflects whatever redirection is
+   actually in effect right now — including a Start-Menu-specific GPO
+   redirect the old `%APPDATA%`/`%ProgramData%` reconstruction could
+   never see, since that reconstruction only reflects redirection of the
+   PARENT profile folder. The env-var reconstruction remains as a
+   fallback, per root independently, only when the registry lookup
+   itself fails. Because roots no longer come from `%APPDATA%` directly
+   when the registry lookup succeeds, the reviewer's own
+   `APPDATA=<bogus>` repro no longer relocates the scan roots; a new,
+   documented `--scan-root <path>` CLI flag (repeatable) is the
+   replacement lever for exercising `MISSING_SCAN_ROOT` end-to-end — see
+   "measured_results" in this round's task output for both the
+   missing-root run (`WARNING`, `dirErrors: [{"code":"MISSING_SCAN_ROOT"}
+   ]`, exit 1) and a normal run confirming the registry-resolved roots
+   are byte-identical to the previous env-var reconstruction on this
+   machine and still enumerate all 182 files.
 
 **PLAT-10 must keep a COM (or `IShellLinkW`) fallback for the IDList-only
 case**, not replace COM outright. When `lnk-parser.mjs` returns no
@@ -1075,6 +1147,17 @@ node measure/windows/proof-03-lnk-benchmark.mjs
 node --test test/windows-lnk-parser.test.mjs
 ```
 
+To exercise the `MISSING_SCAN_ROOT` gate itself (round-10 blocker finding
+1) without needing a real broken Start Menu, use the `--scan-root` CLI
+override:
+
+```
+node measure/windows/proof-03-lnk-benchmark.mjs --scan-root "C:\Some Nonexistent Root"
+```
+
+which reports `WARNING: 1 directory enumeration error(s)`, a `dirErrors`
+entry with `code: "MISSING_SCAN_ROOT"`, and exits 1.
+
 Requires Windows (COM `WScript.Shell` is Windows-only) and PowerShell on
 `PATH`. The benchmark regenerates `measure/windows/proof-03-results.json`,
 including raw per-iteration timing, the full per-row `parserFlags` object,
@@ -1082,13 +1165,18 @@ and the UWP-marker scan. It runs 1 discarded warmup iteration plus 5 timed
 iterations (both Node parser and COM), so a re-run takes roughly 6x the
 single-pass time reported in round 1 (a handful of seconds on this
 machine, dominated by the 6 PowerShell process spawns). `node --test`
-should report 13 tests, 13 pass, 0 fail (round 2 added 7, round 3 added 2
+should report 26 tests, 26 pass, 0 fail (round 2 added 7, round 3 added 2
 more — the ANSI-branch and `noUsablePathSource` guards — round 4 added 2
 more — the `extraDataTruncated` guard and the stale-`expandEnvVars`-cache
 regression guard — round 7 added 2 more — the two `CommonNetworkRelativeLink`
 / UNC fixtures, round-7 major finding 2 — and widened an existing fixture's
 expansion target to include a space, round-7 minor finding 3, without
-adding a test for it).
+adding a test for it — round 10 added 13 more: 3 for the
+`walkLnkFiles` root-vs-mid-walk `ENOENT` distinction, 6 for
+`resolveReportPath`'s four outcomes plus the default/tracked-clean paths,
+1 for `isoForFilename`, and 4 integration tests for
+`gitPorcelainStatusForPath`/`gitPathIsTracked` against real throwaway git
+repos — round-10 minor finding 3).
 
 **Exit code is a real pass/fail signal, not merely mismatches/secondary-
 only matches (round-3 minor finding 5).** The benchmark exits 1 if ANY of:
@@ -1096,7 +1184,9 @@ a mismatch, a secondary-only match, a non-empty `dirErrors` (the scanned
 Start Menu set was under-counted by a permission, reparse-point-skip —
 round-4 major finding 3 added `SKIPPED_REPARSE_POINT` as a `dirErrors`
 code, live-verified with a real junction, see "Round-4 revision" item 3
-in the "Revision history" appendix below — or other non-`ENOENT` readdir error), or
+in the "Revision history" appendix below — a MISSING scan root — round-10
+blocker finding 1 added `MISSING_SCAN_ROOT` as a `dirErrors` code, see
+"Round-10 revision" below — or other non-`ENOENT` readdir error), or
 `unexpectedParserEmptyGapCount > 0` (a parser-empty row not accounted for
 by the accepted `noUsablePathSource` gap, OR a row whose `ExtraData` block
 was truncated/corrupt regardless of its `noUsablePathSource` value —
@@ -1111,6 +1201,121 @@ states; that verification run is
 deliberately NOT the canonical run this section's numbers are drawn from.)
 
 ## Revision history
+
+### Round-10 revision
+
+A rigorous reviewer rejected the round-9 version of this ADR on three
+findings.
+
+1. **[blocker, fixed]** A Start Menu scan ROOT that does not exist was
+   silently swallowed identically to a directory that vanishes mid-walk
+   (both `ENOENT`, both previously "expected, skip silently" per
+   `walkLnkFiles`'s own docblock) — dropping up to a third of the corpus
+   with zero `dirErrors`, no `WARNING`, and a clean exit 0, indistinguishable
+   from a complete scan. The reviewer demonstrated this directly:
+   pointing `%APPDATA%` at a nonexistent path enumerated 123 of the usual
+   182 files (59 missing, 32%) with `dirErrors: []` and `EXIT=0`,
+   contradicting both the module comment and "Decision" item 5, which
+   claimed a redirected Start Menu subtree was reported and gated the
+   exit code — true only for REPARSE-POINT redirection
+   (`SKIPPED_REPARSE_POINT`, round-4 major finding 3), never true for a
+   plain missing root. Fixed with both halves of the required fix:
+   `walkLnkFiles` now distinguishes root-level `ENOENT` from mid-walk
+   `ENOENT` via an `isRoot` flag threaded through its own recursion — a
+   missing root is recorded as `dirErrors` code `MISSING_SCAN_ROOT`
+   (reaching the same `WARNING` line and exit-code gate
+   `SKIPPED_REPARSE_POINT` already did), while a directory that
+   disappears mid-walk stays exactly as benign and silent as before.
+   Preferably-also: the two scan roots are now resolved primarily via the
+   OS known-folder mechanism (`Shell Folders` registry key, through the
+   new `resolveStartMenuRoots`/`knownFolderFromRegistry`), which reflects
+   Start-Menu-specific redirection the old `%APPDATA%`/`%ProgramData%`
+   reconstruction could never see; that reconstruction remains as a
+   per-root fallback only when the registry lookup itself fails. Because
+   roots no longer come from `%APPDATA%` directly once the registry
+   lookup succeeds, the reviewer's own `APPDATA=<bogus>` repro no longer
+   relocates the scan roots — a new, documented, repeatable `--scan-root
+   <path>` CLI override is the replacement lever, added specifically so
+   the `MISSING_SCAN_ROOT` gate stays exercisable end-to-end without
+   needing to break this machine's real Start Menu. Verified (see
+   "measured_results" in this round's task output for full output):
+   `node measure/windows/proof-03-lnk-benchmark.mjs --scan-root "C:\Redirected
+   Missing Root\Sub"` → `WARNING: 1 directory enumeration error(s)`,
+   `dirErrors[0].code === "MISSING_SCAN_ROOT"`, `EXIT=1`, and a new
+   `RESULT ALSO: this scan is INCOMPLETE` line printed regardless of
+   which `RESULT` branch fired above it. A normal run with no override
+   confirms the registry-resolved roots are byte-identical to the
+   previous env-var reconstruction on this machine
+   (`C:\ProgramData\Microsoft\Windows\Start Menu\Programs` and
+   `C:\Users\<user>\AppData\Roaming\Microsoft\Windows\Start Menu\Programs`,
+   both `source: "registry-known-folder"`), still enumerates all 182
+   files, `dirErrors: []`, `EXIT=0`, and reproduces the same 170/8/4
+   agreement shape as every prior canonical run (170 exact, 8
+   `noUsablePathSource` gap, 4 `com-empty`/`com-null`). A third run
+   through `--scan-root` pointed at a real directory whose path contains
+   a space (`...\Start Menu\Programs` itself already does; also
+   independently verified) enumerated 59 files with no error, confirming
+   the override itself is spaces-safe. `walkLnkFiles`'s docblock and the
+   module header comment, and "Decision" item 5, are corrected to state
+   plainly that reparse-point redirection and a missing root are
+   DIFFERENT failure shapes, only the former was covered before this
+   round, and both are covered now.
+2. **[major, fixed]** "Decision" item 2 instructed PLAT-10 to "plan
+   against the band stated above" — a specific instruction to plan
+   against that paragraph's own published min/max — in the same
+   paragraph, and alongside item 3 and the "Ratio evidence" section, that
+   calls the identical band "not a bound" and states the next run "can
+   move either edge again." A round-10 reviewer's own six fresh runs on
+   this machine, at this commit, demonstrated the contradiction directly:
+   two of six (216.43 ms and 220.06 ms) landed below the 223.82 ms low
+   edge PLAT-10 was told to plan against, inside a single review round.
+   Fixed: the "plan against the band" instruction is withdrawn, not
+   re-derived from a still-wider band — widening again would only be the
+   nine-round treadmill this document already named in round 9, with new
+   numbers. Item 2 and item 3 now give PLAT-10 the IDENTICAL rule: do not
+   plan capacity or set an SLA against any specific number — median,
+   minimum, or maximum — drawn from either distribution in this document.
+   In its place, item 2 gives PLAT-10 an actual planning directive that
+   survives the document's own bidirectional hedge: budget an
+   independently owned, conservative ENGINEERING MARGIN of **~0.2 s**,
+   framed explicitly as a design choice PLAT-10 makes (deliberately
+   round, deliberately below every sample observed to date), not a
+   re-assertion of a measured floor — the distinction that makes it, unlike
+   every floor this document has previously published, not falsifiable by
+   a future run landing below it: a measured floor is an empirical claim
+   about the distribution, and this document has now watched three of
+   them break (the round-5/6 ratio floors, and the round-8 absolute-band
+   low edge round 9's own sampling broke); an owned margin is a policy
+   choice about slack, not a claim about the distribution at all. Every
+   citing site pointing at item 2's old "plan against the band" wording
+   (the "Ratio evidence — canonical statement" section, item 3's own
+   closing sentence) is updated to point at this corrected directive
+   instead of the retired one.
+3. **[minor, fixed]** The `--write-canonical` gate logic
+   (`gitPorcelainStatusForPath`, `gitPathIsTracked`, `resolveReportPath`,
+   `isoForFilename`) had zero automated coverage — every branch,
+   including the fail-closed property that a `git`-unreachable
+   environment refuses rather than assumes clean, was verified only by
+   hand. Fixed: `resolveReportPath` now throws a `ReportPathRefusal`
+   error carrying a machine-checkable `reason` (`'git-unreadable'` |
+   `'untracked'` | `'dirty'`) instead of calling `process.exit(1)`
+   directly, and accepts injectable `isTracked`/`porcelainStatus`/
+   `log`/`logError` dependencies — `main()` is the sole caller that turns
+   a thrown refusal into exit code 1, preserving the exact observable
+   behavior (same stderr text, same exit code, nothing written) verified
+   by hand in round 9. 13 new tests were added: 3 for `walkLnkFiles`'s
+   root-vs-mid-walk `ENOENT` distinction (round-10 finding 1, via an
+   injectable `readdirImpl`), 5 for `resolveReportPath`'s branches
+   (default/no-flag never touches git; tracked+clean; dirty; untracked;
+   git-unreadable — asserting specifically that `git-unreadable` wins
+   over `untracked` when both could plausibly fire, the exact
+   distinction verified by hand in round 9), 1 asserting
+   `isoForFilename`'s output never contains `:`, and 4 integration tests
+   for `gitPorcelainStatusForPath`/`gitPathIsTracked` against real
+   throwaway git repos (tracked+clean, tracked+dirty, untracked, and
+   outside any repo). `node --test test/windows-lnk-parser.test.mjs` →
+   `tests 26, pass 26, fail 0` (see "measured_results" in this round's
+   task output for the verbatim run).
 
 ### Round-9 revision
 

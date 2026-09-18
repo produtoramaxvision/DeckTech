@@ -621,8 +621,13 @@ three different (overlapping) ranges around that same floor.
 > less than the 200ms heartbeat-write interval, consistent) for every
 > subsequent sample through the end of the run, while `/health` answers
 > `TIMEOUT` from the first post-crash sample onward — confirming the freeze
-> a fifth time (round-1 through round-5), now on an interval-bounded,
-> honestly-labeled re-run.
+> itself again (round-1 through round-5), now on an interval-bounded,
+> honestly-labeled re-run. This is the freeze **observation** (heartbeat
+> frozen, `/health` TIMEOUT, process still alive) surviving across rounds —
+> it is separable from, and does not rehabilitate, the retracted **timing
+> labels** two paragraphs above; round-3's and round-4's numeric figures for
+> *when* the dialog appeared are still retracted, only the qualitative
+> freeze finding carries forward.
 >
 > **Actual poll cadence, disclosed rather than assumed (finding #3).**
 > `EnumWindows` recompiles its `Add-Type` P/Invoke shim on every
@@ -714,13 +719,20 @@ round-3's t+3659ms/t+85800ms — were still mislabeled and are retracted, not
 reused): heartbeat ticks normally through the sample read in
 `(t+2776ms, t+2777ms]` (that sample's `hb.t` converts to relative t+2712ms,
 age 65ms at read time), then **freezes at that exact tick's content for
-every subsequent sample through the end of the ~93s run** while `/health`
-answers `TIMEOUT` from the first post-crash sample onward, and the
-independently-enumerated window set shows the `#32770`/`Error` dialog
-already present in the sample read in `(t+5080ms, t+6006ms]` (absent in the
-prior sample, read in `(t+2777ms, t+3519ms]`) and persisting throughout —
-confirming round-1 through round-4's finding stands under round-5's fresh,
-committed, interval-timestamped data. `stderr tail:` for this run was
+every subsequent sample through the end of the run** — the last row printed
+is iter 37/37, `windows[read in (t+91742ms, t+92582ms]]`, i.e. a run of
+**~92.6s**, inside the ~56–93s budget the loop itself printed at the start
+(finding #3, below) — while `/health` answers `TIMEOUT` from the first
+post-crash sample onward, and the independently-enumerated window set shows
+the `#32770`/`Error` dialog already present in the sample read in
+`(t+5080ms, t+6006ms]` (absent in the prior sample, read in
+`(t+2777ms, t+3519ms]`) and persisting throughout — confirming the freeze
+**observation** (heartbeat frozen, `/health` TIMEOUT, process still alive)
+stands under round-5's fresh, committed, interval-timestamped data. This is
+the qualitative finding, separable from the numeric timing labels retracted
+above — round-3's and round-4's *when-it-appeared* figures for this same
+observation do not carry forward; only this round's interval-bounded ones
+do. `stderr tail:` for this run was
 empty, consistent with the mechanism in the box above (the dialog is the
 diagnostic; stderr
 genuinely gets nothing).
