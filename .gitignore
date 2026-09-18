@@ -38,4 +38,11 @@ measure/windows/proof-02/**/raw-startapps.json
 # committed snapshot lives in measure/windows/proof-02/out/ and is only
 # updated via an explicit `--out measure/windows/proof-02/out` re-record.
 measure/windows/proof-02/.scratch/
+
+# PROOF-03 (measure/windows): default, untracked, timestamped destination
+# for proof-03-lnk-benchmark.mjs report runs. The tracked canonical
+# baseline is measure/windows/proof-03-results.json, only overwritten via
+# an explicit `--write-canonical` re-record. See docs/adr/0003, round-9
+# blocker finding 4.
+measure/windows/out/
 ios/Dokke.xcodeproj/project.xcworkspace/xcuserdata/

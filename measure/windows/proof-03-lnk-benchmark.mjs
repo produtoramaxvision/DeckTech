@@ -31,10 +31,26 @@
 // figure this script derives a ratio from. Round-2 major finding 2,
 // round-3 blocker 1.
 //
-// Usage: node measure/windows/proof-03-lnk-benchmark.mjs
-// Writes: measure/windows/proof-03-results.json (full per-shortcut report)
+// Usage: node measure/windows/proof-03-lnk-benchmark.mjs [--write-canonical]
+// Writes (default, no flag): an UNTRACKED, timestamped copy of the full
+// per-shortcut report under measure/windows/out/, e.g.
+// measure/windows/out/proof-03-results-2026-09-18T12-34-56.789Z.json --
+// never the tracked measure/windows/proof-03-results.json. Round-9 blocker
+// finding 4: a plain run used to silently overwrite that tracked canonical
+// baseline every time, with only a generic "written to" line as a hint --
+// no warning that it had just replaced a committed artifact other sessions
+// depend on (the worker's own unresolved notes describe this file being
+// "twice accidentally swept into unrelated commits by other sessions", and
+// this design was a contributing cause).
+// Writes (--write-canonical): the tracked measure/windows/proof-03-results.json
+// itself, but ONLY when that exact path is both tracked by git AND currently
+// clean (no uncommitted diff for THAT path) -- so the run's own diff is the
+// only thing `git diff` shows afterward, and no other session's in-progress,
+// uncommitted edit to that same file is silently clobbered. Refuses outright
+// (exit 1, nothing written) otherwise: untracked, dirty, or git itself
+// unreadable (missing binary, not a repo, etc. -- fails CLOSED, not open).
 
-import { readdirSync, readFileSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, mkdtempSync, mkdirSync, realpathSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -103,6 +119,90 @@ function walkLnkFiles(root, dirErrors) {
   }
   walk(root);
   return out;
+}
+
+/** Windows basenames cannot contain ':' (NTFS reserves it for alternate
+ * data streams; `new Date().toISOString()` produces "12:34:56", which
+ * would either throw or silently write to a `...12` ADS on a bare-':'
+ * path). Replace ':' with '-' so the default timestamped report path is a
+ * valid Windows filename, not merely POSIX-safe -- rule 5 of this task:
+ * Windows path handling is the whole point of the project. */
+function isoForFilename(date) {
+  return date.toISOString().replace(/:/g, '-');
+}
+
+/** `git status --porcelain -- <path>` for exactly one path, run with cwd
+ * inside the repo so git resolves the root itself. Returns the raw
+ * (possibly empty) stdout, or null if git could not be asked at all
+ * (missing binary, not a repo, non-zero exit) -- callers must treat null
+ * as "unknown," never as "clean." */
+function gitPorcelainStatusForPath(cwd, absPath) {
+  try {
+    const proc = spawnSync('git', ['status', '--porcelain', '--', absPath], { cwd, encoding: 'utf8' });
+    if (proc.error || proc.status !== 0) return null;
+    return proc.stdout;
+  } catch {
+    return null;
+  }
+}
+
+/** `git ls-files --error-unmatch -- <path>`: true only if git itself ran
+ * successfully AND reported the path as tracked. Any failure to run git
+ * (missing binary, not a repo) or a nonzero exit (untracked) is false. */
+function gitPathIsTracked(cwd, absPath) {
+  try {
+    const proc = spawnSync('git', ['ls-files', '--error-unmatch', '--', absPath], { cwd, encoding: 'utf8' });
+    return !proc.error && proc.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Decides where this run's report gets written and enforces the
+ * --write-canonical gate (round-9 blocker finding 4). Runs BEFORE the
+ * (expensive) benchmark loop so a refusal fails fast instead of burning a
+ * full COM+parser measurement run first. */
+function resolveReportPath(argv, dirnameOfThisFile) {
+  const writeCanonical = argv.includes('--write-canonical');
+  const canonicalPath = join(dirnameOfThisFile, 'proof-03-results.json');
+
+  if (!writeCanonical) {
+    const outDir = join(dirnameOfThisFile, 'out');
+    mkdirSync(outDir, { recursive: true });
+    const path = join(outDir, `proof-03-results-${isoForFilename(new Date())}.json`);
+    console.log(`Report destination: ${path} (untracked, timestamped -- default; the tracked canonical`);
+    console.log(`  measure/windows/proof-03-results.json is left untouched. Pass --write-canonical to`);
+    console.log(`  deliberately overwrite it instead, which only succeeds when that file is tracked and`);
+    console.log('  currently clean.\n');
+    return path;
+  }
+
+  const tracked = gitPathIsTracked(dirnameOfThisFile, canonicalPath);
+  const statusOutput = gitPorcelainStatusForPath(dirnameOfThisFile, canonicalPath);
+  const clean = statusOutput !== null && statusOutput.trim() === '';
+
+  if (!tracked || statusOutput === null || !clean) {
+    console.error('--write-canonical REFUSED. measure/windows/proof-03-results.json is the repo\'s');
+    console.error('committed canonical baseline. It is overwritten only when it is BOTH (a) tracked by');
+    console.error('git and (b) currently clean (no uncommitted diff) for that exact path -- so this');
+    console.error('run\'s own diff is the only thing `git diff` shows afterward, and no other session\'s');
+    console.error('in-progress edit to that same file is silently clobbered.');
+    if (statusOutput === null) {
+      console.error('Reason: `git status`/`git ls-files` could not be run (git missing, or this is not');
+      console.error('a git working tree) -- refusing CLOSED rather than assuming clean.');
+    } else if (!tracked) {
+      console.error('Reason: that path is not tracked by git.');
+    } else {
+      console.error('Reason: that path has an uncommitted diff:');
+      console.error(statusOutput);
+    }
+    console.error('Commit or `git checkout --` your changes to that file first, or drop');
+    console.error('--write-canonical to write an untracked timestamped copy instead (the default).');
+    process.exit(1);
+  }
+
+  console.log(`Report destination: ${canonicalPath} (--write-canonical: tracked and clean, overwriting deliberately)\n`);
+  return canonicalPath;
 }
 
 function requireEnv(name) {
@@ -333,6 +433,10 @@ function scanForUwpMarkers(files) {
 }
 
 async function main() {
+  // Resolved and gated BEFORE the expensive benchmark loop below, so a
+  // --write-canonical refusal fails fast (round-9 blocker finding 4).
+  const reportPath = resolveReportPath(process.argv.slice(2), __dirname);
+
   const programData = requireEnv('ProgramData');
   const appData = requireEnv('APPDATA');
 
@@ -755,7 +859,6 @@ async function main() {
     rows,
   };
 
-  const reportPath = join(__dirname, 'proof-03-results.json');
   writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
   console.log(`Full per-shortcut report written to: ${reportPath}`);
   console.log(`Environment variables referenced by env-var shortcuts, snapshotted for reproducibility: ${JSON.stringify(envSnapshot, null, 2)}`);

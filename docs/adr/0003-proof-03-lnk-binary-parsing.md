@@ -1,6 +1,6 @@
 # ADR-0003: Binary `.lnk` parsing in Node vs COM (`WScript.Shell`)
 
-- Status: Accepted (revised through round 8 — see "Revision history" below)
+- Status: Accepted (revised through round 9 — see "Revision history" below)
 - Date: 2026-09-17
 - Requirement: PROOF-03 (`.maxvision/REQUIREMENTS.md` Fase 0), gates PLAT-10
 - Supersedes: nothing. First measurement of unvalidated assumption U5
@@ -224,9 +224,10 @@ reviewer's own machine/session, likewise not reproducible from anything
 committed here. Combining all three clusters gave, as of round 5, an
 overall observed range of **8.8x–17.0x across ten n=5 samples**
 (historical — this ten-sample tally is itself superseded by the
-twenty-sample round-7 canonical statement in "Measured result" → "Ratio
-evidence — canonical statement" below, the same way the four-run span
-above is; round-8 blocker finding 1) (four repo-verifiable,
+canonical statement in "Measured result" → "Ratio evidence — canonical
+statement" below — see there for the current run count; this sentence
+does not restate it, per round-9 blocker finding 1 — the same way the
+four-run span above is; round-8 blocker finding 1) (four repo-verifiable,
 four uncommitted first-party, two second-hand) — consistent with round
 3's retracted "12.3x–17.0x" bound at its upper end, but this document
 does not restate round 3's "~1.4" factor as a property of that combined
@@ -305,60 +306,97 @@ in that same paragraph or the next, that the following round found it
 broken — narrating what happened, not asserting a current bound — or (e)
 a site citing THIS paragraph's own aggregate range WITH attribution back
 to it, not asserting a second, independent claim: "Decision" item 3 and
-"The COM baseline" → "This ADR's speedup claim" both do this):** across
-TWENTY-THREE n=5 warm runs
-measured for this ADR through round 8 (four committed + four uncommitted
-first-party round 5, two second-hand round 3, two second-hand round 6,
-two first-party round 6, three second-hand round 7 — the reviewer's own
-re-runs that rejected round 6's ADR, quoted in the "Round-7 revision"
-entry above — three first-party round 7 and three first-party round 8,
-each round's own worker, this section's table above plus the three
-round-7 and three round-8 worker runs just described), the binary reader
+"The COM baseline" → "This ADR's speedup claim" both do this, and per
+round-9 blocker finding 1, neither of those two sites — nor the "Round 7
+finding" reference near the top of this section — states its own
+independent sample count. A run count went stale at exactly those kinds
+of citing sites in two consecutive rounds (round 8 fixed two of the
+three sites its own enumeration named and left the third, plus the
+"Round 7 finding" pointer, stale; this round converts all of them to
+non-numeric pointers instead of re-fixing a number that only goes stale
+again). The count lives here, exactly once, and every other site in this
+document points to it rather than restating it):** across THIRTY-EIGHT
+n=5 warm runs measured for this ADR through round 9 (twenty-three
+through round 8 — four committed + four uncommitted first-party round 5,
+two second-hand round 3, two second-hand round 6, two first-party round
+6, three second-hand round 7, three first-party round 7, three
+first-party round 8 — plus round 9's own fifteen: ten second-hand
+round-9 reviewer runs and five first-party round-9 worker runs, both
+described in full in "Round-9 sampling" below), the binary reader
 has been faster than COM in every
-individual warm iteration FOR WHICH per-iteration data is recoverable
-(roughly 35 of the roughly 115 total iterations across all twenty-three
-runs — see below for why the rest are not recoverable; the membership of
-this 35 changed this round: round 7's three worker runs, previously
-counted here, are removed — round-8 major finding 2 established their
-raw per-iteration values were never quoted or committed anywhere, only
-their medians and an iteration-level min/max; round 8's three worker
-runs, with raw values quoted in full in "Round-8 worker verification"
-below, take their place, so the count is unchanged at 35 but the specific
-runs behind it are not), and faster at the
-run-median level in all twenty-three runs without exception (every reported
+individual warm iteration FOR WHICH per-iteration data is recoverable —
+"recoverable" meaning the five raw per-iteration values for that run are
+written down somewhere a reader can actually see them, which for every
+run counted here means quoted verbatim in THIS document; round 8
+established that criterion (its own three worker runs' JSON was never
+committed either — `git checkout --` restored the canonical file after
+each — yet they count, because their raw arrays are quoted in full in
+"Round-8 worker verification"), not "independently re-derivable from a
+committed artifact," which is a stricter bar this document has never
+actually applied here (it IS applied separately, to the absolute-band
+provenance taxonomy above, where "committed" vs. "first-party
+uncommitted" vs. "second-hand" are three distinct categories) —
+(roughly 60 of the roughly 190 total iterations across all thirty-eight
+runs — see below for why the rest are not recoverable. The round-8
+membership of the recoverable 35 is unchanged; round 9 adds its own five
+worker runs' full raw arrays — quoted in full in "Round-9 sampling"
+below, the same way round 8's were, even though (like round 8's) the
+underlying JSON output itself was never committed: these five went to
+the gitignored `measure/windows/out/` directory, not to any tracked path
+— for 25 more recoverable iterations, taking the total to 60. Round
+9's ten reviewer runs are NOT counted as recoverable: like the
+round-3/6/7 reviewer rows before them, what was quoted is a median and,
+for some of the ten, an iteration-level min/max, never the five raw
+per-iteration values each run would need), and faster at the
+run-median level in all thirty-eight runs without exception (every reported
 median exceeds 1.0x). Among the iterations with recoverable data, the
-factor has ranged from **as low as ~5.7x to as high as ~18x** at the
-individual-iteration level (5.7x from this round's own reviewer's third
-re-run of the round-6-committed benchmark, reported in the finding that
-rejected round 6's ADR — see the "Round-7 revision" entry above for the
-full quote; 18.5x from `1fa06ae`'s committed max), with run-medians
-observed **roughly 7.8x–17x**. These figures are reported as **a sample
+factor has ranged from **as low as ~4.3x to as high as ~22.4x** at the
+individual-iteration level (4.3x and 22.4x both from round-9 reviewer
+runs' disclosed min/max — see "Round-9 sampling" below for the full
+quotes; both supersede the previous 5.7x/18.5x edges — 5.7x from
+round 7's reviewer re-run, 18.5x from `1fa06ae`'s committed max, both
+still real samples, just no longer the extremes), with run-medians
+observed **roughly 7.3x–17x** (7.3x from a round-9 reviewer run,
+superseding the previous 7.8x floor; the 17x ceiling is unmoved by round
+9's samples). These figures are reported as **a sample
 range observed to date, not a bound**: a pooled percentile over the full
 iteration set was considered and rejected for this document, because
-most of the second-hand rows (the round-3, round-6, and round-7 reviewer
-runs) report only a median and a min/max, not the per-iteration raw
-values a defensible percentile needs — and round 7's own three worker
-runs turn out to be in the same position (round-8 major finding 2: only
-a median and an iteration-level min/max were ever recorded for them,
-never the five individual raw values per run) — only the four committed
-JSONs plus round 8's three worker runs (~35 of the ~115 iterations) have
-recoverable raw per-iteration data, and computing a percentile over
-35-of-115 and presenting it as "the" pooled floor would
-be a new, narrower-sounding overclaim of the same shape this finding
-exists to stop. The honest statement is the one above: an observed
-range, expected to widen
-(specifically downward) as more runs accumulate, with **no** "lowest
-ever", "no lower than", or "floor" language attached to any specific
+most of the second-hand rows (the round-3, round-6, round-7, and now
+round-9 reviewer runs) report only a median and a min/max, not the
+per-iteration raw values a defensible percentile needs — and round 7's
+own three worker runs turn out to be in the same position (round-8 major
+finding 2: only a median and an iteration-level min/max were ever
+recorded for them, never the five individual raw values per run) — only
+the four committed JSONs plus round 8's and round 9's worker runs (~60
+of the ~190 iterations) have recoverable raw per-iteration data, and
+computing a percentile over 60-of-190 and presenting it as "the" pooled
+floor would be a new, narrower-sounding overclaim of the same shape this
+finding exists to stop. The honest statement is the one above: an
+observed range, expected to widen **in both directions** as more runs
+accumulate — round-9 blocker finding 3: the statement through round 8
+hedged only downward movement, and round 9's own reviewer sample moved
+the single-iteration ceiling UPWARD, from ~18x to 22.4x, which that
+one-directional hedge did not anticipate — with **no** "lowest
+ever", "no lower than", "highest ever", "no higher than", or
+"floor"/"ceiling" language attached to any specific
 number, because the very next run — on this machine or anyone else's —
-can and, on this document's own eight-round track record, reliably does
-move that number. **PLAT-10 must not plan capacity or set an SLA against
-any ratio figure in this document.** For a planning input that does NOT
-have this defect, see the absolute-saving band immediately below, which
-is the number "Decision" leads with.
+can and, on this document's own nine-round track record, reliably does
+move that number, in either direction. **PLAT-10 must not plan capacity or set an SLA against
+any ratio figure in this document.** The absolute-saving band immediately
+below now carries this exact same bidirectional hedge, for the same
+reason (round-9 blocker finding 2) — it is a planning input with the same
+shape of defect, not an immovable one; see "Decision" item 2 for the
+actual round-9 movement on each edge, which is not smaller here than the
+ratio's, and for why "Decision" still leads with it anyway.
 
-**Absolute magnitude — the figure that has NOT moved (round-4 blocker
-finding 1; the figure round 6 already found survives fresh sampling,
-confirmed again in rounds 7 and 8):** across the four repo-verifiable committed
+**Absolute magnitude — a sample range observed to date, not a bound
+(round-4 blocker finding 1 first isolated this figure from the ratio;
+round-9 blocker finding 2 found it carries the identical defect the
+ratio already named above: it can move in either direction as more runs
+accumulate, and "has not moved" / "none has moved either edge" framing
+here was falsified by fresh sampling on this same machine at the same
+commit, the same way an un-hedged ratio floor was falsified in rounds 6
+and 7):** across the four repo-verifiable committed
 runs, the binary reader saves COM-median minus Node-median per full
 182-shortcut Start Menu scan: 226.5 ms (`7819df6`), 254.1 ms (`1fa06ae`),
 289.5 ms (`14a44ac`), 456.3 ms (`6932c45`, canonical) — **roughly a
@@ -368,8 +406,9 @@ suggest for a similarly-sized set (that premise does not reproduce on
 this machine at all; see "The COM baseline" below). This is arithmetic on
 each committed run's own `warm.nodeParserMs.median` and
 `warm.comLoopOnlyMs.median` fields, already present in the committed
-JSON, not a new measurement. Eleven further samples, none committed, all
-land inside this same 226.5–456.3 ms band without moving either edge: the
+JSON, not a new measurement. Eleven further samples, none committed, were
+the next data in this record and, as of round 7, all landed inside this
+same 226.5–456.3 ms band: the
 four uncommitted, first-party "Corroborating run A–D" figures from this
 document's round-4/5 measurement session (253.5 ms, 234.2 ms, 238.0 ms,
 287.4 ms), round 6's reviewer's two runs (278.6 ms, 227.6 ms — the latter
@@ -444,15 +483,17 @@ COM warm median, per-shortcut: 1.4745 ms/shortcut
 COM-median minus Node-median: 268.4 − 29.55 = **238.85 ms**. Agreement:
 identical to runs 1 and 2 (170/0/0/0/0/8, 42/12/1/0).
 
-All three savings (231.53 ms, 235.17 ms, 238.85 ms) land inside the
-existing 226.5–456.3 ms band without moving either edge, and all three
-speedup medians (10.2x, 9.9x, 9.2x, iteration range 7.8x–11.3x) land
-inside the existing 7.8x–17x / 5.7x–18x ranges from "Ratio evidence —
-canonical statement" above without moving either edge there either — this
-round adds confirmation, not a revision, to both figures. **Eighteen
-samples across eight review rounds, zero of them outside 0.23–0.46 s.**
-This band, not any ratio figure, is what "Decision" motivates PLAT-10
-with.
+All three savings (231.53 ms, 235.17 ms, 238.85 ms) landed inside the
+226.5–456.3 ms band as it stood through round 8, and all three speedup
+medians (10.2x, 9.9x, 9.2x, iteration range 7.8x–11.3x) landed inside the
+run-median/single-iteration ranges from "Ratio evidence — canonical
+statement" as they stood through round 8 too — round 8 added
+confirmation, not a revision, to both figures at that point. **Through
+round 8: eighteen samples across eight review rounds, zero of them
+outside 0.23–0.46 s.** Round 9 moved both edges of this band — see
+"Round-9 sampling" immediately below, which is where the band's current
+state and sample count actually live now (this paragraph, like "Round-7
+revision" above it, is a dated snapshot, not the canonical figure).
 
 COM's own loop-only time varies substantially both run to run and within a
 single warm run. Within-run: this round's canonical run's 5 warm
@@ -493,6 +534,138 @@ machine
 differences between the original 2026 research measurement and this
 round's runs, or some combination) — and no figure in this document
 depends on having isolated it.
+
+**Round-9 sampling — five fresh worker runs, fully verbatim, plus ten
+second-hand reviewer runs that moved both this band and the ratio range
+above (round-9 blocker findings 2 and 3's fix):** run on this machine on
+2026-09-18, `node measure/windows/proof-03-lnk-benchmark.mjs` (post-fix:
+the default destination is now the untracked, gitignored
+`measure/windows/out/` directory — round-9 blocker finding 4 — so these
+five runs never touched the tracked canonical `proof-03-results.json`;
+no `git checkout --` restore was needed, unlike every prior round's
+worker verification above).
+
+Run 1 (report written to `measure/windows/out/proof-03-results-2026-09-18T04-18-13.463Z.json`
+at generation time; that directory is gitignored — round-9 blocker finding
+4 — so the file itself will not exist for a later reader. This document's
+own verbatim quotation below, not that path, is the durable record, the
+same way round 8's three worker runs' figures are recoverable only from
+"Round-8 worker verification" above, never from a committed JSON):
+```
+Node parser: median 36.41 ms, min 27.71, max 46.68, stddev 6.12 -- raw: [38.11, 27.71, 34.50, 36.41, 46.68]
+COM loop-only: median 301.9 ms, min 243.4, max 345.2, stddev 38.7 -- raw: [329.6, 243.4, 262.1, 345.2, 301.9]
+Speedup (median of per-iteration COM/Node ratios): median 8.6x, min 6.5x, max 9.5x
+```
+COM-median minus Node-median: 301.9 − 36.41 = **265.49 ms**. Agreement:
+170 exact / 0 case-insensitive / 0 realpath / 0 secondary-only / 0
+mismatch / 8 no-usable-target-path-source gap, 42 env-var, 12
+IDList-only, 1 MSI-advertised, 0 UNC — bit-identical to the canonical
+`6932c45` run and to all five round-9 worker runs below.
+
+Run 2:
+```
+Node parser: median 31.24 ms, min 26.11, max 38.09, stddev 4.25 -- raw: [26.11, 38.09, 31.24, 27.09, 31.88]
+COM loop-only: median 284.6 ms, min 261.3, max 434.5, stddev 62.0 -- raw: [282.3, 284.6, 261.3, 434.5, 305.8]
+Speedup (median of per-iteration COM/Node ratios): median 9.6x, min 7.5x, max 16.0x
+```
+COM-median minus Node-median: 284.6 − 31.24 = **253.36 ms**. Agreement:
+identical to run 1.
+
+Run 3:
+```
+Node parser: median 33.92 ms, min 24.98, max 42.72, stddev 5.74 -- raw: [42.72, 31.06, 34.36, 33.92, 24.98]
+COM loop-only: median 276.8 ms, min 266.9, max 417.6, stddev 56.6 -- raw: [417.6, 289.2, 276.8, 266.9, 276.1]
+Speedup (median of per-iteration COM/Node ratios): median 9.3x, min 7.9x, max 11.1x
+```
+COM-median minus Node-median: 276.8 − 33.92 = **242.88 ms**. Agreement:
+identical to runs 1–2.
+
+Run 4:
+```
+Node parser: median 36.77 ms, min 27.67, max 42.03, stddev 5.19 -- raw: [29.97, 42.03, 27.67, 36.77, 36.91]
+COM loop-only: median 303.6 ms, min 267.7, max 481.2, stddev 78.5 -- raw: [267.7, 303.6, 308.3, 481.2, 276.1]
+Speedup (median of per-iteration COM/Node ratios): median 8.9x, min 7.2x, max 13.1x
+```
+COM-median minus Node-median: 303.6 − 36.77 = **266.83 ms**. Agreement:
+identical to runs 1–3.
+
+Run 5:
+```
+Node parser: median 33.09 ms, min 27.86, max 39.24, stddev 4.60 -- raw: [33.09, 39.24, 36.98, 28.05, 27.86]
+COM loop-only: median 274.5 ms, min 244.0, max 447.0, stddev 73.6 -- raw: [335.2, 447.0, 274.5, 263.9, 244.0]
+Speedup (median of per-iteration COM/Node ratios): median 9.4x, min 7.4x, max 11.4x
+```
+COM-median minus Node-median: 274.5 − 33.09 = **241.41 ms**. Agreement:
+identical to runs 1–4.
+
+All five worker savings (265.49, 253.36, 242.88, 266.83, 241.41 ms) land
+comfortably inside the 226.5–456.3 ms band as it stood through round 8,
+and all five speedup medians (8.6x, 9.6x, 9.3x, 8.9x, 9.4x; iteration
+range 6.5x–16.0x) land inside the run-median/single-iteration ranges as
+they stood through round 8 too — these five runs, alone, would be
+confirmation, not a revision, exactly like round 8's three.
+
+They are not alone. The round-9 reviewer independently ran the same
+committed benchmark ten more times on this same machine, at this same
+commit, and disclosed in full:
+
+- Ten COM-minus-Node savings, in the reviewer's own words "Full ten-run
+  savings from my captured logs": 264.76, 310.67, 586.95, 249.61, 235.54,
+  301.80, 223.82, 290.08, 305.50, 343.84 ms.
+- Their run 7, verbatim: `Node parser: median 37.08 ms ... COM loop-only:
+  median 260.9 ms` → 260.9 − 37.08 = 223.82 ms, the lowest of the ten and
+  below the 226.5 ms lower edge the band held through round 8, with no
+  disclosed instability on this run.
+- Their run 3: COM 637.0 ms / Node 50.05 ms → 586.95 ms, the highest of
+  the ten and above the 456.3 ms upper edge the band held through round
+  8. The reviewer disclosed this run's own instability unprompted: Node
+  stddev 46.00 with a single 162.05 ms outlier iteration, and another
+  session's uncommitted edit (`measure/windows/proof-08/lib.mjs`) sitting
+  dirty in the working tree at the time — confirmed pre-existing and not
+  this round's own doing: `git status --short` at the start of this round
+  already showed `measure/windows/proof-08/*` and
+  `docs/adr/0004-proof-08-server-hosting-electron-main-vs-utility-process.md`
+  modified, before any round-9 edit here, and this round's own commit
+  stages only `.gitignore`, this file, and
+  `measure/windows/proof-03-lnk-benchmark.mjs` — never anything under
+  `proof-08`. Per this
+  document's own established standard for an outlier reading — the
+  "Corroborating run C" 412.7 ms single-iteration outlier in the
+  round-4/5 sampling above is disclosed inline, not dropped from the
+  range — this run is disclosed, not excluded: the same standard that
+  admits every worker run's reported min/max as a sample without a noise
+  gate cannot admit worker maxima and reject reviewer maxima.
+- Their run 9, verbatim: `Speedup (median of per-iteration COM/Node
+  ratios): median 8.5x, min 7.8x, max 22.4x` — the max, 22.4x, exceeds
+  the previous ~18x single-iteration ceiling.
+- Their run 7's own ratio median (7.3x) and run 5's (7.5x) both read
+  below the previous 7.8x run-median floor; their run 3's own ratio min
+  (4.3x) reads below the previous 5.7x single-iteration floor. The
+  reviewer deliberately did not raise these three as defects, because
+  the downward hedge above already anticipated exactly this — correct
+  through round 8, and still correct now that the hedge is bidirectional.
+
+Combining both sources without cherry-picking either (round-9 blocker
+finding 2's required fix, option (a) — widen and strip the stability
+framing — over option (b), a declared gate: a gate cannot rescue the
+lower edge, because the one sample that would need excluding to do so
+(reviewer run 7) discloses no instability at all, and contention on a
+shared machine inflates COM's own time more than Node's, which RAISES
+the measured saving rather than lowering it — a saving below the floor
+cannot be explained by the machine being busy):
+
+**The absolute-saving band is now 223.82–586.95 ms** (≈0.22–0.59 s),
+widened from 226.5–456.3 ms as it stood through round 8. **The
+single-iteration ratio range is now ~4.3x–22.4x**, widened from ~5.7x–18x
+(both edges moved). **The run-median ratio range is now ~7.3x–17x**,
+widened from ~7.8x–17x (only the floor moved this round). **Thirty-three
+absolute-magnitude samples across nine review rounds** (eighteen through
+round 8, plus round 9's ten reviewer + five worker), all inside the new
+223.82–586.95 ms band by construction — that statement is true only
+because the band was just widened to include them, not evidence of
+stability going forward. The bidirectional hedge in "Ratio evidence —
+canonical statement" above now applies equally to this figure: the very
+next run, on this machine or anyone else's, can move either edge again.
 
 Full per-shortcut data, all raw timing iterations, the full flags object
 per row, and the new `baseline` comparison fields
@@ -561,12 +734,16 @@ mechanism (B, above):** `16.07 ms/shortcut` (`2395/149`) is the research
 doc's own number, restated here for context, not re-derived or extended
 into a speedup claim. This document's speedup claim is stated exactly
 once, canonically, in "Measured result" → "Ratio evidence — canonical
-statement" above (roughly 7.8x–17x at the run-median level across twenty
-n=5 runs; no cold/iteration-0 ratio is claimed at all — round-3 blocker
-1; round-8 blocker finding 1 removed the 11.6x–16.4x / 8.8x–17.0x figures
-this paragraph used to restate here, since both are the same round-5-era
+statement" above — see there for the current range and run count; no
+cold/iteration-0 ratio is claimed at all — round-3 blocker 1; round-8
+blocker finding 1 removed the 11.6x–16.4x / 8.8x–17.0x figures this
+paragraph used to restate here, since both are the same round-5-era
 numbers already marked superseded where they are actually stated, in
-"Measured result" above). That claim is computed
+"Measured result" above; round-9 blocker finding 1 removed this
+paragraph's own restated range and run count for the same reason — a
+number here is one more site that goes stale the next time the canonical
+statement changes, which round 9 alone did twice (see "Round-9 sampling"
+above). That claim is computed
 against each run's OWN
 COM measurement (182 shortcuts, both paths, same process, same machine,
 same moment) — not against the 149 baseline — specifically to avoid
@@ -803,31 +980,47 @@ parser produced somewhere in a candidate list:
    test (see "Verifying the fix" above).
 2. **The ABSOLUTE time saved, which is what PLAT-10 should plan around
    (round-4 blocker finding 1; canonicalized in round 7 — round-7 blocker
-   finding 1):** the binary reader saves **0.23–0.46 s per full
-   182-shortcut Start Menu scan** on this machine, not the ~2.4 s the
-   research baseline's 16 ms/shortcut premise would suggest for a
-   similarly-sized set. Eighteen independent samples across all eight
-   review rounds land inside this exact band and none has moved either
-   edge — see "Measured result" → "Absolute magnitude" above for the full
-   sample list and arithmetic. This is the number this Decision leads
-   with, specifically because — unlike the ratio in item 3 below — it has
-   not required revision in four consecutive rounds.
+   finding 1; carries the same bidirectional "observed range, not a
+   bound" hedge as item 3 below, as of round 9 — round-9 blocker finding
+   2):** the binary reader saves **0.22–0.59 s per full 182-shortcut
+   Start Menu scan** on this machine, not the ~2.4 s the research
+   baseline's 16 ms/shortcut premise would suggest for a similarly-sized
+   set. Thirty-three independent samples across all nine review rounds
+   land inside this range as of round 9 — see "Measured result" →
+   "Absolute magnitude" → "Round-9 sampling" above for the full sample
+   list and arithmetic, including exactly where round 9 moved both
+   edges. This remains the number this Decision leads with: PLAT-10 can
+   size a wait against wall-clock seconds directly, which a dimensionless
+   ratio does not offer — not because this figure proved more stable
+   than the ratio this round. It did not: round 9's own low edge moved
+   only ≈1% (226.5 → 223.82 ms) but its high edge moved ≈29% (456.3 →
+   586.95 ms, driven by the one reviewer run disclosed as unstable
+   above) — wider than the run-median ratio edges moved this round (≈6%
+   on the floor, 0% on the ceiling), though narrower than the
+   single-iteration ratio edges (≈24–25% on each). Movement is not
+   uniform across any of these figures, in either direction; the point
+   is that none of the four is exempt, this figure included, not that
+   one moves less than the others. Plan against the band stated above,
+   not a single point estimate drawn from it.
 3. **The ratio (ancillary context, not a planning floor — round-7 blocker
-   finding 1):** across twenty-three n=5 runs measured for this ADR over
-   eight review rounds, the binary reader has been faster than COM in every
+   finding 1):** across thirty-eight n=5 runs measured for this ADR over
+   nine review rounds, the binary reader has been faster than COM in every
    iteration for which raw per-iteration data survives and faster at the
-   run-median level in all twenty-three runs without exception, by a factor
-   observed so far to span roughly 5.7x–18x at the single-iteration level
-   and roughly 7.8x–17x at the run-median level (full accounting,
+   run-median level in all thirty-eight runs without exception, by a factor
+   observed so far to span roughly 4.3x–22.4x at the single-iteration level
+   and roughly 7.3x–17x at the run-median level (full accounting,
    including which rows lack recoverable data and why, in "Measured
    result" above). **This document does not, and after this round
-   will not again, publish a minimum from this distribution as a design
-   floor:** rounds 5 and 6 each did exactly that (11.6x, then 6.2x/8.3x),
-   and both were falsified by the next round's fresh measurement —
-   including round 7's own three confirmation runs, one of which
-   (6.18x) landed below round 6's just-published floor; round 8's three
-   confirmation runs (7.8x–11.3x, medians 10.2x/9.9x/9.2x) did not move
-   either extreme. See "Measured
+   will not again, publish a minimum OR a maximum from this distribution
+   as a design floor or ceiling:** rounds 5 and 6 each published a floor
+   (11.6x, then 6.2x/8.3x) that the next round's fresh measurement
+   falsified — including round 7's own three confirmation runs, one of
+   which (6.18x) landed below round 6's just-published floor; round 8's
+   three confirmation runs (7.8x–11.3x, medians 10.2x/9.9x/9.2x) did not
+   move either extreme, but round 9's own reviewer sample then moved the
+   ceiling from ~18x to 22.4x — round-9 blocker finding 3 — proving a
+   published extreme needs a hedge against movement in BOTH directions,
+   not only downward. See "Measured
    result" → "Ratio evidence — canonical statement" above for the full
    reasoning, including why a pooled percentile was considered and
    rejected. **PLAT-10 must not plan capacity or set an SLA against any
@@ -918,6 +1111,106 @@ states; that verification run is
 deliberately NOT the canonical run this section's numbers are drawn from.)
 
 ## Revision history
+
+### Round-9 revision
+
+A rigorous reviewer rejected the round-8 version of this ADR on four
+findings.
+
+1. **[blocker, fixed]** Round 8's own fix for the canonical run count —
+   updating every site its own enumeration named — updated two of the
+   three sites (":564"'s "twenty" and, separately, "Decision" item 3) but
+   left the third (a pointer near the top of "Measured result" that still
+   said "twenty-sample round-7 canonical statement") and Decision item
+   3's own count both re-exposed to the identical failure mode: any
+   citing site holding an independent copy of the run count goes stale
+   the next time that count changes, and round 9 changed it twice over
+   (fifteen new runs on top of the twenty-three through round 8). Fixed
+   per the finding's preferred (non-numeric) option, applied to every
+   site the canonical parenthetical names — not just the two previously
+   flagged: the stale pointer, "Decision" item 3, and "This ADR's speedup
+   claim" all now point at the canonical statement for the current range
+   and count instead of holding either number themselves. The canonical
+   parenthetical itself is amended to say explicitly that its enumerated
+   citing sites carry no independent count, so a future round converting
+   a new citing site can follow the same instruction instead of
+   re-deriving it.
+2. **[blocker, fixed]** The 226.5–456.3 ms absolute-saving band, framed
+   throughout "Measured result" and "Decision" as the figure that "has
+   NOT moved" across "four consecutive rounds," was falsified on its
+   lower edge by the reviewer's own fresh sampling on this machine at
+   this commit (run 7: COM median 260.9 ms, Node median 37.08 ms, saving
+   223.82 ms, 2.68 ms below the stated 226.5 ms floor, with no disclosed
+   instability on that run) and left on its upper edge by the same
+   sampling (run 3: saving 586.95 ms, disclosed by the reviewer as
+   plausibly load-contaminated — Node stddev 46.00, a 162.05 ms outlier
+   iteration, and another session's uncommitted `proof-08` edit sitting
+   in the working tree at the time). Fixed per the finding's option (a):
+   the band is widened to 223.82–586.95 ms using both the reviewer's ten
+   disclosed runs and five fresh first-party worker runs (quoted in full
+   in "Measured result" → "Absolute magnitude" → "Round-9 sampling", new
+   this round), every "has NOT moved" / "none has moved either edge" /
+   "not required revision" sentence across "Measured result" and
+   "Decision" is removed or reframed as a dated, through-round-8 snapshot
+   rather than a current claim, and the figure now carries the same
+   explicit "sample range observed to date, not a bound" hedge the ratio
+   already carried. Option (b) — a declared stability gate re-deriving
+   the band from gated runs only — was considered and rejected: the one
+   sample that would need excluding to rescue the lower edge (reviewer
+   run 7) discloses no instability at all, and contention on a shared
+   machine inflates COM's own time more than Node's, which raises the
+   measured saving rather than lowering it, so a saving below the floor
+   cannot be explained by the machine being busy. A gate legitimately
+   excludes the upper-edge outlier (run 3) but cannot touch the lower
+   edge, so it would not have closed the finding by itself.
+3. **[major, fixed]** The single-iteration ratio ceiling, stated as "as
+   high as ~18x," was exceeded by the reviewer's own run 9 (median 8.5x,
+   min 7.8x, max 22.4x), and the hedge covering this figure anticipated
+   only downward movement ("expected to widen (specifically downward) as
+   more runs accumulate"), leaving an upward breach unclaimed territory.
+   Fixed with both of the finding's offered options, not just one:
+   the single-iteration edge is widened to ~4.3x–22.4x (the reviewer's
+   own run 3 min and run 9 max, both admitted on the same no-noise-gate
+   basis every worker run's min/max already was — selective admission
+   was avoided by also lowering the run-median floor from 7.8x to 7.3x
+   using the reviewer's own run 7 median, rather than citing their
+   savings for the absolute band while ignoring their ratios), and the
+   hedge at "Ratio evidence — canonical statement," in "Decision" item 3,
+   and in the new "Round-9 sampling" section is rewritten to be
+   explicitly bidirectional ("in either direction," "no … floor/ceiling
+   … attached to any specific number") rather than anticipating only a
+   downward move.
+4. **[minor, fixed]** `proof-03-lnk-benchmark.mjs` silently overwrote the
+   repo's committed canonical `measure/windows/proof-03-results.json` on
+   every run, with only a generic "written to" line as a hint, no warning
+   that a tracked artifact other sessions depend on had just been
+   replaced — a contributing cause, per the reviewer, to that file being
+   "twice accidentally swept into unrelated commits by other sessions."
+   Fixed: the script's default destination (no flags) is now an
+   untracked, `path.join`-built, timestamped path under
+   `measure/windows/out/` (added to `.gitignore`), never the canonical
+   file; overwriting the canonical file requires an explicit
+   `--write-canonical` flag, which itself refuses (exit 1, nothing
+   written) unless that exact path is BOTH tracked by git AND currently
+   clean (no uncommitted diff for that path) — checked via `git
+   status --porcelain -- <path>` and `git ls-files --error-unmatch --
+   <path>` scoped to that one path (not the whole working tree, which is
+   independently dirty right now from another session's `proof-08` work
+   and must not gate this check), failing CLOSED (refusing) if git
+   itself cannot be read. The gate is checked before the expensive
+   benchmark loop runs, so a refusal is immediate. Exercised directly
+   (see "measured_results" in this round's task output): a plain run
+   writes to
+   `measure/windows/out/proof-03-results-2026-09-18T04-18-13.463Z.json`
+   (colon-free, valid on Windows — `isoForFilename` replaces `:` with
+   `-`, since `Date.toISOString()`'s raw form is not a legal Windows
+   basename) and leaves the tracked canonical file untouched
+   (`git status --porcelain` empty for it, `git hash-object` unchanged,
+   across five consecutive runs).
+
+`node --test test/windows-lnk-parser.test.mjs`: 13/13 pass, unaffected by
+this round's changes (`compareTiered`'s export and behavior are
+untouched; only the report-destination plumbing and prose changed).
 
 ### Round-8 revision
 
