@@ -16,7 +16,7 @@ zero de bytes; e 7 de 7 tasks do plano TDD herdado sobrevivem contra 4 de 7.
 
 | # | Decisão | Consequência |
 |---|---|---|
-| D1 | Strings de wire **congeladas como `Dokke`** no v1 | `DISCOVERY_MAGIC`, prefixo `dokke:<ip>:<port>` e o corpo de `/health` não mudam. O APK distribuído casa por regex ancorada e não atualiza em lockstep |
+| D1 | ~~Strings de wire congeladas como `Dokke` no v1~~ **REVISADO por D19 em 2026-09-18.** Ver D19 e WIRE-01 | A justificativa original ("o APK distribuído não atualiza em lockstep") tratava compatibilidade de migração como se fosse requisito de protocolo. Investigação de 2026-09-18 mostrou que **um único** consumidor do literal está fora do nosso controle — o APK do Dokke já instalado em campo; todo o resto (`DokkeDiscovery.kt`, `DokkeDiscoveryTest.kt`, `ServerManager.swift:232`, `test/apps-api.test.mjs`, `test/smoke.test.mjs`) é código-fonte que o rebrand reescreve |
 | D2 | Atribuição de Felipe Natanael **preservada** | Fora de qualquer find-and-replace. LICENSE MIT intacta |
 | D3 | `%LOCALAPPDATA%`, nunca Roaming | PIN em texto puro não replica para fora da máquina |
 | D4 | **"Slots"** é ground truth | Código shipado v0.2.8 vence o PRD de 2026-08-18 |
@@ -32,6 +32,7 @@ zero de bytes; e 7 de 7 tasks do plano TDD herdado sobrevivem contra 4 de 7.
 | D14 | Monolito da PWA **intocado** no v1 *(decisão do usuário)* | 236 asserções leem `public/index.html` como texto. Decomposição vira fase do v2 |
 | D15 | Arquitetura do servidor no host decidida **por medição na Fase 0** *(decisão do usuário)* | `utilityProcess.fork` vs servidor no main process do Electron. A pesquisa nunca avaliou a segunda. Ver PROOF-08 |
 | D17 | **Observabilidade entra no v1** *(decisão do usuário)* | Log em arquivo rotativo + ação de exportar. `apps.js`, `auth.js`, `config.js` e `actions.js` têm zero `console.*` hoje. Ver OBS-01, OBS-02 |
+| D19 | **Wire dual-accept, DeckTech primário** *(decisão do usuário, 2026-09-18)* | O DeckTech ganha identidade própria no protocolo já no v1 e continua atendendo a antiga, com data de morte declarada. Viável porque `MainActivity.kt:346` abre a conexão sem header nenhum: "ausência de header" é a assinatura do cliente legado. Ver WIRE-01 |
 | D18 | **Check de update reaponta e fica desligado por flag** *(decisão do usuário)* | `gh release list` do DeckTech retorna vazio; só reapontar manda o updater para endereço sem releases. RF-10 diz que auto-update silencioso não é MVP. Ver BRAND-12 |
 | D16 | **7 expansões aceitas** em revisão CEO, modo SELECTIVE EXPANSION *(decisão do usuário, 2026-09-17)* | PROOF-06, PROOF-07, PROOF-08, PLAT-09, PLAT-10, SHELL-08, UI-12, TEST-06, TEST-07. Total de requisitos v1: **76**, depois **79** com D17 e D18 |
 
@@ -122,6 +123,13 @@ zero de bytes; e 7 de 7 tasks do plano TDD herdado sobrevivem contra 4 de 7.
 - [ ] **BRAND-09**: Limpar a chave legada `"j5.baseURL"` em UserDefaults (`DockStore.swift:14`). *(R11)*
 - [ ] **BRAND-10**: Conteúdo novo e verdadeiro para `docs/public/tutorial-dokke.html`, que hoje narra a história de fundação pessoal do Dokke. Não é find-and-replace. *(R9)*
 - [ ] **BRAND-11**: Atribuição a Felipe Natanael preservada e visível; DeckTech soma a sua ao lado. *(D2)*
+- [ ] **WIRE-01**: Identidade de protocolo dual-accept, DeckTech primário *(D19)*. Três pontos de acoplamento, todos verificados em 2026-09-18:
+  1. **Magic UDP** — `server.js:207` compara `msg.trim() !== DISCOVERY_MAGIC` (igualdade exata). Aceitar `dokke:discover` **e** `decktech:discover`.
+  2. **Resposta UDP** — `server.js:208` emite `` `dokke:${ip}:${portHint}` ``, casado por regex ancorado em `DokkeDiscovery.kt:11`. Responder com o prefixo **que foi perguntado**, nunca o outro.
+  3. **Corpo de `/health`** — `server.js:377` emite `{"ok":true,"service":"Dokke"}`, casado por regex de **corpo inteiro** em `DokkeDiscovery.kt:12`, que rejeita qualquer chave a mais. Cliente DeckTech manda header próprio e recebe `"service":"DeckTech"`; requisição sem o header recebe o corpo legado byte a byte.
+  Idem `server.js:777` (`/api/status`), consumido por `ServerManager.swift:232`.
+  A PWA **não** é ponto de acoplamento: `public/index.html:2251` valida só `r.data.ok === true`, nunca o campo `service` — verificado.
+  O ramo legado nasce com **data de remoção declarada em comentário no código**, não "algum dia". Teste obrigatório: um cliente sem header recebe o corpo legado byte a byte e o regex ancorado do Android casa; um cliente com header recebe DeckTech. Os dois provados por asserção que falha se o ramo sumir.
 - [ ] **BRAND-12**: Reapontar o check de versao para o DeckTech **e mante-lo desligado por flag ate a primeira release existir**. `server.js:90,97,98` apontam hoje para `felipenalves/Dokke/releases/latest` e o asset `dokke.apk`; `gh release list --repo produtoramaxvision/DeckTech` retorna vazio, entao so reapontar manda o updater para um endereco sem releases. A RF-10 do PRD diz que atualizacao automatica silenciosa nao e requisito de MVP. Religar a flag e etapa da primeira release, registrada como tal. *(D18)*
 
 ### Testes e CI
@@ -149,7 +157,6 @@ zero de bytes; e 7 de 7 tasks do plano TDD herdado sobrevivem contra 4 de 7.
 
 ## v2 — Deferido com motivo
 
-- **WIRE-01**: Rename das strings de wire (`dokke:discover`, prefixo de resposta, corpo de `/health`), com janela de dual-accept. Travado pelo APK já distribuído, que casa por regex ancorada de match total. *(R1, D1)*
 - **PWA-01**: Decomposição do monolito de 129 KB em fontes + build step que reconcatena. 236 asserções leem o arquivo como texto; o `<style>` é render-blocking por design e o `<script>` é síncrono, medindo layout no mesmo frame. *(N1, D14)*
 - **SEC-01**: HTTPS por padrão. Hoje PIN e cookie de sessão trafegam em claro; sniffing passivo de Wi-Fi captura ambos. *(Q26)*
 - **SEC-02**: Rate limit de PIN com limite global, não só por IP. 5 tentativas/60 s/IP contra 10.000 PINs dá ~33 h **por IP**, e o atacante controla a chave. *(Q25)*

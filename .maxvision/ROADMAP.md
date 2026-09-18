@@ -26,7 +26,7 @@ anti-padrão. O contrato entre as camadas já está congelado e verificado (`{na
 apps, `{name,pid,type}` para processos, PNG binário para ícone), e o próprio PRD herdado organiza
 o trabalho assim. Cada camada é verificável isoladamente contra esse contrato.
 
-**Fora do v1 por decisão registrada.** WIRE-01 (rename das strings de wire) está deferido por D1
+**Revisado em 2026-09-18.** WIRE-01 saiu do v2 e entrou na Fase 1 como dual-accept (D19). O D1 original
 e **não aparece neste roadmap**: o APK já distribuído casa o corpo de `/health` por regex
 ancorada (`DokkeDiscovery.kt:12`) e não atualiza em lockstep. SEC-01..04, PWA-01, MAC-01/02,
 PERF-01 e LAND-01 idem, por REQUIREMENTS.md §v2.
@@ -91,7 +91,7 @@ em outro lugar.
 **Goal**: Um build DeckTech nunca baixa nem instala o Dokke upstream, e a linha de versão do
 DeckTech começa em `0.1.0` com os pins de teste que a guardam atualizados no mesmo commit.
 **Depends on**: Nothing (roda em paralelo com as Fases 0, 2, 6 e 13)
-**Requirements**: BRAND-01, BRAND-03, BRAND-04, BRAND-05, BRAND-11, BRAND-12
+**Requirements**: BRAND-01, BRAND-03, BRAND-04, BRAND-05, BRAND-11, BRAND-12, WIRE-01
 **Ordem interna obrigatória**: **BRAND-01 é o plano `01-01` desta fase.** Nenhum outro requisito
 de rebrand — nesta fase ou em qualquer outra — começa antes de BRAND-01 estar mergeado. A
 restrição é de requisito, não de fase: dependência de fase sozinha não a codifica.
