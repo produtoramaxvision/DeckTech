@@ -1,0 +1,4180 @@
+{
+  "generatedAt": "2026-09-18T00:31:39.584Z",
+  "baseline": {
+    "count": 149,
+    "totalMs": 2395,
+    "msPerItem": 16.073825503355703
+  },
+  "thisRun": {
+    "count": 182,
+    "comLoopOnlyMs": 267.9023,
+    "comMsPerItem": 1.4719906593406595,
+    "comWallMs": 614.9798,
+    "nodeParserMs": 33.541,
+    "nodeParserMsPerItem": 0.18429120879120878,
+    "speedupComLoopOverNode": 7.987308070719419
+  },
+  "agreement": {
+    "tierCounts": {
+      "exact": 170,
+      "case-insensitive": 0,
+      "realpath": 0,
+      "mismatch": 0,
+      "com-empty": 4,
+      "com-null": 0,
+      "parser-empty": 8
+    },
+    "comSuccess": 178,
+    "comEmptyOrError": 4,
+    "mismatchCount": 0
+  },
+  "categoryCensus": {
+    "envVar": 42,
+    "unc": 0,
+    "msiAdvertised": 1,
+    "idListOnly": 12,
+    "invalidFile": 0
+  },
+  "rows": [
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Accessibility\\Speech Recognition.lnk",
+      "comTargetPath": "C:\\Windows\\Speech\\Common\\sapisvr.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\Speech\\Common\\sapisvr.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\Speech\\Common\\sapisvr.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\Speech\\Common\\sapisvr.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Accessories\\Steps Recorder.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\psr.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\psr.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\psr.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\psr.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Accessories\\System Tools\\Character Map.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\charmap.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\charmap.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\charmap.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\charmap.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Component Services.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\comexp.msc",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\comexp.msc"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\comexp.msc"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\comexp.msc",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Computer Management.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\compmgmt.msc",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\compmgmt.msc"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\compmgmt.msc"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\compmgmt.msc",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Disk Cleanup.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\cleanmgr.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\cleanmgr.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\cleanmgr.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\cleanmgr.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Event Viewer.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\eventvwr.msc",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\eventvwr.msc"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\eventvwr.msc"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\eventvwr.msc",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Hyper-V Manager.lnk",
+      "comTargetPath": "C:\\Windows\\System32\\mmc.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\System32\\mmc.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\System32\\mmc.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\System32\\mmc.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Memory Diagnostics Tool.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\MdSched.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\MdSched.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\MdSched.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\MdSched.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\ODBC Data Sources (32-bit).lnk",
+      "comTargetPath": "C:\\Windows\\syswow64\\odbcad32.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\syswow64\\odbcad32.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\syswow64\\odbcad32.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\syswow64\\odbcad32.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\ODBC Data Sources (64-bit).lnk",
+      "comTargetPath": "C:\\Windows\\system32\\odbcad32.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\odbcad32.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\odbcad32.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\odbcad32.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Performance Monitor.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\perfmon.msc",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\perfmon.msc"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\perfmon.msc"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\perfmon.msc",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Print Management.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\printmanagement.msc",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%systemroot%\\system32\\printmanagement.msc"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\printmanagement.msc"
+        }
+      ],
+      "parserResolvedTargetPath": "%systemroot%\\system32\\printmanagement.msc",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\RecoveryDrive.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\RecoveryDrive.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\RecoveryDrive.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\RecoveryDrive.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\RecoveryDrive.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Registry Editor.lnk",
+      "comTargetPath": "C:\\Windows\\regedit.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\regedit.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\regedit.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\regedit.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Resource Monitor.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\perfmon.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\perfmon.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\perfmon.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\perfmon.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Security Configuration Management.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\secpol.msc",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\secpol.msc"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\secpol.msc"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\secpol.msc",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\System Configuration.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\msconfig.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\msconfig.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\msconfig.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\msconfig.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\System Information.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\msinfo32.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\msinfo32.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\msinfo32.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\msinfo32.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Task Scheduler.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\taskschd.msc",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\taskschd.msc"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\taskschd.msc"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\taskschd.msc",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\VMCreate.lnk",
+      "comTargetPath": "C:\\Program Files\\Hyper-V\\VMCreate.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%ProgramFiles%\\Hyper-V\\VMCreate.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Program Files\\Hyper-V\\VMCreate.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%ProgramFiles%\\Hyper-V\\VMCreate.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Windows Defender Firewall with Advanced Security.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\WF.msc",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\WF.msc"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\WF.msc"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\WF.msc",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\dfrgui.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\dfrgui.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\dfrgui.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\dfrgui.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\dfrgui.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\iSCSI Initiator.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\iscsicpl.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\iscsicpl.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\iscsicpl.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\iscsicpl.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\services.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\services.msc",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\services.msc"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\services.msc"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\services.msc",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Adobe Acrobat.lnk",
+      "comTargetPath": "C:\\Program Files\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Adobe After Effects 2026.lnk",
+      "comTargetPath": "C:\\Program Files\\Adobe\\Adobe After Effects 2026\\Support Files\\AfterFX.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Adobe\\Adobe After Effects 2026\\Support Files\\AfterFX.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Adobe\\Adobe After Effects 2026\\Support Files\\AfterFX.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Adobe Creative Cloud.lnk",
+      "comTargetPath": "C:\\Program Files\\Adobe\\Adobe Creative Cloud\\ACC\\Creative Cloud.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Adobe\\Adobe Creative Cloud\\ACC\\Creative Cloud.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Adobe\\Adobe Creative Cloud\\ACC\\Creative Cloud.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Adobe Illustrator 2026.lnk",
+      "comTargetPath": "D:\\Adobe\\Adobe Illustrator 2026\\Support Files\\Contents\\Windows\\Illustrator.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "D:\\Adobe\\Adobe Illustrator 2026\\Support Files\\Contents\\Windows\\Illustrator.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "D:\\Adobe\\Adobe Illustrator 2026\\Support Files\\Contents\\Windows\\Illustrator.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Adobe Media Encoder 2026.lnk",
+      "comTargetPath": "C:\\Program Files\\Adobe\\Adobe Media Encoder 2026\\Adobe Media Encoder.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Adobe\\Adobe Media Encoder 2026\\Adobe Media Encoder.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Adobe\\Adobe Media Encoder 2026\\Adobe Media Encoder.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Adobe Photoshop 2026.lnk",
+      "comTargetPath": "D:\\Adobe\\Adobe Photoshop 2026\\Photoshop.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "D:\\Adobe\\Adobe Photoshop 2026\\Photoshop.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "D:\\Adobe\\Adobe Photoshop 2026\\Photoshop.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Adobe Premiere Pro 2026.lnk",
+      "comTargetPath": "C:\\Program Files\\Adobe\\Adobe Premiere Pro 2026\\Adobe Premiere Pro.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Adobe\\Adobe Premiere Pro 2026\\Adobe Premiere Pro.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Adobe\\Adobe Premiere Pro 2026\\Adobe Premiere Pro.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Android Studio\\Android Studio.lnk",
+      "comTargetPath": "C:\\Program Files\\Android\\Android Studio\\bin\\studio64.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Android\\Android Studio\\bin\\studio64.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Android\\Android Studio\\bin\\studio64.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\DJI Product\\DJI Assistant 2 (Consumer Drones Series)\\DJI Assistant 2 (Consumer Drones Series).lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (Consumer Drones Series)\\DJI Assistant 2.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (Consumer Drones Series)\\DJI Assistant 2.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (Consumer Drones Series)\\DJI Assistant 2.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\DJI Product\\DJI Assistant 2 (Consumer Drones Series)\\Uninstall DJI Assistant 2 (Consumer Drones Series).lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (Consumer Drones Series)\\unins000.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (Consumer Drones Series)\\unins000.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (Consumer Drones Series)\\unins000.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\DJI Product\\DJI Assistant 2 (DJI FPV series)\\DJI Assistant 2 (DJI FPV series).lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (DJI FPV series)\\DJI Assistant 2.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (DJI FPV series)\\DJI Assistant 2.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (DJI FPV series)\\DJI Assistant 2.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\DJI Product\\DJI Assistant 2 (DJI FPV series)\\Uninstall DJI Assistant 2 (DJI FPV series).lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (DJI FPV series)\\unins000.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (DJI FPV series)\\unins000.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\DJI Product\\DJI Assistant 2 (DJI FPV series)\\unins000.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Excel.lnk",
+      "comTargetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Ferramentas do Microsoft Office\\Preferências de Idioma do Office.lnk",
+      "comTargetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\SETLANG.EXE",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Microsoft Office\\root\\Office16\\SETLANG.EXE"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\SETLANG.EXE",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Firefox Navegação Privada.lnk",
+      "comTargetPath": "C:\\Program Files\\Mozilla Firefox\\private_browsing.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Mozilla Firefox\\private_browsing.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Mozilla Firefox\\private_browsing.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Firefox.lnk",
+      "comTargetPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Git\\Git Bash.lnk",
+      "comTargetPath": "C:\\Program Files\\Git\\git-bash.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Git\\git-bash.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Git\\git-bash.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Git\\Git CMD.lnk",
+      "comTargetPath": "C:\\Program Files\\Git\\git-cmd.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Git\\git-cmd.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Git\\git-cmd.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Git\\Git GUI.lnk",
+      "comTargetPath": "C:\\Program Files\\Git\\cmd\\git-gui.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Git\\cmd\\git-gui.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Git\\cmd\\git-gui.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Git\\Git Release Notes.lnk",
+      "comTargetPath": "C:\\Program Files\\Git\\ReleaseNotes.html",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Git\\ReleaseNotes.html"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Git\\ReleaseNotes.html",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Go Programming Language\\Uninstall Go.lnk",
+      "comTargetPath": "C:\\Windows\\System32\\msiexec.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\System32\\msiexec.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\System32\\msiexec.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Google Chrome.lnk",
+      "comTargetPath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Google Drive.lnk",
+      "comTargetPath": "C:\\Program Files\\Google\\Drive File Stream\\130.0.2.0\\GoogleDriveFS.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Google\\Drive File Stream\\130.0.2.0\\GoogleDriveFS.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Google\\Drive File Stream\\130.0.2.0\\GoogleDriveFS.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\HandBrake\\HandBrake.lnk",
+      "comTargetPath": "C:\\Program Files\\HandBrake\\HandBrake.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\HandBrake\\HandBrake.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\HandBrake\\HandBrake.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\HandBrake\\Uninstall.lnk",
+      "comTargetPath": "C:\\Program Files\\HandBrake\\uninst.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [],
+      "parserResolvedTargetPath": null,
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": true
+      },
+      "comparisonTier": "parser-empty",
+      "matchedVia": null
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\IObit Uninstaller.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\IObit\\IObit Uninstaller\\IObitUninstaler.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\IObit\\IObit Uninstaller\\IObitUninstaler.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\IObit\\IObit Uninstaller\\IObitUninstaler.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\IObit Uninstaller\\IObit Uninstaller.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\IObit\\IObit Uninstaller\\IObitUninstaler.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\IObit\\IObit Uninstaller\\IObitUninstaler.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\IObit\\IObit Uninstaller\\IObitUninstaler.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\IObit Uninstaller\\Uninstall IObit Uninstaller.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\IObit\\IObit Uninstaller\\unins000.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\IObit\\IObit Uninstaller\\unins000.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\IObit\\IObit Uninstaller\\unins000.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MPC-HC x64\\Desinstalar o MPC-HC.lnk",
+      "comTargetPath": "C:\\Program Files\\MPC-HC\\unins000.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\MPC-HC\\unins000.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\MPC-HC\\unins000.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MPC-HC x64\\MPC-HC x64.lnk",
+      "comTargetPath": "C:\\Program Files\\MPC-HC\\mpc-hc64.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\MPC-HC\\mpc-hc64.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\MPC-HC\\mpc-hc64.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon App\\Maxon.lnk",
+      "comTargetPath": "C:\\Program Files\\Maxon\\App Manager\\Maxon.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Maxon\\App Manager\\Maxon.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Maxon\\App Manager\\Maxon.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon App\\StartUp\\MxNotify.lnk",
+      "comTargetPath": "C:\\Program Files\\Maxon\\Tools\\MxNotify.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Maxon\\Tools\\MxNotify.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Maxon\\Tools\\MxNotify.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Commandline 2025.lnk",
+      "comTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2025\\Commandline.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Maxon Cinema 4D 2025\\Commandline.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2025\\Commandline.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Commandline 2026.lnk",
+      "comTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2026\\Commandline.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Maxon Cinema 4D 2026\\Commandline.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2026\\Commandline.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Maxon Cinema 4D 2025.lnk",
+      "comTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2025\\Cinema 4D.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Maxon Cinema 4D 2025\\Cinema 4D.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2025\\Cinema 4D.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Maxon Cinema 4D 2026.lnk",
+      "comTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2026\\Cinema 4D.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Maxon Cinema 4D 2026\\Cinema 4D.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2026\\Cinema 4D.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Team Render Client 2025.lnk",
+      "comTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2025\\Cinema 4D Team Render Client.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Maxon Cinema 4D 2025\\Cinema 4D Team Render Client.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2025\\Cinema 4D Team Render Client.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Team Render Client 2026.lnk",
+      "comTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2026\\Cinema 4D Team Render Client.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Maxon Cinema 4D 2026\\Cinema 4D Team Render Client.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2026\\Cinema 4D Team Render Client.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Team Render Server 2025.lnk",
+      "comTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2025\\Cinema 4D Team Render Server.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Maxon Cinema 4D 2025\\Cinema 4D Team Render Server.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2025\\Cinema 4D Team Render Server.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Team Render Server 2026.lnk",
+      "comTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2026\\Cinema 4D Team Render Server.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Maxon Cinema 4D 2026\\Cinema 4D Team Render Server.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Maxon Cinema 4D 2026\\Cinema 4D Team Render Server.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Mesa Digitalizadora Wacom\\Propriedades da mesa digitalizadora Wacom.lnk",
+      "comTargetPath": "C:\\Program Files\\Tablet\\Wacom\\Professional_CPL.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Tablet\\Wacom\\Professional_CPL.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Tablet\\Wacom\\Professional_CPL.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Mesa Digitalizadora Wacom\\Utilitário de atualização Wacom.lnk",
+      "comTargetPath": "C:\\Program Files\\Tablet\\Wacom\\Wacom_UpdateUtil.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Tablet\\Wacom\\Wacom_UpdateUtil.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Tablet\\Wacom\\Wacom_UpdateUtil.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Mesa Digitalizadora Wacom\\Utilitário do Arquivo de Preferências da Mesa Digitalizadora Wacom.lnk",
+      "comTargetPath": "C:\\Program Files\\Tablet\\Wacom\\PrefUtil.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Tablet\\Wacom\\PrefUtil.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Tablet\\Wacom\\PrefUtil.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Mesa Digitalizadora Wacom\\Wacom Center.lnk",
+      "comTargetPath": "C:\\Program Files\\Tablet\\Wacom\\WacomCenter\\WacomCenterUI.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Tablet\\Wacom\\WacomCenter\\WacomCenterUI.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Tablet\\Wacom\\WacomCenter\\WacomCenterUI.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MobaXterm\\MobaDiff.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\Mobatek\\MobaXterm\\MobaRTE.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [],
+      "parserResolvedTargetPath": null,
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": true
+      },
+      "comparisonTier": "parser-empty",
+      "matchedVia": null
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MobaXterm\\MobaTextEditor.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\Mobatek\\MobaXterm\\MobaRTE.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [],
+      "parserResolvedTargetPath": null,
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": true
+      },
+      "comparisonTier": "parser-empty",
+      "matchedVia": null
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MobaXterm\\MobaXterm.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\Mobatek\\MobaXterm\\MobaXterm.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\Mobatek\\MobaXterm\\MobaXterm.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\Mobatek\\MobaXterm\\MobaXterm.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MobaXterm\\Visit MobaXterm Website.lnk",
+      "comTargetPath": "",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [],
+      "parserResolvedTargetPath": null,
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": true
+      },
+      "comparisonTier": "com-empty",
+      "matchedVia": null
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\NVIDIA Corporation\\NVIDIA App.lnk",
+      "comTargetPath": "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\CEF\\NVIDIA App.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\CEF\\NVIDIA App.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\CEF\\NVIDIA App.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Node.js\\Install Additional Tools for Node.js.lnk",
+      "comTargetPath": "C:\\Windows\\System32\\cmd.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\System32\\cmd.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\System32\\cmd.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Node.js\\Node.js command prompt.lnk",
+      "comTargetPath": "C:\\Windows\\System32\\cmd.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\System32\\cmd.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\System32\\cmd.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Node.js\\Node.js.lnk",
+      "comTargetPath": "C:\\Program Files\\nodejs\\node.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\nodejs\\node.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\nodejs\\node.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Node.js\\Uninstall Node.js.lnk",
+      "comTargetPath": "C:\\Windows\\SysWOW64\\msiexec.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\SysWOW64\\msiexec.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\SysWOW64\\msiexec.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\OBS Studio.lnk",
+      "comTargetPath": "C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\OneNote.lnk",
+      "comTargetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\ONENOTE.EXE",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Microsoft Office\\root\\Office16\\ONENOTE.EXE"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\ONENOTE.EXE",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Outlook (classic).lnk",
+      "comTargetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\PowerPoint.lnk",
+      "comTargetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\POWERPNT.EXE",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Microsoft Office\\root\\Office16\\POWERPNT.EXE"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\POWERPNT.EXE",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\PowerShell\\PowerShell 7 (x64).lnk",
+      "comTargetPath": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\PowerShell\\7\\pwsh.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\DENoise Manual.lnk",
+      "comTargetPath": "C:\\Program Files\\REVisionEffects\\DENoise3AE\\DENoise3AEManual\\DENoise3Manual.pdf",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\REVisionEffects\\DENoise3AE\\DENoise3AEManual\\DENoise3Manual.pdf"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\REVisionEffects\\DENoise3AE\\DENoise3AEManual\\DENoise3Manual.pdf",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\ReelSmart Motion Blur Manual.lnk",
+      "comTargetPath": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBUsersManual.htm",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBUsersManual.htm"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBUsersManual.htm",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\ReelSmart Motion Blur Pro Manual.lnk",
+      "comTargetPath": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBProUsersManual.htm",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBProUsersManual.htm"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBProUsersManual.htm",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\ReelSmart Motion Blur Vector Manual.lnk",
+      "comTargetPath": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBProVector.htm",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBProVector.htm"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\REVisionEffects\\RSMB6AE\\RSMB6AEManual\\RSMBProVector.htm",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\Uninstall REVision Effections.lnk",
+      "comTargetPath": "C:\\ProgramData\\REVisionEffects\\AEX\\unins000.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\ProgramData\\REVisionEffects\\AEX\\unins000.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\ProgramData\\REVisionEffects\\AEX\\unins000.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Riot Games\\League of Legends.lnk",
+      "comTargetPath": "D:\\Riot Games\\Riot Client\\RiotClientServices.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [],
+      "parserResolvedTargetPath": null,
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": true
+      },
+      "comparisonTier": "parser-empty",
+      "matchedVia": null
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Riot Games\\Riot Client.lnk",
+      "comTargetPath": "D:\\Riot Games\\Riot Client\\RiotClientServices.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [],
+      "parserResolvedTargetPath": null,
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": true
+      },
+      "comparisonTier": "parser-empty",
+      "matchedVia": null
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\Tailscale.lnk",
+      "comTargetPath": "C:\\Program Files\\Tailscale\\tailscale-ipn.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Tailscale\\tailscale-ipn.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Tailscale\\tailscale-ipn.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Steam\\Steam.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\Steam\\Steam.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\Steam\\Steam.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\Steam\\Steam.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Sticky Notes (new).lnk",
+      "comTargetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\ONENOTE.EXE",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Microsoft Office\\root\\Office16\\ONENOTE.EXE"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\ONENOTE.EXE",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools\\Task Manager.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\taskmgr.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\taskmgr.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\taskmgr.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\taskmgr.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Tailscale.lnk",
+      "comTargetPath": "C:\\Program Files\\Tailscale\\tailscale-ipn.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Tailscale\\tailscale-ipn.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Tailscale\\tailscale-ipn.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Topaz Video AI\\Topaz Video AI.lnk",
+      "comTargetPath": "C:\\Windows\\Installer\\{CCF2E3E7-821A-45F5-80FC-9E7243753D39}\\mainapp.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [],
+      "parserResolvedTargetPath": null,
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": true,
+        "idListOnly": true
+      },
+      "comparisonTier": "parser-empty",
+      "matchedVia": null
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Vibepollo\\Vibepollo.lnk",
+      "comTargetPath": "C:\\Program Files\\Apollo\\sunshine.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Apollo\\sunshine.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Apollo\\sunshine.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\Debuggable Package Manager.lnk",
+      "comTargetPath": "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\Developer Command Prompt for VS 2022.lnk",
+      "comTargetPath": "C:\\Windows\\System32\\cmd.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\System32\\cmd.exe"
+        },
+        {
+          "source": "env-raw",
+          "value": "%comspec%"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\cmd.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\System32\\cmd.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\Developer PowerShell for VS 2022.lnk",
+      "comTargetPath": "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\VC\\x64 Native Tools Command Prompt for VS 2022.lnk",
+      "comTargetPath": "C:\\Windows\\System32\\cmd.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\System32\\cmd.exe"
+        },
+        {
+          "source": "env-raw",
+          "value": "%comspec%"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\cmd.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\System32\\cmd.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\VC\\x64_x86 Cross Tools Command Prompt for VS 2022.lnk",
+      "comTargetPath": "C:\\Windows\\System32\\cmd.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\System32\\cmd.exe"
+        },
+        {
+          "source": "env-raw",
+          "value": "%comspec%"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\cmd.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\System32\\cmd.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\VC\\x86 Native Tools Command Prompt for VS 2022.lnk",
+      "comTargetPath": "C:\\Windows\\System32\\cmd.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\System32\\cmd.exe"
+        },
+        {
+          "source": "env-raw",
+          "value": "%comspec%"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\cmd.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\System32\\cmd.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\VC\\x86_x64 Cross Tools Command Prompt for VS 2022.lnk",
+      "comTargetPath": "C:\\Windows\\System32\\cmd.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\System32\\cmd.exe"
+        },
+        {
+          "source": "env-raw",
+          "value": "%comspec%"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\cmd.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\System32\\cmd.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio Installer.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\setup.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\setup.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\setup.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\Console RAR manual.lnk",
+      "comTargetPath": "C:\\Program Files\\WinRAR\\Rar.txt",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\WinRAR\\Rar.txt"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\WinRAR\\Rar.txt",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\What is new in the latest version.lnk",
+      "comTargetPath": "C:\\Program Files\\WinRAR\\WhatsNew.txt",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\WinRAR\\WhatsNew.txt"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\WinRAR\\WhatsNew.txt",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\WinRAR help.lnk",
+      "comTargetPath": "C:\\Program Files\\WinRAR\\WinRAR.chm",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\WinRAR\\WinRAR.chm"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\WinRAR\\WinRAR.chm",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\WinRAR.lnk",
+      "comTargetPath": "C:\\Program Files\\WinRAR\\WinRAR.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\WinRAR\\WinRAR.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\WinRAR\\WinRAR.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Application Verifier (X64)\\Application Verifier (X64).lnk",
+      "comTargetPath": "C:\\Windows\\System32\\appverif.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\System32\\appverif.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\System32\\appverif.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Application Verifier (X86)\\Application Verifier (WOW).lnk",
+      "comTargetPath": "C:\\Windows\\SysWOW64\\appverif.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\SysWOW64\\appverif.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\SysWOW64\\appverif.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows App Certification Kit\\Windows App Cert Kit.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\App Certification Kit\\appcertui.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\Windows Kits\\10\\App Certification Kit\\appcertui.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\App Certification Kit\\appcertui.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Documentation for Desktop Apps.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsDocumentation.url",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsDocumentation.url"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsDocumentation.url",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Documentation for UWP Apps.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsDocumentation.url",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsDocumentation.url"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsDocumentation.url",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Sample Desktop Apps.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsSamples.url",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsSamples.url"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsSamples.url",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Sample UWP Apps.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsSamples.url",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsSamples.url"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsSamples.url",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Tools for Desktop Apps.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsToolsDocumentation.url",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsToolsDocumentation.url"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\DesktopAppsToolsDocumentation.url",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Tools for UWP Apps.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsToolsDocumentation.url",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsToolsDocumentation.url"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\Windows Kits\\10\\Shortcuts\\UWPAppsToolsDocumentation.url",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Windows Software Development Kit.lnk",
+      "comTargetPath": "C:\\Windows\\explorer.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [],
+      "parserResolvedTargetPath": null,
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": true
+      },
+      "comparisonTier": "parser-empty",
+      "matchedVia": null
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows PowerShell\\Windows PowerShell ISE (x86).lnk",
+      "comTargetPath": "C:\\Windows\\syswow64\\WindowsPowerShell\\v1.0\\PowerShell_ISE.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\syswow64\\WindowsPowerShell\\v1.0\\PowerShell_ISE.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\syswow64\\WindowsPowerShell\\v1.0\\PowerShell_ISE.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\syswow64\\WindowsPowerShell\\v1.0\\PowerShell_ISE.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows PowerShell\\Windows PowerShell ISE.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\WindowsPowerShell\\v1.0\\PowerShell_ISE.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\WindowsPowerShell\\v1.0\\PowerShell_ISE.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\WindowsPowerShell\\v1.0\\PowerShell_ISE.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\WindowsPowerShell\\v1.0\\PowerShell_ISE.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Word.lnk",
+      "comTargetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\atkAudio Plugin\\Uninstall.lnk",
+      "comTargetPath": "C:\\ProgramData\\obs-studio\\plugins\\Uninstall atkAudio Plugin.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\ProgramData\\obs-studio\\plugins\\Uninstall atkAudio Plugin.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\ProgramData\\obs-studio\\plugins\\Uninstall atkAudio Plugin.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Accessibility\\LiveCaptions.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\LiveCaptions.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\LiveCaptions.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\LiveCaptions.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\LiveCaptions.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Accessibility\\Magnify.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\magnify.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\magnify.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\magnify.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\magnify.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Accessibility\\Narrator.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\narrator.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\narrator.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\narrator.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\narrator.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Accessibility\\On-Screen Keyboard.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\osk.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\osk.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\osk.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\osk.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Accessibility\\VoiceAccess.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\voiceaccess.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\voiceaccess.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\voiceaccess.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\voiceaccess.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\control.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\control.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\control.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\control.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Antigravity.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Antigravity\\Antigravity.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Antigravity\\Antigravity.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Antigravity\\Antigravity.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Antigravity\\Antigravity IDE.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Antigravity IDE\\Antigravity IDE.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Antigravity IDE\\Antigravity IDE.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Antigravity IDE\\Antigravity IDE.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Antigravity\\Antigravity.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Antigravity\\Antigravity.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Antigravity\\Antigravity.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Antigravity\\Antigravity.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Aplicativos web do Firefox\\Claude.lnk",
+      "comTargetPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Aplicativos web do Firefox\\Supabase Studio.lnk",
+      "comTargetPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Betaflight\\Betaflight Configurator\\Betaflight Configurator.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Betaflight\\Betaflight-Configurator\\betaflight-configurator.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Betaflight\\Betaflight-Configurator\\betaflight-configurator.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Betaflight\\Betaflight-Configurator\\betaflight-configurator.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Betaflight\\Betaflight Configurator\\Uninstall Betaflight Configurator.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Betaflight\\Betaflight-Configurator\\unins000.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Betaflight\\Betaflight-Configurator\\unins000.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Betaflight\\Betaflight-Configurator\\unins000.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Blender\\Blender 5.1.lnk",
+      "comTargetPath": "D:\\Program Files\\Blender Foundation\\Blender 5.1\\blender-launcher.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "D:\\Program Files\\Blender Foundation\\Blender 5.1\\blender-launcher.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "D:\\Program Files\\Blender Foundation\\Blender 5.1\\blender-launcher.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Cursor.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\cursor\\Cursor.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\cursor\\Cursor.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\cursor\\Cursor.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Cursor\\Cursor.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\cursor\\Cursor.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\cursor\\Cursor.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\cursor\\Cursor.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Desligar servidor RTMP (Osmo).lnk",
+      "comTargetPath": "C:\\Windows\\System32\\wscript.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\System32\\wscript.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\System32\\wscript.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Discord Inc\\Discord.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Discord\\Update.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Discord\\Update.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Discord\\Update.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Discord.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Discord\\app-1.0.9256\\Discord.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Discord\\app-1.0.9256\\Discord.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Discord\\app-1.0.9256\\Discord.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Espelhar Galaxy S10e.lnk",
+      "comTargetPath": "C:\\Windows\\System32\\wscript.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\System32\\wscript.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\System32\\wscript.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\ExpressLRS Configurator.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\ExpressLRS Configurator\\ExpressLRS Configurator.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\ExpressLRS Configurator\\ExpressLRS Configurator.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\ExpressLRS Configurator\\ExpressLRS Configurator.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\File Explorer.lnk",
+      "comTargetPath": "",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [],
+      "parserResolvedTargetPath": null,
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": true
+      },
+      "comparisonTier": "com-empty",
+      "matchedVia": null
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Firefox.lnk",
+      "comTargetPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\GitHub, Inc\\GitHub Desktop.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\GitHubDesktop\\GitHubDesktop.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\GitHubDesktop\\GitHubDesktop.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\GitHubDesktop\\GitHubDesktop.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Google Cloud SDK\\Google Cloud SDK Shell.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\cmd.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [],
+      "parserResolvedTargetPath": null,
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": true
+      },
+      "comparisonTier": "parser-empty",
+      "matchedVia": null
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\LANDrop.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\landrop-v2-electron\\LANDrop.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\landrop-v2-electron\\LANDrop.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\landrop-v2-electron\\LANDrop.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Ligar servidor RTMP (Osmo).lnk",
+      "comTargetPath": "C:\\Windows\\System32\\wscript.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\System32\\wscript.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\System32\\wscript.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\MSYS2\\MSYS2 CLANG64.lnk",
+      "comTargetPath": "C:\\msys64\\clang64.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\msys64\\clang64.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\msys64\\clang64.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\MSYS2\\MSYS2 CLANGARM64.lnk",
+      "comTargetPath": "C:\\msys64\\clangarm64.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\msys64\\clangarm64.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\msys64\\clangarm64.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\MSYS2\\MSYS2 MINGW64.lnk",
+      "comTargetPath": "C:\\msys64\\mingw64.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\msys64\\mingw64.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\msys64\\mingw64.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\MSYS2\\MSYS2 MSYS.lnk",
+      "comTargetPath": "C:\\msys64\\msys2.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\msys64\\msys2.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\msys64\\msys2.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\MSYS2\\MSYS2 UCRT64.lnk",
+      "comTargetPath": "C:\\msys64\\ucrt64.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\msys64\\ucrt64.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\msys64\\ucrt64.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\MaxVision Code Dev.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\MaxVision Code\\MaxVision Code Dev\\MaxVision Code Dev.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\MaxVision Code\\MaxVision Code Dev\\MaxVision Code Dev.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\MaxVision Code\\MaxVision Code Dev\\MaxVision Code Dev.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon App\\Maxon Notifications.lnk",
+      "comTargetPath": "C:\\Program Files\\Maxon\\Tools\\MxNotify.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\Maxon\\Tools\\MxNotify.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\Maxon\\Tools\\MxNotify.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Nightly Private Browsing.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\ms-playwright\\firefox-1509\\firefox\\private_browsing.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\ms-playwright\\firefox-1509\\firefox\\private_browsing.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\ms-playwright\\firefox-1509\\firefox\\private_browsing.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Obsidian.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Obsidian\\Obsidian.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Obsidian\\Obsidian.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Obsidian\\Obsidian.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\OpenChatCut.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\OpenChatCut\\OpenChatCut.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\OpenChatCut\\OpenChatCut.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\OpenChatCut\\OpenChatCut.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Openscreen.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Openscreen\\Openscreen.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Openscreen\\Openscreen.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Openscreen\\Openscreen.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Orca.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\orca\\Orca.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\orca\\Orca.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\orca\\Orca.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.12\\IDLE (Python 3.12 64-bit).lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\pythonw.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.12\\Python 3.12 (64-bit).lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\python.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.12\\Python 3.12 Manuals (64-bit).lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\Doc\\html\\index.html",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\Doc\\html\\index.html"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\Doc\\html\\index.html",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.12\\Python 3.12 Module Docs (64-bit).lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\python.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.13\\IDLE (Python 3.13 64-bit).lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\pythonw.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\pythonw.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\pythonw.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.13\\Python 3.13 (64-bit).lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.13\\Python 3.13 Manuals (64-bit).lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\Doc\\html\\index.html",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\Doc\\html\\index.html"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\Doc\\html\\index.html",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.13\\Python 3.13 Module Docs (64-bit).lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\python.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Steam\\Steam.lnk",
+      "comTargetPath": "C:\\Program Files (x86)\\Steam\\steam.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files (x86)\\Steam\\steam.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files (x86)\\Steam\\steam.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools\\Command Prompt.lnk",
+      "comTargetPath": "C:\\Windows\\system32\\cmd.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "env-raw",
+          "value": "%windir%\\system32\\cmd.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\cmd.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "%windir%\\system32\\cmd.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "env-expanded"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools\\Control Panel.lnk",
+      "comTargetPath": "",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [],
+      "parserResolvedTargetPath": null,
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": true
+      },
+      "comparisonTier": "com-empty",
+      "matchedVia": null
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools\\Run.lnk",
+      "comTargetPath": "",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [],
+      "parserResolvedTargetPath": null,
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": true
+      },
+      "comparisonTier": "com-empty",
+      "matchedVia": null
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio Code\\Visual Studio Code.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Warp.lnk",
+      "comTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Warp\\warp.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Warp\\warp.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Warp\\warp.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\Console RAR manual.lnk",
+      "comTargetPath": "C:\\Program Files\\WinRAR\\Rar.txt",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\WinRAR\\Rar.txt"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\WinRAR\\Rar.txt",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\What is new in the latest version.lnk",
+      "comTargetPath": "C:\\Program Files\\WinRAR\\WhatsNew.txt",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\WinRAR\\WhatsNew.txt"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\WinRAR\\WhatsNew.txt",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\WinRAR help.lnk",
+      "comTargetPath": "C:\\Program Files\\WinRAR\\WinRAR.chm",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\WinRAR\\WinRAR.chm"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\WinRAR\\WinRAR.chm",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\WinRAR.lnk",
+      "comTargetPath": "C:\\Program Files\\WinRAR\\WinRAR.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Program Files\\WinRAR\\WinRAR.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Program Files\\WinRAR\\WinRAR.exe",
+      "category": {
+        "envVar": false,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Windows PowerShell\\Windows PowerShell (x86).lnk",
+      "comTargetPath": "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe"
+        },
+        {
+          "source": "env-raw",
+          "value": "%SystemRoot%\\syswow64\\WindowsPowerShell\\v1.0\\powershell.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\syswow64\\WindowsPowerShell\\v1.0\\powershell.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    },
+    {
+      "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Windows PowerShell\\Windows PowerShell.lnk",
+      "comTargetPath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "comError": null,
+      "parserValid": true,
+      "parserRejectReason": null,
+      "parserCandidates": [
+        {
+          "source": "linkinfo-local",
+          "value": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+        },
+        {
+          "source": "env-raw",
+          "value": "%SystemRoot%\\system32\\WindowsPowerShell\\v1.0\\powershell.exe"
+        },
+        {
+          "source": "env-expanded",
+          "value": "C:\\Windows\\system32\\WindowsPowerShell\\v1.0\\powershell.exe"
+        }
+      ],
+      "parserResolvedTargetPath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "category": {
+        "envVar": true,
+        "unc": false,
+        "msiAdvertised": false,
+        "idListOnly": false
+      },
+      "comparisonTier": "exact",
+      "matchedVia": "linkinfo-local"
+    }
+  ]
+}
