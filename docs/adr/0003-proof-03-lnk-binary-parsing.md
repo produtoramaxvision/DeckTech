@@ -2237,3 +2237,27 @@ over from round 1. What changed, in order of severity:
     `extraDataBlockSignatures` and persisted per row instead of being dead
     code.
 
+### Provenance note (added during PROOF-08 round-6, this ADR untouched otherwise)
+
+The commit that landed this round-10 revision, `cf04f16` ("fix(proof-03):
+close round-10 rejection of lnk binary parsing ADR (3 findings)"), is no
+longer reachable from `homolog` (`git merge-base --is-ancestor cf04f16
+homolog` exits 1). Its content — this file's round-10 changes and the
+accompanying `measure/windows/proof-03-lnk-benchmark.mjs` /
+`test/windows-lnk-parser.test.mjs` changes — was carried forward inside a
+later, unrelated commit, `f265787`, whose own message ("fix(proof-08):
+close round-5 rejection of crash-timeline evidence (3 findings)")
+describes only PROOF-08 work and does not mention PROOF-03 or this file.
+`git show --stat --format="" f265787` confirms the diff includes this ADR
+(+273 lines) alongside the PROOF-08 ADR and both PROOF-03 files, all under
+that PROOF-08-only message. The round-10 work itself is intact — nothing
+in this ADR's content was lost — only its authorship/attribution in
+`homolog`'s commit history is wrong, and `cf04f16` is orphaned rather than
+merged. `cf04f16` remains resolvable as a Git object
+(`git cat-file -t cf04f16` → `commit`) and has been pinned against garbage
+collection at `refs/orphaned/proof-03-round-10` so it stays retrievable.
+No rebase or history rewrite was performed to fix this — see PROOF-08's
+ADR (`docs/adr/0004-...md`) round-6 revision note for the same record and
+the recommended human escalation to decide whether `homolog`'s history
+should be cleaned up.
+

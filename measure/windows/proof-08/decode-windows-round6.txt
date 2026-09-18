@@ -1,0 +1,304 @@
+{"pid":6472,"class":"GDI+ Hook Window Class","title":"GDI+ Window (TabTip.exe)","visible":false}
+{"pid":6472,"class":"ShellHandwritingCanvas {18E91349-E229-4995-8049-7437243BBCC3}","title":"Shell Handwriting Canvas","visible":false}
+{"pid":9784,"class":"GDI+ Hook Window Class","title":"GDI+ Window (Wacom_Tablet.exe)","visible":false}
+{"pid":9508,"class":"XamlExplorerHostIslandWindow","title":"Alternância de Tarefas","visible":false}
+{"pid":9508,"class":"Xaml_WindowedPopupClass","title":"PopupHost","visible":false}
+{"pid":9508,"class":"SystemTray_Main","title":"Medidor de Bateria","visible":false}
+{"pid":9508,"class":"ATL:00007FFD0333D230","title":"Network Flyout","visible":false}
+{"pid":35504,"class":"Qt6111QWindowPopupDropShadowSaveBits","title":"obs64","visible":false}
+{"pid":49000,"class":"TsSimplyHintWindow","title":"<b>(VMMVP - 163.176.233.224)</b><br><br><u>Type</u>:  SSH<br><u>Host</u>:  163.176.233.224<br><u>User</u>:  ubuntu<br><u>Port</u>:  22","visible":false}
+{"pid":35504,"class":"Qt6111QWindowPopupDropShadowSaveBits","title":"obs64","visible":false}
+{"pid":9508,"class":"TopLevelWindowForOverflowXamlIsland","title":"Janela de estouro da bandeja do sistema.","visible":false}
+{"pid":27012,"class":"SDL_app","title":"Menu","visible":false}
+{"pid":14904,"class":"DriveDot","title":"Presença em tempo real do Google Drive","visible":false}
+{"pid":14904,"class":"DriveDot","title":"Presença em tempo real do Google Drive","visible":false}
+{"pid":17160,"class":"Window Class","title":"◑ DeckTech análise e otimização do Dokke","visible":true}
+{"pid":42844,"class":"MozillaWindowClass","title":"9Router - AI Infrastructure Management — Mozilla Firefox","visible":true}
+{"pid":10868,"class":"Chrome_WidgetWin_1","title":"(78) WhatsApp - Google Chrome","visible":true}
+{"pid":49000,"class":"TFormTermConfirmClose","title":"MobaXterm","visible":false}
+{"pid":49000,"class":"TFormTransparente","title":"FormTransparente","visible":false}
+{"pid":49000,"class":"TFormSessionEdit","title":"Session settings","visible":false}
+{"pid":49000,"class":"TFormParams","title":"MobaXterm Configuration","visible":false}
+{"pid":49000,"class":"TMobaXtermForm","title":"(VMMVP - 163.176.233.224)","visible":true}
+{"pid":49000,"class":"TApplication","title":"MobaXterm","visible":true}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":27012,"class":"SDL_app","title":"Steam","visible":false}
+{"pid":35148,"class":"ConsoleWindowClass","title":"C:\\Users\\MAXVIS~1\\AppData\\Roaming\\MobaXterm\\slash\\mx86_64b\\bin\\MobaSCPRi.exe","visible":false}
+{"pid":31612,"class":"PuTTYTimerWindow","title":"PuTTY: hidden timing window","visible":false}
+{"pid":14972,"class":"xwinclip","title":"xwinclip","visible":false}
+{"pid":14972,"class":"moba/x X msg","title":"XWin Msg Window","visible":false}
+{"pid":14972,"class":"moba/x","title":"MobaXterm X server:0.0","visible":false}
+{"pid":49000,"class":"GDI+ Hook Window Class","title":"GDI+ Window (MobaXterm.exe)","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"Qt6111TrayIconMessageWindowClass","title":"QTrayIconMessageWindow","visible":false}
+{"pid":35504,"class":"Qt6111QWindowIcon","title":"Contexto de controle de música","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":9508,"class":"CabinetWClass","title":"Stingers – Explorador de Arquivos","visible":true}
+{"pid":45604,"class":"Windows.UI.Core.CoreWindow","title":"DesktopWindowXamlSource","visible":false}
+{"pid":42844,"class":"Firefox-MediaKeys","title":"Firefox Media Keys","visible":false}
+{"pid":42844,"class":"MozillaBatteryClass","title":"Battery Watcher","visible":false}
+{"pid":42844,"class":"MozillaHiddenWindowClass","title":"WinEventWindow","visible":false}
+{"pid":21456,"class":".NET-BroadcastEventWindow.628747.0","title":".NET-BroadcastEventWindow.628747.0","visible":false}
+{"pid":21456,"class":"GDI+ Hook Window Class","title":"GDI+ Window (pwsh.exe)","visible":false}
+{"pid":21456,"class":"ConsoleWindowClass","title":"C:\\Program Files\\PowerShell\\7\\pwsh.exe","visible":false}
+{"pid":1880,"class":"PowerNotificationWindow","title":"ADB Power Notification Window","visible":false}
+{"pid":29824,"class":"vguiPopupWindow","title":"Sem título","visible":false}
+{"pid":9508,"class":"OperationStatusWindow","title":"100% concluído","visible":false}
+{"pid":9508,"class":"GDI+ Hook Window Class","title":"GDI+ Window (Explorer.EXE)","visible":false}
+{"pid":32764,"class":"ConsoleWindowClass","title":"C:\\Users\\MaxVision\\AppData\\Local\\Programs\\Python\\Python313\\python.exe","visible":false}
+{"pid":25688,"class":"ConsoleWindowClass","title":"C:\\Users\\MaxVision\\AppData\\Local\\Microsoft\\WinGet\\Links\\mediamtx.exe","visible":false}
+{"pid":19760,"class":"ConsoleWindowClass","title":"C:\\Windows\\system32\\cmd.exe","visible":false}
+{"pid":24852,"class":"SunshineSessionMonitorClass","title":"Sunshine Session Monitor Window","visible":false}
+{"pid":20784,"class":"Qt6111TrayIconMessageWindowClass","title":"QTrayIconMessageWindow","visible":false}
+{"pid":20328,"class":"\\o/ Walk_MainWindow_Class \\o/","title":"Tailscale 1.98.10","visible":false}
+{"pid":20328,"class":"GDI+ Hook Window Class","title":"GDI+ Window (tailscale-ipn.exe)","visible":false}
+{"pid":17160,"class":"NVOpenGLPbuffer","title":"__wglDummyWindowFodder","visible":false}
+{"pid":17160,"class":"NVOpenGLPbuffer","title":"NVOGLDC invisible","visible":false}
+{"pid":17160,"class":"wgpu Device Class 7ff637335460","title":"wgpu Device Class 7ff637335460","visible":false}
+{"pid":17160,"class":"temp_d3d_window_4039785","title":"Temp Window","visible":false}
+{"pid":9508,"class":"Windows.UI.Core.CoreWindow","title":"DesktopWindowXamlSource","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"FilterGraphWindow","title":"ActiveMovie Window","visible":false}
+{"pid":35504,"class":"temp_d3d_window_4039785","title":"Temp Window","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"JUCE_1523ad4b977","title":"JUCEWindow","visible":false}
+{"pid":35504,"class":"SDL_app","title":"input-overlay sdl2 window","visible":false}
+{"pid":35504,"class":"浅瑰y","title":"浅瑰y","visible":false}
+{"pid":35504,"class":"JUCE_1523a2c8477","title":"DirectSound","visible":false}
+{"pid":35504,"class":"JUCE_1523a2c0820","title":"Windows Audio","visible":false}
+{"pid":35504,"class":"JUCE_1523a2b861d","title":"Windows Audio","visible":false}
+{"pid":35504,"class":"JUCE_1523a2b24fc","title":"Windows Audio","visible":false}
+{"pid":35504,"class":"JUCE_1523a295b81","title":"JuceMidiDeviceDetector_","visible":false}
+{"pid":35504,"class":"JUCE_1523a2731fa","title":"JUCEWindow","visible":false}
+{"pid":35504,"class":"GDI+ Hook Window Class","title":"GDI+ Window (obs64.exe)","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":35504,"class":"_q_titlebar","title":"_q_titlebar","visible":false}
+{"pid":18248,"class":"BackgroundModeTrayIconClass","title":"BackgroundModeTrayIconClass","visible":false}
+{"pid":43416,"class":"OleDdeWndClass","title":"DDE Server Window","visible":false}
+{"pid":43416,"class":"OfficePowerManagerWindow","title":"OfficePowerManagerWindow","visible":false}
+{"pid":25992,"class":"COMTASKSWINDOWCLASS","title":"Task Host Window","visible":false}
+{"pid":14904,"class":"ATL:00007FF6D8A0B440","title":"Google Drive","visible":false}
+{"pid":14904,"class":"ConsoleWindowClass","title":"C:\\Program Files\\Google\\Drive File Stream\\130.0.2.0\\GoogleDriveFS.exe","visible":false}
+{"pid":14904,"class":"GDI+ Hook Window Class","title":"GDI+ Window (GoogleDriveFS.exe)","visible":false}
+{"pid":8564,"class":"Windows.UI.Core.CoreWindow","title":"Experiência de Entrada do Windows","visible":true}
+{"pid":6456,"class":"Afx:0000000140000000:0","title":"Realtek HD Audio New CPL background window","visible":false}
+{"pid":6456,"class":"RtkVenderSpecSettingClass","title":"CVenderSpecSetting","visible":false}
+{"pid":6456,"class":"Afx:0000000140000000:0","title":"ViennaSettingUI","visible":false}
+{"pid":6472,"class":"Windows.UI.Core.CoreWindow","title":"DesktopWindowXamlSource","visible":false}
+{"pid":6456,"class":"Afx:0000000140000000:0","title":"Realtek SpeakerTestManager","visible":false}
+{"pid":6456,"class":"Afx:0000000140000000:0","title":"Realtek HD Audio New GUI","visible":false}
+{"pid":6456,"class":"Message","title":"Animate Manager","visible":false}
+{"pid":6456,"class":"Afx:0000000140000000:0","title":"RTK TRAYICON","visible":false}
+{"pid":6456,"class":"RtkAudioEngineClass","title":"AudioEngine For Realtek HD Audio New GUI","visible":false}
+{"pid":6456,"class":"Afx:0000000140000000:0","title":"RTK AUDIO DRIVER EVENT MGR","visible":false}
+{"pid":14248,"class":".NET-BroadcastEventWindow.bf7771.0","title":".NET-BroadcastEventWindow.bf7771.0","visible":false}
+{"pid":3268,"class":"NVSVC64.DLL","title":"NvSvc","visible":false}
+{"pid":9556,"class":"{5AEA657D-F3F5-4BD8-BFE9-A4B537FA24C3}","title":"{5AEA657D-F3F5-4BD8-BFE9-A4B537FA24C3}","visible":false}
+{"pid":9556,"class":"CallBackWindowThread","title":"CallBackWindowThread","visible":false}
+{"pid":8056,"class":"UxdService","title":"UxdService","visible":false}
+{"pid":3268,"class":"UxdService","title":"UxdService","visible":false}
+{"pid":9508,"class":"BluetoothNotificationAreaIconWindowClass","title":"BluetoothNotificationAreaIconWindowClass","visible":false}
+{"pid":9508,"class":"MS_WebcheckMonitor","title":"MS_WebcheckMonitor","visible":false}
+{"pid":9508,"class":"OleDdeWndClass","title":"DDE Server Window","visible":false}
+{"pid":9508,"class":"Windows.UI.Core.CoreWindow","title":"DesktopWindowXamlSource","visible":false}
+{"pid":9508,"class":"TabletPenServiceHelperClass","title":"EXPLORER","visible":false}
+{"pid":9556,"class":"CEF-OSC-WIDGET","title":"NVIDIA GeForce Overlay","visible":true}
+{"pid":4764,"class":"BroadcastListenerWindowThreadClass10284","title":"BroadcastListenerWindow","visible":false}
+{"pid":4764,"class":"BroadcastListenerWindowThreadClass10280","title":"BroadcastListenerWindow","visible":false}
+{"pid":4764,"class":"BroadcastListenerWindowThreadClass10176","title":"BroadcastListenerWindow","visible":false}
+{"pid":4584,"class":"WTouch_Message_Window","title":"WTouch_Message_Window","visible":false}
+{"pid":4584,"class":"GDI+ Hook Window Class","title":"GDI+ Window (Wacom_TouchUser.exe)","visible":false}
+{"pid":9500,"class":"{1274D398-C3C8-422E-87DD-2FAFFD5A7F2F}","title":"{1274D398-C3C8-422E-87DD-2FAFFD5A7F2F}","visible":false}
+{"pid":7576,"class":"{2A335767-FC94-417F-ABC4-B4122ADBEE60}","title":"{2A335767-FC94-417F-ABC4-B4122ADBEE60}","visible":false}
+{"pid":4764,"class":"BroadcastListenerWindowThreadClass8436","title":"BroadcastListenerWindow","visible":false}
+{"pid":10220,"class":"WacomUpdateUtility","title":"Utilitário de atualização Wacom","visible":false}
+{"pid":9944,"class":"GDI+ Hook Window Class","title":"GDI+ Window (Wacom_TabletUser.exe)","visible":false}
+{"pid":8908,"class":"PushNotificationsPowerManagement","title":"Windows Push Notifications Platform","visible":false}
+{"pid":9056,"class":"COMTASKSWINDOWCLASS","title":"Task Host Window","visible":false}
+{"pid":4764,"class":"NvContainerWindowClass0000129C","title":"NvContainerWindowClass0000129C","visible":false}
+{"pid":7576,"class":"NvContainerWindowClass00001D98","title":"NvContainerWindowClass00001D98","visible":false}
+{"pid":8056,"class":"NvContainerWindowClass00001F78","title":"NvContainerWindowClass00001F78","visible":false}
+{"pid":3268,"class":"NvContainerWindowClass00000CC4","title":"NvContainerWindowClass00000CC4","visible":false}
+{"pid":2128,"class":"Dwm","title":"DWM Notification Window","visible":false}
+{"pid":9556,"class":"CEF-OSC-WIDGET","title":"NVIDIA GeForce Overlay DT","visible":false}
+{"pid":34200,"class":"SDL_app","title":"Galaxy S10e","visible":true}
+{"pid":35504,"class":"Qt6111QWindowToolSaveBits","title":"Estatísticas","visible":false}
+{"pid":35504,"class":"Qt6111QWindowIcon","title":"OBS Studio 32.2.2 - Perfil: Sem nome - Cenas: Sem nome","visible":true}
+{"pid":9508,"class":"Progman","title":"Program Manager","visible":true}
+{"pid":6472,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":17160,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":17160,"class":"IME","title":"Default IME","visible":false}
+{"pid":42844,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":42844,"class":"IME","title":"Default IME","visible":false}
+{"pid":10868,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":10868,"class":"IME","title":"Default IME","visible":false}
+{"pid":49000,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":49000,"class":"IME","title":"Default IME","visible":false}
+{"pid":27012,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":27012,"class":"IME","title":"Default IME","visible":false}
+{"pid":47372,"class":"IME","title":"Default IME","visible":false}
+{"pid":31612,"class":"IME","title":"Default IME","visible":false}
+{"pid":14972,"class":"IME","title":"Default IME","visible":false}
+{"pid":14972,"class":"IME","title":"Default IME","visible":false}
+{"pid":14972,"class":"IME","title":"Default IME","visible":false}
+{"pid":49000,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":45604,"class":"IME","title":"Default IME","visible":false}
+{"pid":45604,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":45604,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":42844,"class":"IME","title":"Default IME","visible":false}
+{"pid":31556,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":21456,"class":"IME","title":"Default IME","visible":false}
+{"pid":21456,"class":"IME","title":"Default IME","visible":false}
+{"pid":31608,"class":"IME","title":"Default IME","visible":false}
+{"pid":1880,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":29144,"class":"IME","title":"Default IME","visible":false}
+{"pid":30876,"class":"IME","title":"Default IME","visible":false}
+{"pid":29824,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":8864,"class":"IME","title":"Default IME","visible":false}
+{"pid":12204,"class":"IME","title":"Default IME","visible":false}
+{"pid":29544,"class":"IME","title":"Default IME","visible":false}
+{"pid":10212,"class":"IME","title":"Default IME","visible":false}
+{"pid":23348,"class":"IME","title":"Default IME","visible":false}
+{"pid":23440,"class":"IME","title":"Default IME","visible":false}
+{"pid":24852,"class":"IME","title":"Default IME","visible":false}
+{"pid":24852,"class":"IME","title":"Default IME","visible":false}
+{"pid":16024,"class":"IME","title":"Default IME","visible":false}
+{"pid":20784,"class":"IME","title":"Default IME","visible":false}
+{"pid":20328,"class":"IME","title":"Default IME","visible":false}
+{"pid":17160,"class":"IME","title":"Default IME","visible":false}
+{"pid":17160,"class":"IME","title":"Default IME","visible":false}
+{"pid":17160,"class":"IME","title":"Default IME","visible":false}
+{"pid":17160,"class":"IME","title":"Default IME","visible":false}
+{"pid":35504,"class":"IME","title":"Default IME","visible":false}
+{"pid":35504,"class":"IME","title":"Default IME","visible":false}
+{"pid":35504,"class":"IME","title":"Default IME","visible":false}
+{"pid":35504,"class":"IME","title":"Default IME","visible":false}
+{"pid":35504,"class":"IME","title":"Default IME","visible":false}
+{"pid":35504,"class":"IME","title":"Default IME","visible":false}
+{"pid":18248,"class":"IME","title":"Default IME","visible":false}
+{"pid":44832,"class":"IME","title":"Default IME","visible":false}
+{"pid":43416,"class":"IME","title":"Default IME","visible":false}
+{"pid":2248,"class":"IME","title":"Default IME","visible":false}
+{"pid":17056,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":9124,"class":"IME","title":"Default IME","visible":false}
+{"pid":15188,"class":"IME","title":"Default IME","visible":false}
+{"pid":15352,"class":"IME","title":"Default IME","visible":false}
+{"pid":14904,"class":"IME","title":"Default IME","visible":false}
+{"pid":14940,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":14940,"class":"IME","title":"Default IME","visible":false}
+{"pid":14904,"class":"IME","title":"Default IME","visible":false}
+{"pid":14904,"class":"IME","title":"Default IME","visible":false}
+{"pid":14840,"class":"IME","title":"Default IME","visible":false}
+{"pid":8564,"class":"IME","title":"Default IME","visible":false}
+{"pid":6472,"class":"IME","title":"Default IME","visible":false}
+{"pid":6456,"class":"IME","title":"Default IME","visible":false}
+{"pid":14248,"class":"IME","title":"Default IME","visible":false}
+{"pid":9556,"class":"IME","title":"Default IME","visible":false}
+{"pid":9556,"class":"IME","title":"Default IME","visible":false}
+{"pid":8056,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":10536,"class":"IME","title":"Default IME","visible":false}
+{"pid":8480,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":9508,"class":"IME","title":"Default IME","visible":false}
+{"pid":4764,"class":"IME","title":"Default IME","visible":false}
+{"pid":4764,"class":"IME","title":"Default IME","visible":false}
+{"pid":4764,"class":"IME","title":"Default IME","visible":false}
+{"pid":9500,"class":"IME","title":"Default IME","visible":false}
+{"pid":7576,"class":"IME","title":"Default IME","visible":false}
+{"pid":4764,"class":"IME","title":"Default IME","visible":false}
+{"pid":10220,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":10220,"class":"IME","title":"Default IME","visible":false}
+{"pid":8908,"class":"IME","title":"Default IME","visible":false}
+{"pid":4764,"class":"IME","title":"Default IME","visible":false}
+{"pid":7576,"class":"IME","title":"Default IME","visible":false}
+{"pid":8056,"class":"IME","title":"Default IME","visible":false}
+{"pid":9556,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":9556,"class":"IME","title":"Default IME","visible":false}
+{"pid":34200,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":34200,"class":"IME","title":"Default IME","visible":false}
+{"pid":35504,"class":"MSCTFIME UI","title":"MSCTFIME UI","visible":false}
+{"pid":35504,"class":"IME","title":"Default IME","visible":false}
+
+301 windows enumerated; 13 with a non-ASCII title or class (decoded, printed above).
+non-ASCII sample: {"pid":9508,"class":"XamlExplorerHostIslandWindow","title":"Alternância de Tarefas","visible":false}

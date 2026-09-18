@@ -42,11 +42,12 @@
 # bound to GetClassNameA, not GetClassNameW — while this file's own header
 # above, crash-timeline.mjs's header comment, and the ADR all asserted three
 # times that this script calls GetClassNameW. GetWindowText next to it was
-# already correctly declared `CharSet=CharSet.Auto` (-> GetWindowTextW on this
-# NT-based OS); GetClassName had no such declaration and silently took the
-# ANSI entry point instead. Proven on this machine with an identically-
-# undeclared-vs-declared pair (GetWindowText with no CharSet vs
-# CharSet=Auto, both called on the same live windows):
+# declared `CharSet=CharSet.Auto`, which resolves to GetWindowTextW on this
+# NT-based OS but is an OS-dependent resolution, not an explicit one;
+# GetClassName had no declaration at all and silently took the ANSI entry
+# point. Proven on this machine with an identically-undeclared-vs-declared
+# pair (GetWindowText with no CharSet vs CharSet=Auto, both called on the
+# same live windows):
 #   ANSI-decl = "? DeckTech análise e otimização do Dokke"
 #   UNICODE-decl = "◑ DeckTech análise e otimização do Dokke"
 # The loss happens at the P/Invoke marshaling boundary, inside this process,
@@ -57,8 +58,27 @@
 # class names are ASCII by convention in practice (`#32770`,
 # `Chrome_WidgetWin_1`, …), not because the declaration was correct — a
 # latent defect, not a demonstrated corruption. Fixed by declaring the
-# GetClassName import the same way, explicitly targeting the W entry point
+# GetClassName import explicitly, targeting the W entry point directly
 # rather than relying on CharSet.Auto's OS-dependent resolution.
+#
+# ROUND-6 FIX (minor finding #4). The paragraph above argued AGAINST
+# CharSet.Auto's OS-dependent resolution while leaving GetWindowText on
+# that exact declaration two lines below — the one import that actually
+# reads window TITLES (which round-4's own fix demonstrated carry
+# non-ASCII text on this machine, e.g. "Alternância de Tarefas"; a
+# localized crash-dialog title such as "Erro"/"Fehler" would go through
+# this same call), while GetClassName (ASCII by convention, per the
+# paragraph above) got the explicit fix. One file cannot argue both sides
+# of the same idiom. Fixed by declaring GetWindowText the same explicit
+# way as GetClassName: `CharSet=CharSet.Unicode, EntryPoint="GetWindowTextW"`.
+# This is a no-op on this NT-based OS (CharSet.Auto already resolved to the
+# W entry point here) — re-verified after the change with
+# `node measure/windows/proof-08/decode-windows.mjs`, which still round-trips
+# non-ASCII titles correctly (see this round's ADR note for the fresh
+# output). The header now takes one position: CharSet.Auto resolves
+# correctly on this NT-based OS, but every import in this file states its
+# entry point explicitly rather than relying on that OS-dependent
+# resolution — there is no second, contradictory position left standing.
 Add-Type @"
 using System;
 using System.Text;
@@ -69,7 +89,7 @@ public class ProofEightWin32 {
   [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
   [DllImport("user32.dll", CharSet=CharSet.Unicode, EntryPoint="GetClassNameW")] public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
-  [DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode, EntryPoint="GetWindowTextW")] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 }
 "@
 

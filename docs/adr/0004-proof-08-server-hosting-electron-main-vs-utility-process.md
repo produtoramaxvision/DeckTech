@@ -3,7 +3,8 @@
 - Status: Accepted
 - Date: 2026-09-17 (round-1), revised 2026-09-17 (round-2), revised
   2026-09-18 (round-3 — see below), revised 2026-09-18 (round-4 — see below),
-  revised 2026-09-18 (round-5 — see below)
+  revised 2026-09-18 (round-5 — see below), revised 2026-09-18
+  (round-6 — see below)
 - Requirement: PROOF-08 (`.maxvision/REQUIREMENTS.md` Fase 0), decides D15,
   informs SHELL-01/SHELL-02/SHELL-03 (Fase 5)
 - Supersedes: nothing. Closes the gap `WINDOWS-STACK.md` §9 left open — that
@@ -139,6 +140,60 @@
 > `enumAllWindows()` (the same path every real caller uses). The decision
 > is unchanged. See §5, §6 and the inline "ROUND-5 FIX" comments in
 > `measure/windows/proof-08/*.mjs`/`.ps1` for the mechanism of each fix.
+
+> **Round-6 revision note.** A rigorous review rejected the round-5 version
+> on 4 findings (1 blocker, 2 major, 1 minor), all fixed below with no
+> re-litigation of anything that already passed. The blocker: round-5's §5
+> box claimed "full output archived in this round's commit" for the run
+> behind `t0=1789707326699`, but no such artifact exists anywhere in the
+> tracked tree or in either commit that touched this ADR that round
+> (verified: `git show --stat` on `d26e2d4` and `f265787`, neither adds a
+> log file; `grep -rl "1789707326699" .` outside `.git` matches only this
+> ADR's prose) — a false provenance claim in the section that exists to
+> prevent false provenance claims, contradicting this file's own
+> convention below. It cannot be repaired after the fact by inventing an
+> artifact for a number nobody captured; fixed by retracting that run and
+> capturing three fresh runs of the identical command this round with
+> `... | tee`, committed as
+> `measure/windows/proof-08/crash-timeline-inprocess-run{1,2,3}.txt` — see
+> §5's round-6 correction for the table derived from them. The two majors:
+> (a) §5 published one run's dialog-arrival interval while this round's own
+> rejection record quotes two further, differently-aligned runs (one
+> landing the dialog in iteration 2 instead of 3) that were never
+> published — fixed by publishing all three fresh archived runs side by
+> side (all land in iteration 3, cross-validating the interval *rule*
+> under one alignment) and citing the two iteration-2 runs from the
+> rejection record explicitly as prose-only, unarchived, and available for
+> a future round to re-capture rather than silently omitted; (b) round-5's
+> work landed on `homolog` as `f265787`, whose commit message
+> ("fix(proof-08): close round-5 rejection of crash-timeline evidence")
+> describes only proof-08 work but whose diff also carries an entire
+> unrelated proof-03 round-10 fix, orphaning that work's own commit
+> (`cf04f16`, unreachable from `homolog` — `git merge-base --is-ancestor
+> cf04f16 homolog` exits 1 — but still resolvable as a commit object) —
+> fixed by recording the misattribution here and in ADR-0003's own
+> revision history (not by rebasing or amending, which is what produced
+> the problem) and pinning the orphaned commit against garbage collection
+> with `git update-ref refs/orphaned/proof-03-round-10 cf04f16`, plus
+> escalating to a human maintainer who can decide whether to clean
+> `homolog`'s history; **this worker did not cause the misattribution and
+> made no further history-rewriting operation to try to fix it.** The
+> minor: `enum-windows.ps1`'s round-5 header argued against
+> `CharSet.Auto`'s "OS-dependent resolution" while leaving `GetWindowText`
+> — the import that actually reads window titles, which round-4's own fix
+> demonstrated carry non-ASCII text on this machine — on that exact
+> declaration; fixed by declaring `GetWindowText` explicitly
+> (`CharSet=CharSet.Unicode, EntryPoint="GetWindowTextW"`), matching
+> `GetClassName`, and re-verified with a fresh
+> `node measure/windows/proof-08/decode-windows.mjs` run this round: `301
+> windows enumerated; 13 with a non-ASCII title or class`, sample
+> `{"pid":9508,"class":"XamlExplorerHostIslandWindow","title":"Alternância
+> de Tarefas","visible":false}` — non-ASCII titles still round-trip intact
+> after the explicit declaration (output archived at
+> `measure/windows/proof-08/decode-windows-round6.txt`). The decision is
+> unchanged. See §5's round-6 correction, §6's round-6 addendum and the
+> inline "ROUND-6 FIX" comment in `enum-windows.ps1` for the mechanism of
+> each fix.
 
 > Evidence convention: every number and behavior below is `[MEASURED]` — produced
 > by running the probes in `measure/windows/proof-08/` on this machine — or
@@ -592,42 +647,91 @@ three different (overlapping) ranges around that same floor.
 > after `pre`, so its `post` time is not a bound on when the dialog was
 > still absent — only its `pre` time is.
 >
-> **Re-run post-fix** (`node measure/windows/proof-08/crash-timeline.mjs
-> inprocess`, this round, fresh; full output archived in this round's
-> commit): health 200 at **t+291ms**. `t0` (the driver's own spawn instant,
-> in absolute Unix-ms) is derived two independent ways from this run's own
-> heartbeat rows — `hb.t + hbAgeMs − hbPostMs` — and both agree exactly:
-> iter 1's hb row (`hb.t=1789707327928`, age 8ms, `hbPostMs=1237`) gives
-> `t0=1789707326699`; iter 2's hb row (`hb.t=1789707329411`, age 65ms,
-> `hbPostMs=2777`) gives the same `t0=1789707326699`. The crash fires at
-> absolute `server-ready`(`1789707326965`) + `crash-scheduled.afterMs`(3000,
-> both from this run's own log) = `1789707329965`, i.e. relative
-> **t+3266ms** to that `t0`. The last dialog-absent window sample is iter 2,
-> `windows[read in (t+2777ms, t+3519ms]]` — only `{"class":
-> "Chrome_WidgetWin_1","title":"Electron",...}`; the first dialog-present
-> sample is iter 3, `windows[read in (t+5080ms, t+6006ms]]` — a second
-> entry, `{"class":"#32770","title":"Error","visible":true}`, now appears.
-> Per the interval rule above, the honest claim is **the dialog first
-> appeared somewhere in (t+2777ms, t+6006ms]** — consistent with, and
-> bounded around, the independently-computed **t+3266ms** crash.
-> **Discriminating check (the one round-5's reviewer's reproduction
-> failed):** the upper bound must be ≥ the computed crash time —
-> `6006 ≥ 3266` holds, and the lower bound must be < the crash time —
-> `2777 < 3266` holds — no impossible ordering. The heartbeat over the same
-> window: last live tick recorded in the iter-2 sample (`hb.t=1789707329411`
-> → relative t+2712ms, age 65ms at that read), then frozen at
-> `hb.t=1789707329832` (relative **t+3133ms**, the last tick the event loop
-> completed before the crash — 133ms before the computed t+3266ms crash,
-> less than the 200ms heartbeat-write interval, consistent) for every
-> subsequent sample through the end of the run, while `/health` answers
-> `TIMEOUT` from the first post-crash sample onward — confirming the freeze
-> itself again (round-1 through round-5), now on an interval-bounded,
-> honestly-labeled re-run. This is the freeze **observation** (heartbeat
-> frozen, `/health` TIMEOUT, process still alive) surviving across rounds —
-> it is separable from, and does not rehabilitate, the retracted **timing
-> labels** two paragraphs above; round-3's and round-4's numeric figures for
-> *when* the dialog appeared are still retracted, only the qualitative
-> freeze finding carries forward.
+> **Round-6 correction (blocker finding #1): the "Re-run post-fix" run this
+> box used to publish (`t0=1789707326699`, health 200 at t+291ms, dialog
+> interval `(t+2777ms, t+6006ms]`) is retracted, not re-derived, for a
+> provenance reason distinct from round-5's — its stdout was never captured
+> to a file, so the round-5 text's own "full output archived in this
+> round's commit" claim was false: no such artifact exists in either
+> `d26e2d4` or `f265787` (`git show --stat` on both; neither touches
+> anything under `measure/windows/proof-08/` besides the `.mjs`/`.ps1`
+> sources), and `t0=1789707326699` appears nowhere in the tracked tree
+> except this prose (`grep -rl "1789707326699" .` outside `.git` matches
+> only this file). The derivation shown for it was correct on its own
+> terms — the defect is that the run behind it is unverifiable, which is
+> exactly what line 146's evidence convention forbids. It cannot be
+> recovered after the fact; a number can only be archived by capturing it
+> at run time.
+>
+> **Fix (round-6).** Three fresh runs of the identical, unmodified command
+> were captured this round with `... | tee`, so raw stdout is committed
+> and reproducible by any reader, not just re-derived in prose:
+> `measure/windows/proof-08/crash-timeline-inprocess-run{1,2,3}.txt`. All
+> three used the same interval rule from the fix above; none required any
+> code change. `t0` is cross-derived from two independent heartbeat rows
+> in each run and both derivations agree exactly within that run (shown in
+> full in each log's `iter 1`/`iter 2` rows):
+>
+> | run (archived log) | `t0` (abs, cross-derived x2) | computed crash (rel.) | last dialog-absent | first dialog-present | interval | check | dialog first seen |
+> |---|---|---|---|---|---|---|---|
+> | run1 | 1789708709886 | t+3364ms | iter2 `(t+2968, t+3761]` | iter3 `(t+5590, t+6372]` | `(t+2968ms, t+6372ms]` | 6372≥3364>2968 ✓ | iter 3 |
+> | run2 | 1789708829914 | t+3306ms | iter2 `(t+2760, t+3517]` | iter3 `(t+5148, t+5866]` | `(t+2760ms, t+5866ms]` | 5866≥3306>2760 ✓ | iter 3 |
+> | run3 | 1789708939541 | t+3302ms | iter2 `(t+2873, t+3645]` | iter3 `(t+5410, t+6261]` | `(t+2873ms, t+6261ms]` | 6261≥3302>2873 ✓ | iter 3 |
+>
+> All three archived runs land the dialog in iteration 3 and pass the
+> discriminating check — they cross-validate the **derivation rule**
+> (pre-call lower bound / post-return upper bound), not just repeat one
+> number. Per that rule, this round's honest headline claim is **the
+> dialog first appears somewhere in an interval bounded around t+3.3s**,
+> illustrated concretely by run1: `(t+2968ms, t+6372ms]`.
+>
+> **Round-6 correction (major finding #2): a differently-aligned run exists
+> and is not archived here — say so plainly instead of hiding it.** This
+> round's own rejection record (the finding-#2 evidence quoted to this
+> worker) reports two further runs that are NOT among the three archived
+> above and whose raw stdout this worker does not hold, so they cannot be
+> committed as artifacts this round: (a) a round-5 worker's own run,
+> `t0=1789707708364`, crash computed at t+3264ms, interval
+> `(t+1480ms, t+3977ms]`, dialog first seen in **iteration 2** — a
+> different sample alignment than the three runs above, which is exactly
+> why it matters: it exercises the same derivation rule under a cadence
+> where the dialog-absent/-present boundary falls one iteration earlier;
+> and (b) the round-6 reviewer's own independent run, `server-ready
+> 1789708223276` + 3000ms ⇒ crash t+3310ms, `t0` cross-derived twice to
+> `1789708222966`, interval `windows[read in (t+1605ms, t+2667ms]]` (last
+> absent) to `windows[read in (t+4432ms, t+5397ms]]` (first present) ⇒
+> `(t+1605ms, t+5397ms]`, check `5397≥3310>1605` ✓, dialog in iteration 2
+> again. Both are cited here from this round's rejection text, not
+> independently re-run by this worker, and are recorded as **prose only —
+> no committed log backs them**; a future round that wants them as
+> artifacts must re-run and `tee` them fresh, the same way runs 1–3 above
+> were captured. Taken together, the five runs now on record (3 archived +
+> 2 cited) agree the *rule* — not merely one interval — reproduces across
+> at least two distinct iteration alignments (iter 2 and iter 3), which is
+> the cross-validation the interval-rule fix above was meant to survive.
+>
+> **Discriminating check**, applied to the three archived runs (see table):
+> every run's upper bound is ≥ its own computed crash time and its lower
+> bound is < it — no impossible ordering in any of the three.
+>
+> **Heartbeat freeze**, checked per archived run (not asserted once and
+> assumed to generalize): run2 and run3 both show the last live tick
+> freezing **before** the computed crash, by a margin under the 200ms
+> write interval (run2: frozen tick t+3157ms, crash t+3306ms, Δ149ms;
+> run3: frozen tick t+3154ms, crash t+3302ms, Δ148ms) — consistent with
+> "the event loop stopped ticking just before the throw". run1 does not
+> show this cleanly: its frozen tick (t+3372ms) lands 8ms *after* its own
+> computed crash time (t+3364ms) — within the timer-scheduling jitter
+> between two independently-scheduled async timers (the 200ms heartbeat
+> writer and the crash `setTimeout`), not a violation, but also not
+> forced into a "before" narrative it does not cleanly support. What
+> carries forward unambiguously across all three archived runs, and across
+> round-1 through round-6: the heartbeat freezes at (or within jitter of)
+> the crash and stays frozen, `/health` answers `TIMEOUT` from the first
+> post-crash sample onward, and the OS process stays alive throughout —
+> the freeze **observation** survives; only the single-run precision of
+> "how many ms before" does not generalize cleanly to every run and is
+> reported per-run above instead of averaged into a false single figure.
 >
 > **Actual poll cadence, disclosed rather than assumed (finding #3).**
 > `EnumWindows` recompiles its `Add-Type` P/Invoke shim on every
@@ -1309,6 +1413,14 @@ and are retracted, not re-derived, for the same reason.
 > upper bound (6006ms) is ≥ the computed crash time (3266ms) and the lower
 > bound (2777ms) is < it — no impossible ordering, unlike the pre-fix
 > reproduction above. §5's box is corrected to this bounded claim.
+>
+> **Round-6 addendum.** This paragraph is left as written for the
+> historical record of what round-5 claimed, but the run it describes
+> (`t0=1789707326699`) was never captured to a committed artifact despite
+> round-5's own text asserting it was — see §5's round-6 correction for
+> the retraction and the three archived runs
+> (`crash-timeline-inprocess-run{1,2,3}.txt`) that replace it as this
+> ADR's canonical evidence for the dialog-arrival interval.
 
 **Round-4 bug — `chromiumRole()` labeled any process without a `--type=`
 flag `"browser (main)"`, including non-Electron processes (minor finding
