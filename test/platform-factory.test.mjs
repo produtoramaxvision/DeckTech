@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { createPlatform, PlatformNotImplementedError } from "../platform/index.js";
 import { realIconService, listInstalledApps } from "../apps.js";
 import { listInstalledApps as win32ListInstalledApps } from "../platform/windows/apps.js";
+import { makeWindowsIconService } from "../platform/windows/icon.js";
 
 const CONTRACT_MEMBERS = ["listInstalledApps", "listAppProcesses", "activateApp", "openWebsite", "iconService"];
 
@@ -66,17 +67,17 @@ test("PLAT-01: createPlatform(nome) ignora process.platform ambiente — win32 e
   await assertAllRejectTyped(platform);
 });
 
-// listInstalledApps deliberadamente FORA desta lista: PLAT-02 já implementou
-// o provider real (platform/windows/apps.js) — ver o teste dedicado acima
-// ("...devolve os 5 membros...") e "PLAT-02: win32 listInstalledApps..."
-// abaixo, que prova a referência real em vez de reusar este helper.
+// listInstalledApps e iconService deliberadamente FORA desta lista: PLAT-02
+// e PLAT-03+09 já implementaram os providers reais (platform/windows/apps.js
+// e platform/windows/icon.js) — ver os testes dedicados "PLAT-02: win32
+// listInstalledApps..." e "PLAT-03: win32 iconService..." abaixo, que provam
+// a referência real em vez de reusar este helper.
 async function assertAllRejectTyped(platform) {
   for (const member of ["listAppProcesses"]) {
     await assert.rejects(platform[member](), PlatformNotImplementedError);
   }
   await assert.rejects(platform.activateApp({ name: "Notepad" }), PlatformNotImplementedError);
   await assert.rejects(platform.openWebsite("https://example.com"), PlatformNotImplementedError);
-  await assert.rejects(platform.iconService.getIconPng("Notepad"), PlatformNotImplementedError);
 }
 
 test("PLAT-01/PLAT-06: cada membro win32 ainda-não-implementado falha alto com PlatformNotImplementedError e code estável", async () => {
@@ -101,6 +102,43 @@ test("PLAT-02: win32 listInstalledApps é o provider real de platform/windows/ap
   const platform = createPlatform("win32");
   assert.equal(platform.listInstalledApps, win32ListInstalledApps);
   assert.equal(typeof platform.listInstalledApps, "function");
+});
+
+// Critério discriminante equivalente pro PLAT-03+09: sem esta asserção, um
+// win32Platform() que devolvesse `{getIconPng: notImplemented(...)}` de
+// novo passaria em "devolve os 5 membros" do mesmo jeito (typeof função
+// ainda bate). getIconPng("Fantasma") resolvendo pra `null` (em vez de
+// rejeitar com PlatformNotImplementedError) é a prova comportamental de
+// que é o provider real. Prova de discriminação em discrimination_proof.
+//
+// `scan` injetado (stub, sem apps) deliberadamente: usar o
+// win32ListInstalledApps DEFAULT chamaria PowerShell de verdade, o que só
+// existe numa máquina Windows real — esta suite roda no ubuntu-latest do
+// CI (.github/workflows/test.yml) também, e makeWindowsIconService em si
+// não tem nenhum código OS-específico até chegar no require() preguiçoso
+// do addon nativo (nunca acontece aqui: lista de apps vazia -> null antes
+// de qualquer extração) — só win32ListInstalledApps/runPowerShellCollect
+// são win32-only, e este teste evita tocar neles.
+test("PLAT-03+09: win32 iconService é o provider real de platform/windows/icon.js, não notImplemented", async () => {
+  const platform = createPlatform("win32", {
+    makeIconService: (deps) => makeWindowsIconService({ ...deps, scan: async () => [] }),
+  });
+  assert.equal(typeof platform.iconService.getIconPng, "function");
+  // notImplemented() sempre REJEITA com PlatformNotImplementedError; o
+  // provider real, pra um app inexistente, RESOLVE com null — comportamento
+  // observável só possível se for de fato platform/windows/icon.js.
+  await assert.doesNotReject(platform.iconService.getIconPng("Fantasma-plat-03"));
+  assert.equal(await platform.iconService.getIconPng("Fantasma-plat-03"), null);
+});
+
+test("PLAT-01: win32Platform() aceita deps.makeIconService injetável, mesmo padrão de darwinPlatform() com makeIconService/resolveMacIconHelper", () => {
+  let receivedDeps = null;
+  const platform = createPlatform("win32", {
+    makeIconService: (deps) => { receivedDeps = deps; return { getIconPng: async () => null }; },
+  });
+  assert.equal(typeof receivedDeps.scan, "function", "createPlatform deveria injetar scan=win32ListInstalledApps na fábrica");
+  assert.equal(receivedDeps.scan, win32ListInstalledApps);
+  assert.notEqual(platform.iconService.getIconPng, undefined);
 });
 
 test("createPlatform(plataforma desconhecida) falha alto e tipado, nunca undefined em silêncio", () => {

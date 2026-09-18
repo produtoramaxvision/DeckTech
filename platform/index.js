@@ -8,6 +8,7 @@ import {
 } from "../apps.js";
 import { activateApp, openWebsite } from "../actions.js";
 import { listInstalledApps as win32ListInstalledApps } from "./windows/apps.js";
+import { makeWindowsIconService } from "./windows/icon.js";
 
 /**
  * Erro tipado para um membro do contrato de plataforma ainda sem provider
@@ -64,22 +65,27 @@ function darwinPlatform(deps = {}) {
 /**
  * Contrato Windows: Fase 3 (PLAT-02..PLAT-07) chegando membro a membro.
  * PLAT-02+10 (descoberta de apps: atalhos do Menu Iniciar via o leitor
- * binário .lnk, UWP, dedupe por target, exclusão de desinstaladores) é o
- * primeiro a existir de verdade — `listInstalledApps` usa a instância real
- * de platform/windows/apps.js. Os outros quatro membros (PLAT-03..05, 07)
- * continuam ausentes e falham alto com erro tipado em vez de devolver
- * lista vazia, null silencioso ou lançar TypeError sem código.
+ * binário .lnk, UWP, dedupe por target, exclusão de desinstaladores) e
+ * PLAT-03+09 (ícone 256px via addon N-API, cache persistente cancelável)
+ * já existem de verdade — `listInstalledApps` e `iconService` usam as
+ * instâncias reais de platform/windows/apps.js e platform/windows/icon.js.
+ * Os três membros restantes (PLAT-04, 05, 07) continuam ausentes e falham
+ * alto com erro tipado em vez de devolver lista vazia, null silencioso ou
+ * lançar TypeError sem código.
  */
-function win32Platform() {
+function win32Platform(deps = {}) {
   const platformName = "win32";
+  const { makeIconService = makeWindowsIconService } = deps;
   return {
     listInstalledApps: win32ListInstalledApps,
     listAppProcesses: notImplemented("listAppProcesses", platformName),
     activateApp: notImplemented("activateApp", platformName),
     openWebsite: notImplemented("openWebsite", platformName),
-    iconService: {
-      getIconPng: notImplemented("iconService.getIconPng", platformName),
-    },
+    // scan reusa a MESMA instância TTL-cacheada de win32ListInstalledApps —
+    // não um segundo scan PowerShell independente (ver comentário de topo
+    // de platform/windows/icon.js sobre o double-layer de TTL, que já
+    // existe em apps.js/realIconService pro macOS).
+    iconService: makeIconService({ scan: win32ListInstalledApps }),
   };
 }
 

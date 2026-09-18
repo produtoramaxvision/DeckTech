@@ -933,8 +933,18 @@ export function makeApp(deps = {}) {
         res.end(JSON.stringify({ ok: false, error: "nome inválido" }));
         return;
       }
+      // PLAT-03: se o cliente desconectar (ex.: navegou pra longe no meio de
+      // uma carga de 122 ícones), sinaliza pro iconService cancelar — em
+      // vez de deixar essa extração (síncrona, in-process no provider
+      // Windows) continuar rodando pro vácuo. Providers que ignoram um 2º
+      // argumento (macOS hoje) continuam funcionando idênticos a antes: a
+      // assinatura é aditiva, não uma mudança de contrato (PLAT-08 protege
+      // rota/chaves WS, não a assinatura interna de iconService).
+      const iconAbort = new AbortController();
+      const onIconReqClose = () => iconAbort.abort();
+      req.on("close", onIconReqClose);
       Promise.resolve()
-        .then(() => iconService.getIconPng(name))
+        .then(() => iconService.getIconPng(name, { signal: iconAbort.signal }))
         .then(buf => {
           if (!buf) {
             res.writeHead(404, JSON_HEADERS);
@@ -948,7 +958,8 @@ export function makeApp(deps = {}) {
           });
           res.end(buf);
         })
-        .catch(err => fail(res, err));
+        .catch(err => fail(res, err))
+        .finally(() => req.removeListener("close", onIconReqClose));
       return;
     }
     if (url.pathname === "/api/obs/state") {
