@@ -638,7 +638,7 @@ struct MenuBarView: View {
   @EnvironmentObject private var languageStore: LanguageStore
 
   private var appVersion: String {
-    (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "0.2.8"
+    (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "0.1.0"
   }
 
   var body: some View {

@@ -31,7 +31,7 @@ final class ServerManager: ObservableObject {
   private static let logPath = "/tmp/dokke-server.log"
   // Mantido em sincronia com package.json e Info.plist para execuções fora do
   // bundle, quando Bundle.main não expõe o Info.plist do app distribuído.
-  private static let packageVersionFallback = "0.2.8"
+  private static let packageVersionFallback = "0.1.0"
   private let maxConsecutiveRestartFailures = 5
   private let restartDelay: TimeInterval = 3
   private let serverBaseURL = "http://127.0.0.1:3000"
