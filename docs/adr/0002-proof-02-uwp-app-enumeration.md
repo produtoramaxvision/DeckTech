@@ -1,12 +1,58 @@
 # ADR-0002: UWP/Store app enumeration via `shell:AppsFolder`
 
-- Status: Accepted (round 2 — all round-1 review findings fixed and re-measured)
-- Date: 2026-09-17 (round 1), revised 2026-09-17/18 (round 2, see below)
+- Status: Accepted (round 3 — all round-2 review findings fixed and re-measured)
+- Date: 2026-09-17 (round 1), revised 2026-09-17/18 (round 2), revised again
+  2026-09-17 (round 3, see below)
 - Requirement: PROOF-02 (`.maxvision/REQUIREMENTS.md` Fase 0), gates PLAT-02
 - Supersedes: nothing. First measurement of the gap `WINDOWS-STACK.md:243-245`
   flagged as unmeasured: *"Apps UWP/Store não aparecem. `.lnk` não cobre
   `shell:AppsFolder`. Calculadora, Fotos, Terminal etc. exigem enumeração
   separada. Não implementei nem medi esse caminho."*
+
+## Round 3: what changed and why
+
+A round-3 review rejected the round-2 artifact with 6 findings (1 blocker, 2
+major, 3 minor). Every one is fixed in `measure/windows/proof-02/uwp-enum.mjs`
+and re-measured; this document is updated in place rather than rewritten a
+third time, since round 2's structure and most of its content still holds.
+
+1. **(blocker) The byte-search half of the structural absence proof was
+   provably incapable of detecting the exact case it exists to cover.** It
+   searched a LATIN1 decoding of each `.lnk`'s bytes, but the
+   AUMID/`PackageFamilyName` inside a `shell:AppsFolder` IDList is stored as
+   UTF-16LE — the search could never match and returned `absent: true` by
+   construction, not by evidence, for every IDList-only shortcut. See
+   "Structural absence proof, round 3" below for the fix, the committed
+   positive/negative control fixture, and — because an encoding tweak alone
+   doesn't prove the check can return a negative — the exact honest scope
+   this check now states about itself.
+2. **(major) This document claimed `raw-startapps.json` "was removed from
+   the working tree"** when the documented re-record command recreated it
+   in `out/` on every run — the file was structurally unremovable as
+   written. Fixed at the source (the raw dump now always writes to
+   `uwp-enum.mjs`'s own gitignored `.scratch/` directory, independent of
+   `--out`) and the claim below is now verified true, not aspirational.
+3. **(major) The benchmark's control arm was labeled "existing mechanism"
+   but measured a bare directory walk** (no target resolution) — a
+   fundamentally cheaper operation than the COM `.lnk` resolution this
+   script's own header cites as the real existing mechanism (2395 ms).
+   Relabeled to what it measures; see "Measured result, round 3" below for
+   the honest comparison, with every figure's source stated.
+4. **(minor) `gitInfo()` recorded `lnk-parser.mjs`'s dirty status but not
+   `uwp-enum.mjs`'s own**, while the comment above it claimed the recorded
+   state told a reader "exactly what code produced" the artifact. Now
+   records both scripts' dirty status AND a SHA-256 of each — the hash is
+   provenance that holds even when (as is structurally true on the very run
+   that ships this fix) the script recording its own state is necessarily
+   dirty relative to `HEAD`.
+5. **(minor) `--out --bogus` silently created a directory named `--bogus`.**
+   `parseArgs` now rejects an `--out` value starting with `--`, throwing and
+   naming the offending token.
+6. **(minor) The install-location containment check was a bare
+   `startsWith` with no path-separator boundary**, so a sibling
+   MSIX-versioned directory sharing a name prefix could satisfy it. Fixed
+   to require the next character after the install-location prefix to be a
+   path separator (or an exact match).
 
 ## Round 2: what changed and why
 
@@ -104,28 +150,61 @@ and `ms-resource:` resolution entirely (the shell already did it), while
 still grounding "packaged" in an authoritative source instead of a
 regex heuristic.
 
-## Measured result (this machine, 2026-09-18 01:04 UTC, pt-BR)
+## Measured result, round 3 (this machine, 2026-09-17 22:35 local, pt-BR)
 
-Repo state at measurement time (recorded in the committed artifact, since
-`lnk-parser.mjs` is co-owned by PROOF-03 and could carry uncommitted
-changes): `headCommit: 7819df63d0ebb6f5d818d0a4853f06faec36d66b`,
-`lnkParserDirty: false` — `lnk-parser.mjs` matched HEAD at measurement time.
+Repo state at measurement time (recorded in the committed artifact — round-3
+minor finding 4 extends this to cover the script producing the artifact, not
+only its imported dependency):
+
+- `headCommit: 14a44ac4717d2283076c010819bd12a8a099a03c`
+- `lnkParserDirty: false` (`measure/windows/lnk-parser.mjs` matched `HEAD`)
+- `uwpEnumDirty: true`, `uwpEnumSha256:
+  7d901c0dfc2797ad00d3b43ad51eec6f702e867cdc78dc78fd5575674f89ee0b` — this
+  script is necessarily dirty relative to the commit above *until the commit
+  that ships this very round-3 fix lands*; that is expected, not a defect,
+  which is exactly why the hash (stable regardless of commit timing) is now
+  recorded alongside the dirty flag rather than in place of it.
+- `collectStartAppsDirty: false`, `collectStartAppsSha256:
+  6bfb3270f6e009688cebc395a3554562544c2200294cc904b355e9bfd570a6ef`
 
 ```
-.lnk scan (existing mechanism): 182 .lnk files, 1 warmup + 5 timed runs
-  -> median 6.191 ms (min 5.497, max 7.684, n=5)
+.lnk directory walk (baseline enumeration only, no target resolution):
+  182 .lnk files, 1 warmup + 5 timed runs -> median 10.589 ms
+  (min 9.256, max 14.657, n=5)
   root [PROGRAMDATA]: 123 .lnk files
   root [APPDATA]: 59 .lnk files
 Get-StartApps + Get-AppxPackage collect: 1 warmup + 5 timed runs
-  -> median 1710.47 ms (min 1433.837, max 3084.836, n=5)
+  -> median 2430.529 ms (min 1954.964, max 5403.933, n=5)
   -> 188 index rows, 131 installed AppX packages
 Classification: 18 rows confirmed packaged (UWP/Store), 170 rows non-packaged
 Total scan count: 188 Start-menu index rows scanned
-Elapsed time: 1716.66 ms = median(.lnk walk) + median(PowerShell collect)
+Elapsed time: 2441.12 ms = median(.lnk directory walk) + median(PowerShell collect)
   — a sum of medians, explicitly labeled as such, not a single sample.
 ```
 
-The PowerShell-collect arm's own min/max (1433.8–3084.8 ms, n=5) shows the
+**Round-3 major finding 3 fix.** The arm above is labeled for what it
+actually measures — a bare `readdir`+filter walk that never resolves a
+target — not "the existing mechanism", which round 2 had set against the new
+mechanism's cost with the implication that UWP enumeration is ~276x more
+expensive than the pre-existing `.lnk` scan. It isn't: the pre-existing
+mechanism this script's own header describes resolves targets via COM, and
+that cost is comparable in order of magnitude to the new mechanism, not two
+orders of magnitude cheaper. The honest comparison, every figure labeled
+with its source (none of these three is measured by *this* script run):
+
+| Source | What it measures | ms |
+|---|---|---|
+| `.maxvision/research/WINDOWS-STACK.md` | 149 `.lnk` resolved via COM (original research baseline) | 2395 |
+| `docs/adr/0003-proof-03-lnk-binary-parsing.md` | COM loop-only, re-measured, median n=5 | 273.1 |
+| this run | Get-StartApps + Get-AppxPackage collect, median n=5 | 2430.5 |
+
+The new UWP-enumeration mechanism costs the same order of magnitude as COM
+`.lnk` resolution — not ~276x more than a directory listing that was never
+the thing worth comparing against. This is also recorded machine-readable in
+the committed artifact's `existingMechanismComparison` field, and printed at
+the CLI alongside the (correctly relabeled) directory-walk line.
+
+The PowerShell-collect arm's own min/max (1955–5404 ms, n=5) shows the
 ~20%+ run-to-run variance round-2 finding 7 flagged directly — the median is
 reported specifically so a reader is not handed a number that looks stabler
 than the underlying process actually is.
@@ -191,6 +270,95 @@ for this row — kept as a diagnostic only, no longer used to derive
 `absentFromLnkScan`. The same two checks for Calculator, Photos, and
 PowerShell (Store) all come back `absent: true` with empty match lists —
 see `measure/windows/proof-02/out/uwp-scan-result.json`'s `proofTargets[].structuralAbsenceEvidence`.
+
+### Structural absence proof, round 3: the byte search was provably blind
+
+**The round-2 byte search (2) never worked.** It lowercased each `.lnk`'s
+bytes as **LATIN1** (`buf.toString('latin1').toLowerCase()`) and searched
+for the family name in that decoding. The family name inside a
+`shell:AppsFolder` IDList is stored as **UTF-16LE**, an encoding LATIN1
+cannot represent — the search could not match *by construction*, on any
+input, regardless of whether the family name was present. Every
+`absentFromLnkScan: true` the round-2 artifact reported rested on a check
+that returned empty no matter what it was searching; deleting the check
+would have produced identical output. The round-3 reviewer proved this with
+a real shell:AppsFolder shortcut built via `WScript.Shell` — against it,
+`parseLnk` correctly reported `resolvedTargetPath: null, idListOnly: true`
+(exactly the case check (1) cannot decide) while the byte search reported no
+match despite the family name being present in the file.
+
+**On this machine's own data, the conclusion the round-2 artifact reported
+(`absent: true` for Calculator/Photos/PowerShell/Claude) happens to be
+correct** — independently re-verified: none of the four families appear in
+any of the 182 `.lnk` files under any encoding (LATIN1, `toString('utf16le')`,
+or raw UTF-16LE bytes — all 0/182). A correct conclusion from an unsound
+check is not evidence the check works; it means this machine's data didn't
+happen to expose the gap.
+
+**Fixed**, in two parts, per the round-3 required fix (combining options
+(a) and (c) — a bare encoding tweak was explicitly rejected as insufficient
+on its own):
+
+1. **The search itself.** `lnkBytesContainFamily(buf, family)` does a
+   byte-level search: `buf.includes(Buffer.from(family, 'utf16le'))`. A
+   plain `buf.toString('utf16le').includes(family)` is *also* insufficient
+   — the round-3 reviewer's own control returned `false` under it, because a
+   shell item's string payload is not guaranteed to start at an even
+   (2-byte-aligned) offset from 0, so decoding the whole buffer as UTF-16LE
+   from offset 0 can still miss a needle a raw byte-level search finds.
+2. **A committed positive/negative control fixture**, so the check is
+   *demonstrably capable of a negative*, not merely re-labeled and
+   re-claimed:
+   `measure/windows/proof-02/fixtures/shell-appsfolder-calculator-control.lnk`
+   — a real `shell:AppsFolder` shortcut (1439 bytes, generated via
+   `WScript.Shell`, `TargetPath = "shell:AppsFolder\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"`,
+   verified free of any machine-specific content before committing — `grep`
+   for the OS username and for `C:\Users` both return no match). Every run
+   now asserts, using the **exact same `lnkBytesContainFamily` function**
+   the real per-app check calls (not a separately-written copy, which would
+   prove nothing about the search actually used):
+   - `parseLnk` on the fixture confirms `resolvedTargetPath: null` and
+     `idListOnly: true` — this really is the case check (1) cannot decide.
+   - **Positive control**: `lnkBytesContainFamily(fixtureBuf,
+     'Microsoft.WindowsCalculator_8wekyb3d8bbwe')` is `true`.
+   - **Negative control**: `lnkBytesContainFamily(fixtureBuf,
+     'Microsoft.Windows.Photos_8wekyb3d8bbwe')` — a family the fixture does
+     not reference — is `false`.
+
+   Any control failing throws immediately, naming which one, before any
+   `absentFromLnkScan` claim is made. This run's result (also in the
+   committed artifact's `structuralAbsenceSelfTest`):
+
+   ```json
+   {
+     "fixtureConfirmedIdListOnly": true,
+     "positiveControlFamily": "Microsoft.WindowsCalculator_8wekyb3d8bbwe",
+     "positiveControlDetected": true,
+     "negativeControlFamily": "Microsoft.Windows.Photos_8wekyb3d8bbwe",
+     "negativeControlDetected": false,
+     "passed": true
+   }
+   ```
+
+**Honest scope statement (the required fix's option (c), combined with
+(a) rather than instead of it).** This search detects a `PackageFamilyName`
+present as literal UTF-16LE bytes anywhere in a `.lnk` file. It is **not** a
+decode of `LinkTargetIDList` — `lnk-parser.mjs` explicitly scopes that out
+(its header, "Deliberate scope limits" §1) — so it cannot say *where* in the
+shortcut the string appears or *what shell-item type* references it, and a
+shortcut that lacks the literal family-name string as a contiguous UTF-16LE
+run cannot be ruled out from referencing the package through some other,
+indirect encoding this search does not know how to recognize (for instance,
+a family name split across a compressed or otherwise transformed
+representation, if one exists in some IDList variant this proof has not
+encountered). The self-test proves the check is **capable of a real
+positive hit and of not firing on an unrelated family** — it upgrades the
+check from "returns empty by construction" to "returns empty because it
+looked and found nothing, on this run's 182 shortcuts." It does not upgrade
+it to a general proof that "byte search found nothing" implies "no `.lnk`
+anywhere could reference the package under any possible IDList encoding."
+For the 12 `unresolvedTargetCount` (IDList-only) shortcuts on this machine,
+that is the precise, complete statement of what is and is not established.
 
 ### Activation proof (round-2 blocker 1 / major finding 6)
 
@@ -380,21 +548,33 @@ most one instance of a given family per user), never across sides.
 
 ## Known gaps, stated honestly
 
-- **`raw-startapps.json` is not committed and was removed from the working
-  tree** (round-2 major finding 3). It is a personal-machine software
-  inventory — all 188 `Get-StartApps` rows and 131 `Get-AppxPackage` rows
-  verbatim, including drive-path AppIDs and rows embedding the OS username
-  (e.g. utorrent, a Python install under `AppData\Local\Programs`, `D:\Adobe\...`
-  titles) — and every number this ADR cites is already carried by the
-  derived, redacted `uwp-scan-result.json`. `.gitignore` now excludes
-  `measure/windows/proof-02/**/raw-startapps.json` going forward. **It is
-  not scrubbed from history**: `git log --oneline --all -- measure/windows/proof-02/out/raw-startapps.json`
+- **`raw-startapps.json` is never committed and is gitignored, but it is
+  regenerated on disk by every run — it is not, and structurally cannot be,
+  "removed from the working tree" as round 2's version of this bullet
+  claimed** (round-3 major finding 2: the round-2 script wrote it into
+  whatever `--out` received, so the ADR's own documented re-record command,
+  `--out measure/windows/proof-02/out`, recreated it in the committed `out/`
+  directory on every run — the file was structurally unremovable by design,
+  and the ADR asserted otherwise without re-running the command to check).
+  **Fixed at the source**: the raw dump now always writes to
+  `uwp-enum.mjs`'s own gitignored `.scratch/` directory, independent of
+  `--out`, so `out/` genuinely never receives it regardless of what `--out`
+  points at — verified this round: `ls measure/windows/proof-02/out/` lists
+  only `uwp-scan-result.json`, and
+  `git ls-files -- measure/windows/proof-02/out/raw-startapps.json` matches
+  nothing.
+  It is a personal-machine software inventory — all 188 `Get-StartApps` rows
+  and 131 `Get-AppxPackage` rows verbatim, including drive-path AppIDs and
+  rows embedding the OS username (e.g. utorrent, a Python install under
+  `AppData\Local\Programs`, `D:\Adobe\...` titles) — and every number this
+  ADR cites is already carried by the derived, redacted
+  `uwp-scan-result.json`. **It is not scrubbed from history**:
+  `git log --oneline --all -- measure/windows/proof-02/out/raw-startapps.json`
   shows it reachable from **two** commits — `9d07cd6` (added) and
-  `1fa06ae` (a later commit that also touched it) — not only the one
-  round 2's finding cited. Rewriting that history was out of scope for
-  this fix (it would rewrite shared branch history); if that residual
-  exposure is unacceptable, it needs an explicit history-rewrite decision,
-  which this ADR does not make unilaterally.
+  `1fa06ae` (a later commit that also touched it). Rewriting that history was
+  out of scope for this fix (it would rewrite shared branch history); if
+  that residual exposure is unacceptable, it needs an explicit
+  history-rewrite decision, which this ADR does not make unilaterally.
 - **`uwp-scan-result.json` itself is redacted, but not zero-disclosure.**
   Every path field (`lnkBaseline.roots[].dir`, `structuralAbsenceEvidence.*`,
   `duplicateCaseEvidence.lnkFilesNamedClaude[].file`, `outDir`) has the
@@ -431,24 +611,29 @@ most one instance of a given family per user), never across sides.
   for the signed-in user), but is worth naming explicitly — a package
   provisioned machine-wide but not yet registered for this user would not
   appear, matching Start Menu's own behavior.
-- **PowerShell process-spawn cost** (median 1710 ms this round, up from
-  round 1's single 866 ms sample — the repeated measurement in round 2
-  makes the earlier number's optimism visible rather than hiding it)
-  dominates the total. This is a single `Get-StartApps`+`Get-AppxPackage`
+- **PowerShell process-spawn cost** (median 2430.5 ms round 3, 1710.5 ms
+  round 2, up from round 1's single 866 ms sample — the repeated
+  measurement across rounds makes the earlier number's optimism visible
+  rather than hiding it, and the round-3 min/max of 1955–5404 ms shows this
+  is genuine machine-load variance, not a regression) dominates the total.
+  This is a single `Get-StartApps`+`Get-AppxPackage`
   call per scan, comparable in shape to the pre-existing COM-based `.lnk`
   resolution cost (2395 ms baseline / 267.9–615 ms this-run in ADR-0003) —
   not benchmarked against a non-PowerShell alternative (e.g. a native N-API
   binding to `IPackageManager`) because no such alternative was in scope
   for this requirement; flagged for PLAT-02 to revisit only if the combined
   Phase-3 scan latency proves it matters.
-- **`.lnk`-target resolution cost** (`lnkTargetResolveMs: 22.3` this run) is
-  new plumbing this round adds for the structural absence proof. It is
+- **`.lnk`-target resolution cost** (`lnkTargetResolveMs: 133.2` this run —
+  varies run to run with file-cache warmth; a round-2 run recorded 22.3 ms)
+  is new plumbing this round adds for the structural absence proof
+  (parsing all 182 shortcuts plus the round-3 fixture self-test). It is
   reported as a single sample, explicitly labeled diagnostic-only — it is
-  not the ".lnk scan (existing mechanism)" arm the success criterion asks
-  to be timed, and is cheap enough (182 shortcuts, pure JS, no COM/process
-  spawn) that repeating it for a median was not judged worth the added
-  script complexity; flagged here rather than silently presented as
-  rigorously measured.
+  not the ".lnk directory walk" arm the success criterion asks to be timed
+  (round-3 major finding 3 renamed that arm; see "Measured result, round
+  3"), and is cheap enough (182 shortcuts, pure JS, no COM/process spawn)
+  that repeating it for a median was not judged worth the added script
+  complexity; flagged here rather than silently presented as rigorously
+  measured.
 
 ## Decision
 
@@ -458,12 +643,17 @@ present on this machine (Calculator, Photos) plus the Store-packaged
 PowerShell substitute for the third, by locale-invariant package family
 rather than display-name matching; it correctly reports Windows Terminal's
 genuine absence rather than a false positive; its "absent from the `.lnk`
-scan" claim is now a structural proof against resolved `.lnk` targets
-rather than a display-name match (and that fix demonstrably corrects a real
-false negative on this machine's own data); its activation proof is
-PID-attributed against a pre-launch baseline, with cleanup scoped to that
-one PID; it identified a real same-display-name duplicate risk ("Claude")
-and — now correctly characterized — the merge rule that avoids it; and it
-costs under 2 seconds (median), well within the ~5.3 s icon-extraction
-budget PROOF-01/ADR (icon bench) already established as this scan's
-dominant cost.
+scan" claim rests on a structural proof against resolved `.lnk` targets
+rather than a display-name match, backed (round 3) by a committed
+positive/negative control fixture that self-tests the check's byte-search
+half is actually capable of a hit before any absence claim is made, with
+the check's real scope — and what it does not establish for the 12
+IDList-only shortcuts — stated explicitly rather than oversold; its
+activation proof is PID-attributed against a pre-launch baseline, with
+cleanup scoped to that one PID; it identified a real same-display-name
+duplicate risk ("Claude") and — now correctly characterized — the merge
+rule that avoids it; and it costs low single-digit seconds (median 2.4 s
+this round, machine-load-dependent — see PowerShell process-spawn cost
+above), the same order of magnitude as the pre-existing COM-based `.lnk`
+resolution it complements, not a mechanism whose cost this ADR ever
+measured against the wrong baseline.

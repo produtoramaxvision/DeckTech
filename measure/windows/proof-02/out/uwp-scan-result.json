@@ -1,31 +1,66 @@
 {
-  "generatedAtUtc": "2026-09-18T01:04:00.689Z",
+  "generatedAtUtc": "2026-09-18T01:35:20.300Z",
   "outDir": "%USERPROFILE%\\Desktop\\cursor-oficial\\decktech\\measure\\windows\\proof-02\\out",
   "repoState": {
-    "headCommit": "7819df63d0ebb6f5d818d0a4853f06faec36d66b",
+    "headCommit": "14a44ac4717d2283076c010819bd12a8a099a03c",
     "lnkParserDirty": false,
-    "lnkParserStatusLine": null
+    "lnkParserStatusLine": null,
+    "uwpEnumDirty": true,
+    "uwpEnumStatusLine": "M measure/windows/proof-02/uwp-enum.mjs",
+    "uwpEnumSha256": "7d901c0dfc2797ad00d3b43ad51eec6f702e867cdc78dc78fd5575674f89ee0b",
+    "collectStartAppsDirty": false,
+    "collectStartAppsStatusLine": null,
+    "collectStartAppsSha256": "6bfb3270f6e009688cebc395a3554562544c2200294cc904b355e9bfd570a6ef"
   },
   "culture": "pt-BR",
   "timings": {
-    "lnkWalk": {
-      "median": 6.191,
-      "min": 5.497,
-      "max": 7.684,
+    "lnkDirectoryWalk": {
+      "median": 10.589,
+      "min": 9.256,
+      "max": 14.657,
       "n": 5,
       "unit": "ms"
     },
+    "lnkDirectoryWalkNote": "baseline enumeration only (readdir + filter by .lnk extension) — does NOT resolve any shortcut target. Renamed from \"lnk scan (existing mechanism)\"; see existingMechanismComparison for the real existing-mechanism cost.",
     "powershellCollect": {
-      "median": 1710.47,
-      "min": 1433.837,
-      "max": 3084.836,
+      "median": 2430.529,
+      "min": 1954.964,
+      "max": 5403.933,
       "n": 5,
       "unit": "ms"
     },
-    "totalMs": 1716.66,
-    "totalMsNote": "sum of the two arms' medians, not a single elapsed-time sample",
-    "lnkTargetResolveMs": 22.3,
-    "lnkTargetResolveMsNote": "single sample, diagnostic only — new proof plumbing, not the existing .lnk-scan mechanism being benchmarked"
+    "totalMs": 2441.12,
+    "totalMsNote": "sum of the directory-walk and PowerShell-collect arms' medians, not a single elapsed-time sample",
+    "lnkTargetResolveMs": 133.2,
+    "lnkTargetResolveMsNote": "single sample, diagnostic only — new proof plumbing (structural-absence check), not the existing .lnk-resolution mechanism being compared against"
+  },
+  "existingMechanismComparison": {
+    "researchDocBaseline": {
+      "source": ".maxvision/research/WINDOWS-STACK.md",
+      "description": "149 .lnk shortcuts resolved via COM",
+      "ms": 2395,
+      "measuredByThisScript": false
+    },
+    "adr0003Remeasurement": {
+      "source": "docs/adr/0003-proof-03-lnk-binary-parsing.md",
+      "description": "COM loop-only, re-measured, median of n=5",
+      "ms": 273.1,
+      "measuredByThisScript": false
+    },
+    "thisRunUwpEnumerationMs": 2430.529,
+    "note": "The new UWP-enumeration mechanism (Get-StartApps + Get-AppxPackage, median 2430.529 ms this run) is the same order of magnitude as COM .lnk resolution (273.1–2395 ms depending on which measurement), not ~276x cheaper than a bare directory walk that never resolves anything and was never the thing being compared against."
+  },
+  "structuralAbsenceSelfTest": {
+    "fixtureFile": "measure/windows/proof-02/fixtures/shell-appsfolder-calculator-control.lnk",
+    "fixtureSizeBytes": 1439,
+    "fixtureConfirmedIdListOnly": true,
+    "fixtureConfirmedUnresolvedByCheck1": true,
+    "positiveControlFamily": "Microsoft.WindowsCalculator_8wekyb3d8bbwe",
+    "positiveControlDetected": true,
+    "negativeControlFamily": "Microsoft.Windows.Photos_8wekyb3d8bbwe",
+    "negativeControlDetected": false,
+    "passed": true,
+    "scopeStatement": "This search detects a PackageFamilyName present as literal UTF-16LE bytes anywhere in a .lnk file. It is not a decode of LinkTargetIDList (lnk-parser.mjs scope limit #1) and cannot say where/how the string is referenced. It is proven (by this self-test) capable of a real positive hit and of not firing on an unrelated family; it is not a general proof that a miss rules out every possible IDList encoding of a reference to the package."
   },
   "lnkBaseline": {
     "roots": [
@@ -106,7 +141,7 @@
     "launchedViaExplorerShellAppsFolder": true,
     "baselineSkipped": false,
     "skipReason": null,
-    "attemptedPid": "45092",
+    "attemptedPid": "16740",
     "extraPidsObserved": [],
     "processObserved": true,
     "cleanup": {

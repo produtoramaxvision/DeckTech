@@ -22,10 +22,11 @@
  *   node measure/windows/proof-02/uwp-enum.mjs --out measure/windows/proof-02/out
  *
  * Writes <out>/uwp-scan-result.json (derived data, for audit — committed for
- * the "out/" case) and <out>/raw-startapps.json (raw Get-StartApps +
- * Get-AppxPackage dump — a personal-machine inventory, gitignored
- * everywhere, never committed; see docs/adr/0002 "known gaps"). Prints a
- * human report to stdout.
+ * the "out/" case) and, ALWAYS in this script's own .scratch/ directory
+ * (never in <out>, regardless of what --out points at — round-3 major
+ * finding 2), raw-startapps.json: the raw Get-StartApps + Get-AppxPackage
+ * dump, a personal-machine inventory, gitignored, never committed; see
+ * docs/adr/0002 "known gaps". Prints a human report to stdout.
  *
  * --- ROUND-2 REVIEW FIXES (see docs/adr/0002-proof-02-uwp-app-enumeration.md) ---
  *
@@ -71,12 +72,55 @@
  *  11. (minor) classify() keeps the parsed family/appIdPart on every
  *      AUMID-shaped row, packaged or not; packaged status is a separate
  *      familyInAppxRegistry field.
+ *
+ * --- ROUND-3 REVIEW FIXES (see docs/adr/0002-proof-02-uwp-app-enumeration.md) ---
+ *
+ *   1. (blocker) The byte-search half of the structural absence proof
+ *      searched a latin1 decoding of each .lnk while the AUMID/family name
+ *      is stored as UTF-16LE — it could never match and returned "absent"
+ *      by construction for every IDList-only shortcut. Fixed to a real
+ *      byte-level UTF-16LE search (lnkBytesContainFamily()), and — because
+ *      an encoding tweak alone doesn't prove the check CAN return a
+ *      negative — this run now self-tests that exact function against a
+ *      committed positive/negative control fixture
+ *      (fixtures/shell-appsfolder-calculator-control.lnk, a real
+ *      shell:AppsFolder shortcut) before any absentFromLnkScan claim is
+ *      made, and throws if either control fails. The ADR states precisely
+ *      what this search does and does not establish.
+ *   2. (major) The ADR claimed raw-startapps.json "was removed from the
+ *      working tree" when the documented re-record command recreates it in
+ *      out/ every time. Fixed at the source: the raw dump now always
+ *      writes to this script's own gitignored .scratch/ directory,
+ *      independent of --out, so out/ genuinely never receives it and the
+ *      ADR sentence is now true rather than aspirational.
+ *   3. (major) The stdout/ADR benchmark line labeled a bare directory walk
+ *      (no target resolution) as "the existing mechanism" and set it
+ *      against the new mechanism's cost, implying a ~276x gap that doesn't
+ *      exist. Relabeled to what it measures; the real existing-mechanism
+ *      comparison (COM .lnk resolution) is now printed alongside with its
+ *      source labeled — no number is invented or presented as measured by
+ *      this script when it wasn't.
+ *   4. (minor) gitInfo() recorded lnk-parser.mjs's dirty status but not
+ *      this script's own, and a dirty flag has an ordering problem (this
+ *      file is dirty relative to HEAD until the commit that ships this fix
+ *      lands). Now also records a SHA-256 of uwp-enum.mjs and
+ *      collect-startapps.ps1 — provenance that holds regardless of commit
+ *      timing — alongside both scripts' dirty status.
+ *   5. (minor) `--out` followed by another flag (e.g. `--out --bogus`) was
+ *      silently accepted as a literal directory name. parseArgs now
+ *      rejects an --out value that starts with "--".
+ *   6. (minor) The install-location containment check used a bare
+ *      startsWith with no path-separator boundary, so a sibling package
+ *      directory sharing a name prefix (e.g. `...Foo_1.0_x64__abc2`) could
+ *      satisfy `...Foo_1.0_x64__abc`. Now requires the next character to
+ *      be a path separator (or an exact match).
  */
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { parseLnk } from '../lnk-parser.mjs';
 
@@ -92,6 +136,12 @@ function parseArgs(argv) {
       const value = argv[i + 1];
       if (!value) {
         throw new Error(`--out requires a value (none given) — refusing to fall through to a default. Round-2 minor finding 10.`);
+      }
+      if (value.startsWith('--')) {
+        throw new Error(
+          `--out requires a path value, but got "${value}", which looks like another flag, not a directory — ` +
+            `refusing to silently create a directory literally named after it. Round-3 minor finding 5.`
+        );
       }
       out.outDir = value;
       i++;
@@ -130,19 +180,68 @@ function redact(value) {
 // --- Reproducibility metadata --------------------------------------------
 // lnk-parser.mjs (imported below) is co-owned by PROOF-03 and may carry
 // uncommitted local changes at the time this script runs. Record the repo
-// state so a reader of the committed artifact knows exactly what code
-// produced it, instead of assuming it matches HEAD.
+// state so a reader of the committed artifact knows what code produced it,
+// instead of assuming it matches HEAD.
+//
+// Round-3 minor finding 4: this used to record lnk-parser.mjs's dirty
+// status only, and the comment above claimed that told a reader "exactly
+// what code produced it" — but this script's OWN dirty status was never
+// recorded, and at the commit the round-2 artifact cited, the entire
+// structural-absence feature did not exist yet in this file. A dirty flag
+// also has an ordering problem for a file recording its OWN provenance:
+// this script is necessarily dirty relative to HEAD until the very commit
+// that ships whatever fix it just made lands, so "dirty: true" here is
+// expected, not a defect, on the run that produces the commit. What holds
+// regardless of commit timing is a content hash — so this now also records
+// a SHA-256 of uwp-enum.mjs and collect-startapps.ps1, in addition to both
+// scripts' git dirty status.
+
+function sha256File(filePath) {
+  try {
+    return createHash('sha256').update(readFileSync(filePath)).digest('hex');
+  } catch (err) {
+    return null;
+  }
+}
+
+function dirtyStatus(relativePath) {
+  const statusLine = execFileSync('git', ['status', '--porcelain', '--', relativePath], {
+    cwd: __dirname,
+    encoding: 'utf8',
+  }).trim();
+  return { dirty: statusLine.length > 0, statusLine: statusLine || null };
+}
 
 function gitInfo() {
   try {
     const headCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: __dirname, encoding: 'utf8' }).trim();
-    const dirtyLnkParser = execFileSync('git', ['status', '--porcelain', '--', '../lnk-parser.mjs'], {
-      cwd: __dirname,
-      encoding: 'utf8',
-    }).trim();
-    return { headCommit, lnkParserDirty: dirtyLnkParser.length > 0, lnkParserStatusLine: dirtyLnkParser || null };
+    const lnkParser = dirtyStatus('../lnk-parser.mjs');
+    const self = dirtyStatus('uwp-enum.mjs');
+    const collectScript = dirtyStatus('collect-startapps.ps1');
+    return {
+      headCommit,
+      lnkParserDirty: lnkParser.dirty,
+      lnkParserStatusLine: lnkParser.statusLine,
+      uwpEnumDirty: self.dirty,
+      uwpEnumStatusLine: self.statusLine,
+      uwpEnumSha256: sha256File(path.join(__dirname, 'uwp-enum.mjs')),
+      collectStartAppsDirty: collectScript.dirty,
+      collectStartAppsStatusLine: collectScript.statusLine,
+      collectStartAppsSha256: sha256File(path.join(__dirname, 'collect-startapps.ps1')),
+    };
   } catch (err) {
-    return { headCommit: null, lnkParserDirty: null, lnkParserStatusLine: null, error: String(err?.message ?? err) };
+    return {
+      headCommit: null,
+      lnkParserDirty: null,
+      lnkParserStatusLine: null,
+      uwpEnumDirty: null,
+      uwpEnumStatusLine: null,
+      uwpEnumSha256: sha256File(path.join(__dirname, 'uwp-enum.mjs')),
+      collectStartAppsDirty: null,
+      collectStartAppsStatusLine: null,
+      collectStartAppsSha256: sha256File(path.join(__dirname, 'collect-startapps.ps1')),
+      error: String(err?.message ?? err),
+    };
   }
 }
 
@@ -247,9 +346,20 @@ const lnkWalkStats = stats(lnkWalkSamplesMs);
 const lnkRootsReport = lastLnkWalk.perRoot.map((r) => ({ label: r.label, dir: redact(r.dir), count: r.count }));
 
 // --- Step 2: collect Get-StartApps + Get-AppxPackage, repeated for timing -
+//
+// Round-3 major finding 2: the raw dump used to be written into whatever
+// --out receives, so the ADR's own re-record command
+// (`--out measure/windows/proof-02/out`) regenerated it in the committed
+// out/ directory on every run, making the ADR's "removed from the working
+// tree" claim false by construction. The raw dump now always writes to
+// this script's own gitignored .scratch/ directory — independent of
+// --out — so out/ genuinely never receives it, regardless of what --out is
+// pointed at.
 
+const rawScratchDir = path.join(__dirname, '.scratch');
+mkdirSync(rawScratchDir, { recursive: true });
 const psScript = path.join(__dirname, 'collect-startapps.ps1');
-const rawOutFile = path.join(outDir, 'raw-startapps.json');
+const rawOutFile = path.join(rawScratchDir, 'raw-startapps.json');
 
 const psSamplesMs = [];
 let raw = null;
@@ -327,20 +437,36 @@ const unpackagedApps = classified.filter((r) => !r.packaged);
 //   (b) IDList-only shortcuts (category.idListOnly) resolve to
 //       resolvedTargetPath: null — (a) cannot decide those. A raw
 //       byte-level search of the .lnk file for the package's
-//       PackageFamilyName string (same technique ADR-0003 already used)
-//       covers that gap: an IDList referencing a packaged app's shell
-//       item would still spell the family name somewhere in its bytes if
-//       it referenced one at all.
+//       PackageFamilyName string covers *part* of that gap — see the
+//       round-3 fix and honest scope statement immediately below.
 //
 // A packaged app is "absent from the .lnk scan" only when BOTH checks find
 // nothing — not inferred from any string match on the display name.
-
-// rawBytesLower is deliberately kept in memory for every one of the 182
-// shortcuts (not streamed/discarded per-file) because structuralAbsenceCheck
-// below runs the byte search once per PACKAGED app (18 searches) against
-// the whole set — re-reading each .lnk from disk per app would be slower
-// and this is a one-shot script, not a long-lived process, so the
-// retention is a deliberate trade, not a leak.
+//
+// --- ROUND-3 blocker 1 fix -------------------------------------------------
+//
+// The byte search (b) used to lowercase each .lnk as LATIN1
+// (`buf.toString('latin1').toLowerCase()`) and search for the family name
+// in that decoding. The AUMID/family name inside a shell:AppsFolder IDList
+// is stored as UTF-16LE, not Latin-1/ANSI — that search could never match
+// and returned "absent" for every IDList-only shortcut BY CONSTRUCTION,
+// regardless of whether the family name was actually present. It would
+// have produced identical output if deleted.
+//
+// Fixed: lnkBytesContainFamily() does a byte-level search for the family
+// name encoded as UTF-16LE (`buf.includes(Buffer.from(family, 'utf16le'))`)
+// — not `buf.toString('utf16le').includes(...)`, which is also insufficient
+// on its own: a shell item's string payload is not guaranteed to start at
+// an even (2-byte-aligned) offset from 0, so decoding the WHOLE buffer as
+// UTF-16LE from offset 0 can miss a needle that a raw byte-level search
+// still finds.
+//
+// An encoding fix alone does not prove this check is CAPABLE of returning
+// a negative — the round-3 review explicitly pre-rejected that as
+// insufficient. So this exact function is now self-tested (see
+// "Step 4a: self-test" below) against a committed positive/negative
+// control fixture before any absentFromLnkScan claim is made, and the run
+// throws if either control fails.
 const lnkParseStart = process.hrtime.bigint();
 const lnkResolved = lnkFiles.map((file) => {
   let buf = null;
@@ -358,24 +484,68 @@ const lnkResolved = lnkFiles.map((file) => {
     idListOnly: parsed?.category?.idListOnly ?? false,
     valid: parsed?.valid ?? false,
     readError,
-    rawBytesLower: buf ? buf.toString('latin1').toLowerCase() : '',
+    // buf (the raw bytes) is deliberately kept in memory for every one of
+    // the 182 shortcuts (not streamed/discarded per-file) because
+    // structuralAbsenceCheck below runs the byte search once per PACKAGED
+    // app (18 searches) against the whole set — re-reading each .lnk from
+    // disk per app would be slower and this is a one-shot script, not a
+    // long-lived process, so the retention is a deliberate trade, not a
+    // leak.
+    buf,
   };
 });
 const lnkParseMs = Number(process.hrtime.bigint() - lnkParseStart) / 1e6;
 const unresolvedLnkCount = lnkResolved.filter((r) => !r.resolvedTargetPath).length;
 
+/**
+ * Byte-level UTF-16LE search for `family` inside a .lnk's raw bytes. This
+ * is the ONE function both the real per-app structural check and the
+ * fixture self-test call — a control written against a copy-pasted search
+ * would prove nothing about the search actually used.
+ *
+ * What this establishes: the package's PackageFamilyName is present
+ * somewhere in the shortcut's raw bytes as a UTF-16LE string.
+ * What this does NOT establish: this is not a decode of the
+ * LinkTargetIDList structure (lnk-parser.mjs explicitly scopes that out —
+ * see its header, "Deliberate scope limits" §1), so it cannot say WHERE in
+ * the shortcut the string appears or what shell-item type references it,
+ * and a shortcut that lacks the literal family-name string cannot be ruled
+ * out from referencing the package through some other, indirect encoding
+ * this search does not know how to recognize. It is a positive-hit
+ * detector proven (by the self-test) capable of a real hit; it is not a
+ * general proof that "byte search found nothing" implies "the package is
+ * definitely not referenced" for every conceivable IDList encoding.
+ */
+function lnkBytesContainFamily(buf, family) {
+  if (!buf) return false;
+  return buf.includes(Buffer.from(family, 'utf16le'));
+}
+
 const appxInstallLocationByFamily = new Map(
   appxPackages.filter((p) => p.PackageFamilyName && p.InstallLocation).map((p) => [p.PackageFamilyName, p.InstallLocation])
 );
 
+// Round-3 minor finding 6: containment used to be a bare startsWith with no
+// path-separator boundary, so `...Foo_1.0_x64__abc2\` would satisfy
+// startsWith(`...Foo_1.0_x64__abc`) — a false "resolved target matches"
+// against a merely name-prefixed SIBLING package directory. Now the target
+// must be the install directory itself, or fall strictly inside it (next
+// character after the install-location prefix must be a path separator).
+function isInsideInstallLocation(targetPathLower, installLocationLower) {
+  if (targetPathLower === installLocationLower) return true;
+  return targetPathLower.startsWith(installLocationLower + path.sep);
+}
+
 function structuralAbsenceCheck(family) {
-  const installLocation = appxInstallLocationByFamily.get(family) ?? null;
+  const installLocationRaw = appxInstallLocationByFamily.get(family) ?? null;
+  // Strip any trailing separator first so installLocationLower + path.sep
+  // below never produces a doubled separator.
+  const installLocation = installLocationRaw ? installLocationRaw.replace(/[\\/]+$/, '') : null;
   const installLocationLower = installLocation ? installLocation.toLowerCase() : null;
   const targetMatches = installLocationLower
-    ? lnkResolved.filter((r) => r.resolvedTargetPath && r.resolvedTargetPath.toLowerCase().startsWith(installLocationLower))
+    ? lnkResolved.filter((r) => r.resolvedTargetPath && isInsideInstallLocation(r.resolvedTargetPath.toLowerCase(), installLocationLower))
     : [];
-  const familyLower = family.toLowerCase();
-  const byteMatches = lnkResolved.filter((r) => r.rawBytesLower.includes(familyLower));
+  const byteMatches = lnkResolved.filter((r) => lnkBytesContainFamily(r.buf, family));
   return {
     installLocation: redact(installLocation),
     resolvedTargetMatches: targetMatches.map((m) => redact(m.file)),
@@ -383,6 +553,86 @@ function structuralAbsenceCheck(family) {
     absent: targetMatches.length === 0 && byteMatches.length === 0,
   };
 }
+
+// --- Step 4a: self-test the structural-absence checks against a committed
+// positive/negative control fixture (round-3 blocker 1 required fix (a),
+// combined with (c)'s honest-scope statement above) -------------------------
+//
+// fixtures/shell-appsfolder-calculator-control.lnk is a REAL
+// shell:AppsFolder shortcut, generated via WScript.Shell with
+// TargetPath = "shell:AppsFolder\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"
+// — the exact case (an IDList-only shortcut whose only path information is
+// the AppsFolder shell item) that lnk-parser.mjs's resolvedTargetPath
+// cannot decide (scope limit §1) and that the byte search exists to cover.
+// Verified free of any machine-specific/PII content before being committed
+// (grep for the OS username and "C:\Users" both returned no match).
+//
+// This run refuses to make any absentFromLnkScan claim unless:
+//   1. parseLnk() on the fixture confirms resolvedTargetPath is null and
+//      idListOnly is true — i.e. this really is a case check (a) cannot
+//      decide, so the byte search is load-bearing for it, not redundant.
+//   2. lnkBytesContainFamily() — the EXACT function used above, not a
+//      separately-written copy — DOES detect the Calculator family name in
+//      the fixture (positive control: proves the check can return a hit).
+//   3. lnkBytesContainFamily() does NOT detect an unrelated family (Photos)
+//      that the fixture does not reference (negative control: proves a
+//      passing positive control isn't a degenerate "always true").
+// Any failure throws, naming which control failed — a control that only
+// prints and continues is decoration, not a proof.
+
+const fixturePath = path.join(__dirname, 'fixtures', 'shell-appsfolder-calculator-control.lnk');
+const fixtureBuf = readFileSync(fixturePath);
+const fixtureParsed = parseLnk(fixtureBuf);
+const FIXTURE_POSITIVE_FAMILY = 'Microsoft.WindowsCalculator_8wekyb3d8bbwe';
+const FIXTURE_NEGATIVE_FAMILY = 'Microsoft.Windows.Photos_8wekyb3d8bbwe';
+
+if (fixtureParsed.resolvedTargetPath !== null || fixtureParsed.category?.idListOnly !== true) {
+  throw new Error(
+    `Structural-absence self-test precondition failed: the committed control fixture ` +
+      `(${fixturePath}) was expected to be an IDList-only shortcut (resolvedTargetPath: null, ` +
+      `idListOnly: true) — the exact case check (a) cannot decide — but parseLnk returned ` +
+      `resolvedTargetPath=${JSON.stringify(fixtureParsed.resolvedTargetPath)}, ` +
+      `idListOnly=${JSON.stringify(fixtureParsed.category?.idListOnly)}. Refusing to trust the byte ` +
+      `search's self-test until this is understood. Round-3 blocker 1.`
+  );
+}
+const positiveControlDetected = lnkBytesContainFamily(fixtureBuf, FIXTURE_POSITIVE_FAMILY);
+if (!positiveControlDetected) {
+  throw new Error(
+    `Structural-absence self-test FAILED (positive control): lnkBytesContainFamily() did not detect ` +
+      `family "${FIXTURE_POSITIVE_FAMILY}" inside the committed control fixture, which is a real ` +
+      `shell:AppsFolder shortcut for exactly that package. The byte search cannot be trusted to return a ` +
+      `negative when it cannot even return a positive on a known-true case — refusing to make any ` +
+      `absentFromLnkScan claim. Round-3 blocker 1.`
+  );
+}
+const negativeControlDetected = lnkBytesContainFamily(fixtureBuf, FIXTURE_NEGATIVE_FAMILY);
+if (negativeControlDetected) {
+  throw new Error(
+    `Structural-absence self-test FAILED (negative control): lnkBytesContainFamily() reported family ` +
+      `"${FIXTURE_NEGATIVE_FAMILY}" as present inside a fixture that only references ` +
+      `"${FIXTURE_POSITIVE_FAMILY}" — the check is not discriminating and would report false "not absent" ` +
+      `results. Refusing to make any absentFromLnkScan claim. Round-3 blocker 1.`
+  );
+}
+
+const structuralAbsenceSelfTest = {
+  fixtureFile: 'measure/windows/proof-02/fixtures/shell-appsfolder-calculator-control.lnk',
+  fixtureSizeBytes: fixtureBuf.length,
+  fixtureConfirmedIdListOnly: true,
+  fixtureConfirmedUnresolvedByCheck1: true,
+  positiveControlFamily: FIXTURE_POSITIVE_FAMILY,
+  positiveControlDetected,
+  negativeControlFamily: FIXTURE_NEGATIVE_FAMILY,
+  negativeControlDetected,
+  passed: true,
+  scopeStatement:
+    'This search detects a PackageFamilyName present as literal UTF-16LE bytes anywhere in a .lnk file. ' +
+    'It is not a decode of LinkTargetIDList (lnk-parser.mjs scope limit #1) and cannot say where/how the ' +
+    'string is referenced. It is proven (by this self-test) capable of a real positive hit and of not ' +
+    'firing on an unrelated family; it is not a general proof that a miss rules out every possible IDList ' +
+    'encoding of a reference to the package.',
+};
 
 // --- Step 5: locate the 3 proof-of-concept apps -----------------------------
 //
@@ -589,13 +839,48 @@ const resultPayload = {
   repoState,
   culture: raw.culture ?? null,
   timings: {
-    lnkWalk: { ...lnkWalkStats, unit: 'ms' },
+    // Round-3 major finding 3: this arm is a bare directory walk — it never
+    // resolves a target — and was previously mislabeled "existing
+    // mechanism", set against the new mechanism's ~1710 ms as if the .lnk
+    // scan itself costs 6 ms. It does not; see existingMechanismComparison
+    // below for the honest figures (with provenance) this decision
+    // actually rests on.
+    lnkDirectoryWalk: { ...lnkWalkStats, unit: 'ms' },
+    lnkDirectoryWalkNote:
+      'baseline enumeration only (readdir + filter by .lnk extension) — does NOT resolve any shortcut target. ' +
+      'Renamed from "lnk scan (existing mechanism)"; see existingMechanismComparison for the real existing-mechanism cost.',
     powershellCollect: { ...psCollectStats, unit: 'ms' },
     totalMs: Number((lnkWalkStats.median + psCollectStats.median).toFixed(2)),
-    totalMsNote: 'sum of the two arms\' medians, not a single elapsed-time sample',
+    totalMsNote: 'sum of the directory-walk and PowerShell-collect arms\' medians, not a single elapsed-time sample',
     lnkTargetResolveMs: Number(lnkParseMs.toFixed(2)),
-    lnkTargetResolveMsNote: 'single sample, diagnostic only — new proof plumbing, not the existing .lnk-scan mechanism being benchmarked',
+    lnkTargetResolveMsNote: 'single sample, diagnostic only — new proof plumbing (structural-absence check), not the existing .lnk-resolution mechanism being compared against',
   },
+  // Round-3 major finding 3: the actual "what does the existing mechanism
+  // cost" comparison this decision rests on. Neither figure was measured by
+  // THIS script — both are cited with their source so a reader can tell
+  // measured-by-this-run apart from measured-elsewhere.
+  existingMechanismComparison: {
+    researchDocBaseline: {
+      source: '.maxvision/research/WINDOWS-STACK.md',
+      description: '149 .lnk shortcuts resolved via COM',
+      ms: 2395,
+      measuredByThisScript: false,
+    },
+    adr0003Remeasurement: {
+      source: 'docs/adr/0003-proof-03-lnk-binary-parsing.md',
+      description: 'COM loop-only, re-measured, median of n=5',
+      ms: 273.1,
+      measuredByThisScript: false,
+    },
+    thisRunUwpEnumerationMs: psCollectStats.median,
+    note:
+      'The new UWP-enumeration mechanism (Get-StartApps + Get-AppxPackage, median ' +
+      psCollectStats.median +
+      ' ms this run) is the same order of magnitude as COM .lnk resolution (273.1–2395 ms depending on which ' +
+      'measurement), not ~276x cheaper than a bare directory walk that never resolves anything and was never ' +
+      'the thing being compared against.',
+  },
+  structuralAbsenceSelfTest,
   lnkBaseline: {
     roots: lnkRootsReport,
     totalLnkFiles: lnkFiles.length,
@@ -636,10 +921,15 @@ writeFileSync(path.join(outDir, 'uwp-scan-result.json'), JSON.stringify(resultPa
 
 console.log('=== PROOF-02: UWP/Store app enumerator ===');
 console.log(
-  `.lnk scan (existing mechanism): ${lnkFiles.length} .lnk files, ${WARMUP_ITERATIONS} warmup + ${TIMED_ITERATIONS} timed runs ` +
-    `-> median ${lnkWalkStats.median} ms (min ${lnkWalkStats.min}, max ${lnkWalkStats.max}, n=${lnkWalkStats.n})`
+  `.lnk directory walk (baseline enumeration only, no target resolution): ${lnkFiles.length} .lnk files, ` +
+    `${WARMUP_ITERATIONS} warmup + ${TIMED_ITERATIONS} timed runs -> median ${lnkWalkStats.median} ms ` +
+    `(min ${lnkWalkStats.min}, max ${lnkWalkStats.max}, n=${lnkWalkStats.n})`
 );
 for (const r of lnkRootsReport) console.log(`  root [${r.label}]: ${r.count} .lnk files`);
+console.log(
+  `  (for comparison, NOT measured by this run: research-doc baseline 2395 ms / 149 .lnk resolved via COM ` +
+    `[.maxvision/research/WINDOWS-STACK.md]; ADR-0003 re-measured COM loop-only median 273.1 ms, n=5)`
+);
 console.log(
   `Get-StartApps + Get-AppxPackage collect: ${WARMUP_ITERATIONS} warmup + ${TIMED_ITERATIONS} timed runs -> median ` +
     `${psCollectStats.median} ms (min ${psCollectStats.min}, max ${psCollectStats.max}, n=${psCollectStats.n}) -> ` +
@@ -648,6 +938,17 @@ console.log(
 console.log(
   `Classification: ${packagedApps.length} rows confirmed packaged (UWP/Store), ` +
     `${unpackagedApps.length} rows non-packaged (left to the .lnk-based scan)`
+);
+console.log('');
+console.log('Structural-absence byte-search self-test (round-3 blocker 1 — fixture: fixtures/shell-appsfolder-calculator-control.lnk):');
+console.log(
+  `  fixture confirmed IDList-only (unresolvable by check 1): ${structuralAbsenceSelfTest.fixtureConfirmedIdListOnly}`
+);
+console.log(
+  `  positive control (${structuralAbsenceSelfTest.positiveControlFamily}) detected: ${structuralAbsenceSelfTest.positiveControlDetected}`
+);
+console.log(
+  `  negative control (${structuralAbsenceSelfTest.negativeControlFamily}) NOT detected: ${!structuralAbsenceSelfTest.negativeControlDetected}`
 );
 console.log('');
 console.log('Proof targets (found by package family, not by name — locale is pt-BR on this machine):');
@@ -698,7 +999,7 @@ console.log(`Total scan count: ${startApps.length} Start-menu index rows scanned
 console.log(`  of which ${packagedApps.length} are confirmed UWP/Store apps (packaged)`);
 console.log(`  of which ${unpackagedApps.length} are non-packaged (left for the .lnk-based scan to discover by target path)`);
 console.log(
-  `Elapsed time: ${resultPayload.timings.totalMs} ms (median .lnk walk ${lnkWalkStats.median} ms + median PowerShell ` +
+  `Elapsed time: ${resultPayload.timings.totalMs} ms (median .lnk directory walk ${lnkWalkStats.median} ms + median PowerShell ` +
     `collect ${psCollectStats.median} ms)`
 );
 console.log('');
