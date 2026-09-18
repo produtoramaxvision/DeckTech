@@ -23,6 +23,14 @@
 //     no env-var fallback produced zero candidates while still reading
 //     idListOnly: false -- silently landing in unexpectedParserEmptyGapCount
 //     instead of the accepted coverage-gap bucket.
+//   - Round-4 minor 4: parseExtraData silently stopped on a truncated or
+//     size-lying ExtraData block with no signal, degrading a corrupt file
+//     into the same bucket an honest IDList-only shortcut lands in -- the
+//     one bucket the benchmark's exit code does not gate on.
+//   - Round-4 minor 5: expandEnvVars' per-process key-cache was populated
+//     once and never refreshed, so a call made before the environment was
+//     fully populated permanently and silently locked in an incomplete
+//     keyset for the rest of the process's life.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -239,6 +247,37 @@ test('a shortcut with LinkInfo present but ForceNoLinkInfo set, no env block, ha
   );
 });
 
+test('a .lnk with a truncated/size-lying ExtraData block sets extraDataTruncated, not silently a plain zero-candidate result -- round-4 minor finding 4', () => {
+  // No LinkTargetIDList, no LinkInfo, no StringData -- ExtraData starts
+  // immediately after the 0x4c-byte header. The block claims the full
+  // EnvironmentVariableDataBlock size (0x314) via BlockSize, but only 20
+  // bytes actually follow -- far short of what BlockSize promises. This is
+  // the "size field lies about the file's real length" shape, the same
+  // defect class round-2 major finding 4 guarded for LinkInfo/IDList, now
+  // guarded for ExtraData.
+  const claimedBlockSize = 0x314;
+  const extraDataOffset = 0x4c; // right after the header, flags = 0
+  const truncatedBlock = Buffer.alloc(20);
+  truncatedBlock.writeUInt32LE(claimedBlockSize, 0); // BlockSize: claims 0x314...
+  truncatedBlock.writeUInt32LE(0xa0000001, 4); // BlockSignature: EnvironmentVariableDataBlock
+  // ...but only 20 bytes total are actually present (12 bytes of "data"
+  // follow the 8-byte block header here, nowhere near 0x314).
+
+  const buf = Buffer.concat([buildHeader(0), truncatedBlock]);
+  let parsed;
+  assert.doesNotThrow(() => {
+    parsed = parseLnk(buf);
+  }, 'a truncated ExtraData block must never throw a raw RangeError');
+
+  assert.equal(parsed.valid, true, 'a truncated ExtraData block does not invalidate the whole .lnk -- everything read before it (header, in this case) is still valid');
+  assert.ok(parsed.extraDataTruncated, 'extraDataTruncated must be set (non-null) when a block\'s claimed size does not fit the remaining buffer');
+  assert.equal(parsed.extraDataTruncated.offset, extraDataOffset);
+  assert.equal(parsed.extraDataTruncated.claimedBlockSize, claimedBlockSize);
+  assert.equal(parsed.extraDataTruncated.bufLength, buf.length);
+  assert.equal(parsed.envBlock, null, 'the truncated block must not be decoded as a usable env block');
+  assert.equal(parsed.candidates.length, 0);
+});
+
 test('expandEnvVars is case-insensitive and leaves unknown %VAR% references untouched', () => {
   process.env.DECKTECH_TEST_LNK_VAR = 'C:\\Fake';
   try {
@@ -246,5 +285,34 @@ test('expandEnvVars is case-insensitive and leaves unknown %VAR% references unto
     assert.equal(expandEnvVars('%DECKTECH_DOES_NOT_EXIST%\\x'), '%DECKTECH_DOES_NOT_EXIST%\\x');
   } finally {
     delete process.env.DECKTECH_TEST_LNK_VAR;
+  }
+});
+
+test('expandEnvVars picks up a process.env var set AFTER an earlier call -- round-4 minor finding 5 (stale per-process cache regression guard)', () => {
+  // This is the exact regression round-2 minor finding 10a's cache
+  // introduced and round-4 minor finding 5 reverted: a call made BEFORE a
+  // variable is set must not permanently poison every later expansion of
+  // that same variable. If expandEnvVars ever re-gains a cache populated
+  // once and never refreshed, this call (before the var exists) locks in
+  // the miss and the second call (after the var exists) would still
+  // return the raw '%...%' string.
+  const name = 'DECKTECH_TEST_LNK_VAR_LATE';
+  delete process.env[name];
+  try {
+    // First call: the variable does not exist yet -- must fall through to
+    // the raw string, same as any genuinely-unknown %VAR%.
+    assert.equal(expandEnvVars(`%${name}%\\x`), `%${name}%\\x`);
+
+    // Variable appears AFTER that first call (e.g. a long-lived server
+    // finishing startup, dotenv running late, PATH being extended).
+    process.env[name] = 'C:\\Late\\Value';
+
+    assert.equal(
+      expandEnvVars(`%${name}%\\x`),
+      'C:\\Late\\Value\\x',
+      'a second call after the env var appears must expand it -- if this still reads the raw %VAR% string, the key-cache from the first call was reused instead of rebuilt',
+    );
+  } finally {
+    delete process.env[name];
   }
 });

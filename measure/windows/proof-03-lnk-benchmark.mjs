@@ -57,6 +57,23 @@ const TIMED_ITERATIONS = 5; // iterations 1..5: warm, aggregated (median/min/max
  * into `dirErrors` instead of being swallowed, so a permission-denied or
  * otherwise-unreadable subtree shrinks the measured set VISIBLY rather than
  * silently. Round-2 major finding 5.
+ *
+ * A directory ENTRY that is a reparse point (junction or symlink --
+ * `entry.isSymbolicLink()`) is neither `isDirectory()` nor `isFile()` per
+ * `readdirSync(..., {withFileTypes:true})` on Windows, so it used to fall
+ * through BOTH branches below: not descended into, not recorded anywhere,
+ * no WARNING, exit code still 0 -- the scanned set would shrink with zero
+ * signal. This is exactly the shape folder redirection uses (roaming
+ * profiles, OneDrive Known Folder Move, GPO redirection of
+ * %APPDATA%/%LOCALAPPDATA%), so a redirected-profile machine would have
+ * silently under-counted its Start Menu. Round-4 major finding 3: such an
+ * entry is now explicitly recorded into `dirErrors` with a distinct code
+ * (`SKIPPED_REPARSE_POINT`), which reaches both the WARNING line and the
+ * exit-code gate, the same as any other under-count. It is deliberately
+ * NOT followed (no realpath loop-guard is needed as a result): a reparse
+ * point can point outside either scanned root or form a cycle, and this
+ * benchmark's job is to report what it did NOT scan, honestly, not to
+ * silently widen its own scope.
  */
 function walkLnkFiles(root, dirErrors) {
   const out = [];
@@ -72,6 +89,14 @@ function walkLnkFiles(root, dirErrors) {
     }
     for (const entry of entries) {
       const full = join(dir, entry.name);
+      if (entry.isSymbolicLink()) {
+        dirErrors.push({
+          dir: full,
+          code: 'SKIPPED_REPARSE_POINT',
+          message: 'entry is a symlink/junction (reparse point); not followed, not descended into -- see walkLnkFiles docblock',
+        });
+        continue;
+      }
       if (entry.isDirectory()) walk(full);
       else if (entry.isFile() && entry.name.toLowerCase().endsWith('.lnk')) out.push(full);
     }
@@ -376,7 +401,7 @@ async function main() {
   // docs/adr/0003, round-3 fix 1.
 
   console.log('--- Timing: iteration 0 (n=1, first pass; NOT a fair cold-vs-warm comparison -- see note below) ---');
-  console.log(`Baseline (research, prior run, different file count -- see docs/adr/0003 for the unreconciled 149-vs-${files.length} denominator): ${BASELINE_COUNT} shortcuts, ${BASELINE_MS} ms total, ${BASELINE_MS_PER_ITEM.toFixed(2)} ms/shortcut`);
+  console.log(`Baseline (research, prior run, different file count AND -- see below -- a total that does not reproduce via the same COM mechanism on this machine; see docs/adr/0003 round-4 finding 1): ${BASELINE_COUNT} shortcuts, ${BASELINE_MS} ms total, ${BASELINE_MS_PER_ITEM.toFixed(2)} ms/shortcut`);
   console.log(`COM loop-only (iteration 0): ${files.length} shortcuts, ${cold.comLoopOnlyMs.toFixed(1)} ms total, ${(cold.comLoopOnlyMs / files.length).toFixed(2)} ms/shortcut`);
   console.log(`COM wall incl. PowerShell startup + COM instantiation (iteration 0): ${cold.comWallMs.toFixed(1)} ms total`);
   console.log(`Node binary parser (iteration 0): ${files.length} shortcuts, ${cold.nodeParserMs.toFixed(2)} ms total, ${(cold.nodeParserMs / files.length).toFixed(4)} ms/shortcut`);
@@ -386,7 +411,10 @@ async function main() {
   console.log(`Node parser: median ${nodeWarmStats.median.toFixed(2)} ms, min ${nodeWarmStats.min.toFixed(2)}, max ${nodeWarmStats.max.toFixed(2)}, stddev ${nodeWarmStats.stddev.toFixed(2)} -- raw: [${nodeWarmMs.map((x) => x.toFixed(2)).join(', ')}]`);
   console.log(`COM loop-only: median ${comWarmStats.median.toFixed(1)} ms, min ${comWarmStats.min.toFixed(1)}, max ${comWarmStats.max.toFixed(1)}, stddev ${comWarmStats.stddev.toFixed(1)} -- raw: [${comLoopWarmMs.map((x) => x.toFixed(1)).join(', ')}]`);
   console.log(`Speedup (median of per-iteration COM/Node ratios): median ${speedupWarmStats.median.toFixed(1)}x, min ${speedupWarmStats.min.toFixed(1)}x, max ${speedupWarmStats.max.toFixed(1)}x`);
-  console.log(`Node parser warm median, per-shortcut: ${(nodeWarmStats.median / files.length).toFixed(4)} ms/shortcut\n`);
+  console.log(`Node parser warm median, per-shortcut: ${(nodeWarmStats.median / files.length).toFixed(4)} ms/shortcut`);
+  const comWarmMsPerItemMedian = comWarmStats.median / files.length;
+  console.log(`COM warm median, per-shortcut: ${comWarmMsPerItemMedian.toFixed(4)} ms/shortcut`);
+  console.log(`NOTE (round-4 blocker finding 1): the research baseline's per-item rate is ${BASELINE_MS_PER_ITEM.toFixed(2)} ms/shortcut (${BASELINE_MS} ms / ${BASELINE_COUNT} shortcuts). This run's COM warm median is ${comWarmMsPerItemMedian.toFixed(2)} ms/shortcut over ${files.length} shortcuts, the SAME WScript.Shell mechanism -- a ${(BASELINE_MS_PER_ITEM / comWarmMsPerItemMedian).toFixed(1)}x difference NOT explained by the file-count difference (a larger denominator here would raise COM's TOTAL time, not cut its PER-ITEM rate). The baseline total does not reproduce on this machine; see docs/adr/0003 round-4 finding 1 for the absolute-magnitude implication for PLAT-10.\n`);
 
   // --- Per-shortcut comparison, from the canonical (cold) iteration's
   // output -- deterministic across iterations for the same file set, so
@@ -401,7 +429,7 @@ async function main() {
   const mismatches = [];
   const secondaryOnlyMatches = [];
   const realpathErrors = [];
-  const categoryCensus = { envVar: 0, unc: 0, msiAdvertised: 0, idListOnly: 0, noUsablePathSource: 0, invalidFile: 0, ioError: 0, parserException: 0 };
+  const categoryCensus = { envVar: 0, unc: 0, msiAdvertised: 0, idListOnly: 0, noUsablePathSource: 0, invalidFile: 0, ioError: 0, parserException: 0, extraDataTruncated: 0 };
   const rows = [];
   let forceNoLinkInfoCount = 0;
 
@@ -420,6 +448,14 @@ async function main() {
       if (bin.category.idListOnly) categoryCensus.idListOnly += 1;
       if (bin.category.noUsablePathSource) categoryCensus.noUsablePathSource += 1;
       if (bin.flags && bin.flags.ForceNoLinkInfo) forceNoLinkInfoCount += 1;
+      // extraDataTruncated is intentionally NOT censused here, inside the
+      // "bin is valid" branch. It is instead derived after the loop from
+      // `rows[].parserExtraDataTruncated` (see below `rows.forEach`/filter),
+      // the SAME field the gap-classification filter reads, so the census
+      // count can never drift from what actually gates the exit code --
+      // the same "derive from one source, don't keep two predicates in
+      // sync by hand" fix shape round-3 minor finding 7 used for
+      // noUsablePathSource vs idListOnly.
     }
 
     if (com.error) {
@@ -461,6 +497,7 @@ async function main() {
       parserResolvedTargetPath: bin ? bin.resolvedTargetPath : null,
       parserFlags: bin ? bin.flags : null,
       parserExtraDataBlockSignatures: bin ? bin.extraDataBlockSignatures ?? null : null,
+      parserExtraDataTruncated: bin ? bin.extraDataTruncated ?? null : null,
       category: bin ? bin.category : null,
       comparisonTier: cmp.tier,
       matchedVia: cmp.matchedVia,
@@ -481,6 +518,18 @@ async function main() {
     for (const e of realpathErrors) console.log(`  ${e.path} -- ${e.errorCode}`);
     console.log('');
   }
+
+  // Derived from `rows[].parserExtraDataTruncated` -- the SAME field the
+  // gap-classification filter below reads -- rather than censused inside
+  // the per-file loop's "bin is valid" branch, so `categoryCensus.
+  // extraDataTruncated`/`extraDataTruncatedRows` can never drift from what
+  // actually gates the exit code (round-4 minor finding 4, hardened after
+  // review: derive from one source, don't keep two predicates in sync by
+  // hand -- the same shape round-3 minor finding 7 used).
+  const extraDataTruncatedRows = rows
+    .filter((r) => r.parserExtraDataTruncated)
+    .map((r) => ({ path: r.path, ...r.parserExtraDataTruncated }));
+  categoryCensus.extraDataTruncated = extraDataTruncatedRows.length;
 
   console.log('--- Agreement (against the PARSER\'S PRIMARY output; a match found only via a secondary candidate is its own tier, not folded into exact) ---');
   console.log(`  exact match (primary candidate):        ${tierCounts.exact}`);
@@ -508,8 +557,15 @@ async function main() {
   // fall through into unexpectedParserEmptyGapCount as an unexplained gap.
   // noUsablePathSource is derived from candidates.length itself, so it
   // cannot drift from what the parser actually resolved.
-  const idListOnlyGapRows = rows.filter((r) => r.comparisonTier === 'parser-empty' && r.category && r.category.noUsablePathSource);
-  const unexpectedParserEmptyRows = rows.filter((r) => r.comparisonTier === 'parser-empty' && !(r.category && r.category.noUsablePathSource));
+  // A row whose ExtraData block was itself truncated/corrupt
+  // (parserExtraDataTruncated set -- round-4 minor finding 4) is NEVER
+  // accepted into the honest noUsablePathSource gap bucket, even when its
+  // candidate list is otherwise empty for IDList-only reasons: a corrupt
+  // file must not be indistinguishable from a shortcut the parser
+  // honestly abstains on. It is always routed into
+  // unexpectedParserEmptyGapCount, which DOES gate the exit code.
+  const idListOnlyGapRows = rows.filter((r) => r.comparisonTier === 'parser-empty' && r.category && r.category.noUsablePathSource && !r.parserExtraDataTruncated);
+  const unexpectedParserEmptyRows = rows.filter((r) => r.comparisonTier === 'parser-empty' && !(r.category && r.category.noUsablePathSource && !r.parserExtraDataTruncated));
   const idListOnlyGapCount = idListOnlyGapRows.length;
   const unexpectedParserEmptyGapCount = unexpectedParserEmptyRows.length;
 
@@ -523,6 +579,19 @@ async function main() {
   console.log(`  IDList-only, no LinkInfo AT ALL (UWP-shaped .lnk):         ${categoryCensus.idListOnly}`);
   console.log(`  No usable target-path source (gap classification field):  ${categoryCensus.noUsablePathSource}`);
   console.log(`  ForceNoLinkInfo tripped (checked and honored):             ${forceNoLinkInfoCount}`);
+  console.log(`  ExtraData block truncated/corrupt (round-4 minor finding 4): ${categoryCensus.extraDataTruncated}`);
+  if (categoryCensus.extraDataTruncated > 0) {
+    // Printed unconditionally when nonzero, REGARDLESS of whether the row
+    // also ended up in unexpectedParserEmptyGapCount below -- a row can
+    // have a truncated ExtraData block and STILL produce a candidate from
+    // LinkInfo (so it is not parser-empty and does not gate the exit
+    // code), and that case must not be invisible just because it isn't a
+    // coverage gap.
+    console.log(`  WARNING: ${categoryCensus.extraDataTruncated} shortcut(s) have a truncated/corrupt ExtraData block -- see extraDataTruncatedRows in the JSON:`);
+    for (const r of extraDataTruncatedRows) {
+      console.log(`    ${r.path} -- claimed BlockSize ${r.claimedBlockSize} at offset 0x${r.offset.toString(16)}, file is ${r.bufLength} bytes`);
+    }
+  }
   if (categoryCensus.idListOnly === 0) {
     console.log('  Zero IDList-only shortcuts is the expected finding for THIS file set (see UWP marker scan below), not a parser gap.');
   } else {
@@ -628,7 +697,22 @@ async function main() {
 
   const report = {
     generatedAt: new Date().toISOString(),
-    baseline: { count: BASELINE_COUNT, totalMs: BASELINE_MS, msPerItem: BASELINE_MS_PER_ITEM, denominatorReconciledWithThisRun: false },
+    baseline: {
+      count: BASELINE_COUNT,
+      totalMs: BASELINE_MS,
+      msPerItem: BASELINE_MS_PER_ITEM,
+      denominatorReconciledWithThisRun: false,
+      // Round-4 blocker finding 1: the baseline's headline TOTAL (2395ms)
+      // does not reproduce on this machine via the same WScript.Shell
+      // mechanism, independently of the 149-vs-182 file-count question
+      // above. comWarmMsPerItemMedianThisRun is this run's own measured
+      // per-item rate; the ratio below is NOT explained by file count (a
+      // larger denominator would raise COM's total, not cut its per-item
+      // rate).
+      comWarmMsPerItemMedianThisRun: comWarmMsPerItemMedian,
+      baselineMsPerItemDividedByThisRunComWarmMsPerItem: BASELINE_MS_PER_ITEM / comWarmMsPerItemMedian,
+      baselineTotalReproducedOnThisMachine: false,
+    },
     dirErrors,
     thisRun: {
       count: files.length,
@@ -664,6 +748,7 @@ async function main() {
     },
     categoryCensus,
     forceNoLinkInfoCount,
+    extraDataTruncatedRows,
     realpathErrors,
     uwpMarkerScan: uwpScan,
     envSnapshot,

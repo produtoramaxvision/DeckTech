@@ -87,6 +87,34 @@
 //       above produces, so gap classification (in the benchmark) cannot
 //       drift from what this parser actually resolved. Round-3 minor
 //       finding 7.
+//
+// --- ROUND-4 REVIEW FIXES (see docs/adr/0003-proof-03-lnk-binary-parsing.md) ---
+//
+//   (f) `parseExtraData` now reports a distinct `truncated` result
+//       (`{offset, claimedBlockSize, bufLength}`) when it stops because a
+//       block's self-reported size does not fit the remaining buffer, as
+//       opposed to stopping because it reached a legitimate TerminalBlock
+//       (`blockSize < 4`). Previously both cases silently produced the
+//       same `envBlock: null`, which downstream landed a corrupt file in
+//       the SAME bucket (`noUsablePathSource`) as an honest IDList-only
+//       shortcut -- the one bucket the benchmark's exit code does not gate
+//       on. Surfaced on the parse result as `extraDataTruncated` (null
+//       when not truncated) so the benchmark can route it into the
+//       gate-worthy `unexpectedParserEmptyGapCount` bucket instead.
+//       Round-4 minor finding 4.
+//
+//   (g) `expandEnvVars`'s per-process key-cache (round-2 fix (c) above) is
+//       REVERTED: it made a first call, made before the environment is
+//       fully populated, permanently and silently lock in an incomplete
+//       keyset for the rest of the process's life -- every later
+//       `%ProgramFiles%\...`-style shortcut would then resolve to the
+//       unexpanded literal with no error, exactly the failure mode
+//       round-2 blocker 1 was rejected for reaching through a different
+//       door. The map is now rebuilt on every call. Measured cost: see
+//       "Cache removal cost" in docs/adr/0003's round-4 section -- 182
+//       files, 42 of them env-var shortcuts each triggering one rebuild,
+//       add well under a millisecond to the whole warm run. Round-4 minor
+//       finding 5.
 
 /** HeaderSize (section 2.1): ShellLinkHeader.HeaderSize MUST be this value. */
 const HEADER_SIZE = 0x0000004c;
@@ -331,16 +359,38 @@ function parseLinkInfo(buf, base) {
  * other block type is skipped by its BlockSize without being interpreted.
  * `blockSignaturesSeen` is returned (not discarded) so a caller can record
  * which ExtraData block types this .lnk actually carries.
+ *
+ * Stopping early has TWO distinct causes, and this function no longer
+ * conflates them (round-4 minor finding 4): a legitimate TerminalBlock
+ * (`blockSize < 4`, the spec's own end-of-list marker) sets nothing extra;
+ * a block whose self-reported BlockSize does NOT fit the remaining buffer
+ * -- truncation or a lying size field, i.e. a corrupt file -- sets
+ * `truncated` to `{offset, claimedBlockSize, bufLength}` instead of
+ * silently degrading to the same `envBlock: null` a well-formed
+ * IDList-only shortcut would also produce. Without this distinction, a
+ * corrupt ExtraData block and an honest "no env block here" were
+ * indistinguishable downstream, and the corrupt case would land in the
+ * one gap bucket (`noUsablePathSource`) the benchmark's exit code does not
+ * gate on.
  */
 function parseExtraData(buf, startOffset) {
   let offset = startOffset;
   let envBlock = null;
+  let truncated = null;
   const blockSignaturesSeen = [];
 
   while (offset + 4 <= buf.length) {
     const blockSize = readU32(buf, offset, 'ExtraData.BlockSize');
-    if (blockSize < 4) break; // TerminalBlock
-    if (offset + blockSize > buf.length || offset + 8 > buf.length) break; // truncated/corrupt -- stop defensively, not a hard reject
+    if (blockSize < 4) break; // TerminalBlock -- legitimate end of ExtraData, not a truncation
+    if (offset + blockSize > buf.length || offset + 8 > buf.length) {
+      // The block's own BlockSize claims more bytes than the file has left
+      // -- truncated file or a corrupt/lying size field. Record it (do not
+      // silently produce the same "no env block" shape a clean IDList-only
+      // shortcut would) and stop scanning; the bytes past this point are
+      // untrustworthy.
+      truncated = { offset, claimedBlockSize: blockSize, bufLength: buf.length };
+      break;
+    }
 
     const blockSignature = readU32(buf, offset + 4, 'ExtraData.BlockSignature');
     blockSignaturesSeen.push(`0x${blockSignature.toString(16)}`);
@@ -359,7 +409,7 @@ function parseExtraData(buf, startOffset) {
     offset += blockSize;
   }
 
-  return { envBlock, blockSignaturesSeen };
+  return { envBlock, blockSignaturesSeen, truncated };
 }
 
 /**
@@ -368,19 +418,24 @@ function parseExtraData(buf, startOffset) {
  * case-insensitive; process.env keys are looked up case-insensitively
  * here to match that.
  *
- * The case-folded key map is a lazily-initialized, per-process singleton
- * (round-2 minor finding 10a): building it fresh on every call rebuilt the
- * entire process.env keyset inside the loop the benchmark times. It is
- * built lazily rather than at module load so a test can still observe a
- * process.env mutation made before the first call.
+ * The case-folded key map is rebuilt fresh on EVERY call (round-4 minor
+ * finding 5 reverts round-2 minor finding 10a's per-process singleton
+ * cache): that cache was populated once, on whichever call happened
+ * first, and never refreshed -- so a call made before the environment was
+ * fully populated (e.g. before dotenv ran, before a long-lived server
+ * finished startup) would permanently and SILENTLY lock in an incomplete
+ * keyset, and every later miss falls through to returning the raw,
+ * unexpanded '%VAR%' string with no error. That is the exact output
+ * round-2 blocker 1 was rejected for. Rebuilding per call costs one pass
+ * over `Object.keys(process.env)` per env-var shortcut (not per file):
+ * measured on this machine's 182-file, 42-env-var-shortcut Start Menu,
+ * this is not observable in the warm total (see docs/adr/0003's round-4
+ * section, "Cache removal cost").
  */
-let envKeysByLowerCache = null;
 function getEnvKeysByLower() {
-  if (envKeysByLowerCache === null) {
-    envKeysByLowerCache = new Map();
-    for (const key of Object.keys(process.env)) envKeysByLowerCache.set(key.toLowerCase(), key);
-  }
-  return envKeysByLowerCache;
+  const map = new Map();
+  for (const key of Object.keys(process.env)) map.set(key.toLowerCase(), key);
+  return map;
 }
 
 export function expandEnvVars(str) {
@@ -401,6 +456,7 @@ function invalidResult(rejectReason) {
     strings: {},
     envBlock: null,
     extraDataBlockSignatures: [],
+    extraDataTruncated: null,
     candidates: [],
     resolvedTargetPath: null,
     category: { envVar: false, unc: false, msiAdvertised: false, idListOnly: false, noUsablePathSource: false },
@@ -424,6 +480,7 @@ function invalidResult(rejectReason) {
  *   strings: Record<string, string>,
  *   envBlock: {targetAnsi: string, targetUnicode: string|null}|null,
  *   extraDataBlockSignatures: string[],
+ *   extraDataTruncated: {offset: number, claimedBlockSize: number, bufLength: number}|null,
  *   candidates: Array<{source: string, value: string}>,
  *   resolvedTargetPath: string|null,
  *   category: {envVar: boolean, unc: boolean, msiAdvertised: boolean, idListOnly: boolean, noUsablePathSource: boolean},
@@ -467,7 +524,7 @@ export function parseLnk(buf) {
     if (flags.HasArguments) { const r = readStringDataItem(buf, offset, isUnicode, 'StringData.COMMAND_LINE_ARGUMENTS'); strings.arguments = r.value; offset = r.nextOffset; }
     if (flags.HasIconLocation) { const r = readStringDataItem(buf, offset, isUnicode, 'StringData.ICON_LOCATION'); strings.iconLocation = r.value; offset = r.nextOffset; }
 
-    const { envBlock, blockSignaturesSeen } = parseExtraData(buf, offset);
+    const { envBlock, blockSignaturesSeen, truncated: extraDataTruncated } = parseExtraData(buf, offset);
 
     // Candidate target paths, in priority order -- the FIRST candidate
     // becomes `resolvedTargetPath`, i.e. what this parser actually
@@ -541,6 +598,7 @@ export function parseLnk(buf) {
       strings,
       envBlock,
       extraDataBlockSignatures: blockSignaturesSeen,
+      extraDataTruncated,
       candidates,
       resolvedTargetPath,
       category,
