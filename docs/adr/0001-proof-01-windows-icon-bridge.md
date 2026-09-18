@@ -21,13 +21,16 @@ de commit descrevia apenas esta edição de uma linha, mas o diff também carreg
 relacionadas de `docs/adr/0003-proof-03-lnk-binary-parsing.md`, revertidas byte-a-byte em
 `e037bcb` e o conteúdo daquele arquivo recuperado pelo dono da PROOF-03 em `1a17224`; achado do
 round-7 review, ver "Revisão round 7" abaixo); round 7 em 2026-09-18 (commit `0c772ba`;
-preenchido retroativamente nesta edição — round 8 — seguindo a mesma restrição estrutural: o
+preenchido retroativamente na revisão seguinte — round 8 — seguindo a mesma restrição estrutural: o
 round 7 não podia citar o próprio hash na sua própria entrada, então essa lacuna ficou para a
-revisão seguinte fechar, exatamente como esta linha descreve). Pelo mesmo motivo, o round 8
-(esta revisão) também não tenta se auto-citar aqui; seu(s) commit(s) serão preenchidos na
-revisão seguinte que tocar este arquivo — ver "Revisão round 2", "Revisão round 3",
-"Revisão round 4", "Revisão round 5", "Revisão round 6", "Revisão round 7" e "Revisão round 8"
-abaixo.
+revisão seguinte fechar, exatamente como esta linha descreve); round 8 em 2026-09-18 01:38–01:43
+(commits `78fc8ff`, `fe76484` e `a3b39fb` — três commits pela mesma razão do round 6 acima: o fix
+principal seguido de duas passadas de auto-revisão/tightening antes do round 9 review pegar o
+estado final; preenchido retroativamente nesta edição — round 9 — seguindo a mesma restrição
+estrutural). Pelo mesmo motivo, o round 9 (esta revisão) também não tenta se auto-citar aqui;
+seu(s) commit(s) serão preenchidos na revisão seguinte que tocar este arquivo — ver
+"Revisão round 2", "Revisão round 3", "Revisão round 4", "Revisão round 5", "Revisão round 6",
+"Revisão round 7", "Revisão round 8" e "Revisão round 9" abaixo.
 **Requisito:** PROOF-01 (`.maxvision/REQUIREMENTS.md`, Fase 0)
 **Máquina de medição:** Windows 11 Pro 10.0.22631, x64, Node v25.5.0, VS Build Tools 2022
 (17.14.37411.7) com componente C++ x64, Windows SDK 10.0.26100.0, Python 3.13.13, locale pt-BR
@@ -69,11 +72,14 @@ abaixo.
 > linha resumida à mão que o script nunca imprime, com 3 linhas do koffi truncadas em "for ...".
 > A seção "Revisão round 4" ao final detalha os cinco achados e a correção de cada um.
 >
-> **Os números na tabela de "Resultados medidos" abaixo já são da re-execução pós-round-4**
-> (115 apps `.exe`-only — mesmo conjunto do round 3; N=230 amostras/candidata por execução,
-> **5 execuções independentes**, re-executadas no round 4 (commit `4287998`) — ver "Resultados medidos" pra
-> metodologia e range observado, agora incluindo startup e throughput do pool agregados por
-> rodada em `bench-repeat-results.json`, não só medianMs).
+> **Os números na tabela de "Resultados medidos" abaixo já são da re-execução pós-round-9**
+> (115 apps `.exe`-only — mesmo conjunto desde o round 3; N=230 amostras/candidata por execução,
+> **5 execuções independentes**, re-executadas no round 9 (esta revisão) porque o `results.json`
+> e o `verify-results.json` comitados até então datavam do round 4 — pré-datavam o gate de
+> `populationComplete` introduzido no round 8 e não carregavam seus três carimbos; ver
+> "Revisão round 9" finding 2 abaixo para a evidência de por que a re-execução foi necessária —
+> ver "Resultados medidos" pra metodologia e range observado, agora incluindo startup e
+> throughput do pool agregados por rodada em `bench-repeat-results.json`, não só medianMs).
 
 ---
 
@@ -460,51 +466,76 @@ exato em "Reprodutibilidade":
 | **koffi (FFI)** | 15,01 / 14,56 / 11,64 / 12,64 / 12,13 | **12,64** | 11,64–15,01 | 3,37 |
 | pool PowerShell (4 processos, latência/request) | 29,84 / 30,68 / 26,24 / 24,82 / 25,07 | 26,24 | 24,82–30,68 | 5,86 |
 
-**O gap addon-vs-koffi na mediana-das-medianas é 1,20ms. O spread PRÓPRIO de uma única
-candidata (koffi, 3,37ms) é maior que esse gap.** Isto é o output real de
-`scripts/bench-repeat.mjs` desta execução:
+**Round 9 re-execução (finding 2, major):** o `results.json`/`verify-results.json` comitados que
+produziram a tabela acima datavam do round 4 (commit `4287998`) — pré-datavam o gate de
+`populationComplete` introduzido no round 8 e não carregavam `populationComplete` /
+`unreadableDirCountAtListTime` / `allowIncompleteFlag`, tornando a completude da população dos
+DOIS artefatos comitados desconhecida pela própria regra que o gate do round 8 estabeleceu
+("ausência do carimbo não é tratada como completo"). Re-executado nesta revisão com o mesmo
+comando (`node scripts/bench-repeat.mjs --runs 5 -- --passes 2 --pool 4`, seguido de
+`node scripts/verify.mjs`), contra a mesma população de 115 apps (`populationComplete: true`,
+`unreadableDirCount: 0`) — a tabela abaixo SUBSTITUI a tabela do round 4 acima (mantida por
+histórico, não como número atual):
+
+| Candidata (round 9) | medianas por execução (ms) | mediana-das-medianas | range min–max | spread |
+|---|---|---:|---:|---:|
+| controle (harness only) | 1,48 / 1,63 / 1,57 / 1,54 / 1,46 | 1,54 | 1,46–1,63 | 0,17 |
+| **N-API addon** | 10,26 / 10,72 / 9,87 / 9,66 / 10,30 | **10,26** | 9,66–10,72 | 1,06 |
+| **koffi (FFI)** | 11,06 / 10,94 / 10,76 / 10,96 / 9,83 | **10,94** | 9,83–11,06 | 1,23 |
+| pool PowerShell (4 processos, latência/request) | 20,21 / 19,60 / 19,88 / 21,23 / 19,34 | 19,88 | 19,34–21,23 | 1,89 |
+
+**O gap addon-vs-koffi na mediana-das-medianas é 0,68ms nesta execução. O spread PRÓPRIO de uma
+única candidata (koffi, 1,23ms) é maior que esse gap.** Isto é o output real de
+`scripts/bench-repeat.mjs` desta execução (round 9):
 ```
-[bench-repeat] addon-vs-koffi median-of-medians gap: 1.20ms. Largest single candidate's own
-between-run spread (addon or koffi): 3.37ms. The between-run spread is >= the addon-vs-koffi
+[bench-repeat] addon-vs-koffi median-of-medians gap: 0.68ms. Largest single candidate's own
+between-run spread (addon or koffi): 1.23ms. The between-run spread is >= the addon-vs-koffi
 gap: the two candidates are NOT reliably distinguishable by ms/icon alone at this repeat count.
 ```
-O número exato do gap (1,94ms no round 3, 1,20ms aqui) e do spread (6,07ms no round 3, 3,37ms
-aqui) mudam de execução para execução — **isso é o ponto, não um problema**: cada re-execução
-independente reproduz a MESMA conclusão qualitativa (spread entre execuções ≥ gap entre
-candidatas) com números diferentes, o que é evidência mais forte de que a conclusão é robusta do
-que um único par de números seria. Isso não é uma observação nova desta rodada — a seção
-"Decisão" abaixo já argumentava, em prosa, desde o round 2, que addon e koffi "empatam em
-velocidade e isso não decide"; o que o round 3 corrigiu foi a TABELA implicando o oposto, e o que
-o round 4 corrige é a seção "Decisão" citando pontos fixos (530ms, 6,98ms) que uma re-execução
-torna obsoletos por definição — ver a correção abaixo em "Por que o pool PowerShell não vence".
+O número exato do gap (1,94ms no round 3, 1,20ms no round 4, 0,68ms aqui) e do spread (6,07ms no
+round 3, 3,37ms no round 4, 1,23ms aqui) mudam de execução para execução — **isso é o ponto, não
+um problema**: cada re-execução independente reproduz a MESMA conclusão qualitativa (spread entre
+execuções ≥ gap entre candidatas) com números diferentes, o que é evidência mais forte de que a
+conclusão é robusta do que um único par de números seria. Isso não é uma observação nova desta
+rodada — a seção "Decisão" abaixo já argumentava, em prosa, desde o round 2, que addon e koffi
+"empatam em velocidade e isso não decide"; o que o round 3 corrigiu foi a TABELA implicando o
+oposto, o que o round 4 corrigiu foi a seção "Decisão" citando pontos fixos que uma re-execução
+torna obsoletos por definição, e o que o round 9 corrige é os dois artefatos comitados
+(`results.json`, `verify-results.json`) datarem de uma execução anterior ao gate que os deveria
+carimbar — ver a correção abaixo em "Por que o pool PowerShell não vence".
 
 Startup do pool PowerShell (4 workers) e throughput agregado, agregados das mesmas 5 execuções
-via `bench-repeat-results.json` (`candidates.pwsh.extra` em cada `results-run{N}.json` — ver
-"Reprodutibilidade"):
+(round 9) via `bench-repeat-results.json` (`candidates.pwsh.extra` em cada `results-run{N}.json`
+— ver "Reprodutibilidade"):
 
-| Métrica | por execução | mediana-das-medianas | range min–max | spread |
+| Métrica (round 9) | por execução | mediana-das-medianas | range min–max | spread |
 |---|---|---:|---:|---:|
-| startup do pool (ms, 4 workers) | 1386,0 / 613,1 / 554,9 / 747,7 / 961,3 | 747,7 | 554,9–1386,0 | 831,1 |
-| throughput agregado (ms/ícone, concorrência=4) | 7,88 / 8,31 / 6,86 / 6,45 / 6,64 | 6,86 | 6,45–8,31 | 1,86 |
+| startup do pool (ms, 4 workers) | 520,2 / 466,9 / 411,9 / 559,0 / 440,0 | 466,9 | 411,9–559,0 | 147,1 |
+| throughput agregado (ms/ícone, concorrência=4) | 5,29 / 5,03 / 5,23 / 5,50 / 5,23 | 5,23 | 5,03–5,50 | 0,47 |
 
-A última das 5 execuções (a que fica em `results.json`/`.tmp/cache` no momento deste texto) deu:
-p95 addon 18,26ms / koffi 18,81ms / pwsh 42,53ms; média addon 12,18ms / koffi 12,58ms / pwsh
-26,10ms; min–max addon 7,43–32,53ms / koffi 7,12–39,56ms / pwsh 11,09–51,64ms; startup do pool
-(4 workers) 961,3ms; throughput agregado do pool a concorrência=4: 6,64 ms/ícone (varia por
-execução — ver range de startup e throughput agregados nas 5 rodadas na tabela acima: startup
-554,9–1386,0ms, throughput 6,45–8,31 ms/ícone). 100% de sucesso em todas as quatro linhas, em
-todas as 5 execuções, 0 timeouts no pool PowerShell em qualquer uma delas.
+A última das 5 execuções (a que fica em `results.json`/`.tmp/cache` no momento deste texto, e
+que é o `results.json` comitado por esta revisão — round 9) deu: p95 addon 16,98ms / koffi
+15,74ms / pwsh 34,22ms; média addon 11,09ms / koffi 10,47ms / pwsh 20,12ms; min–max addon
+6,34–28,93ms / koffi 6,67–28,50ms / pwsh 8,06–56,98ms; startup do pool (4 workers) 440,0ms;
+throughput agregado do pool a concorrência=4: 5,23 ms/ícone (varia por execução — ver range de
+startup e throughput agregados nas 5 rodadas na tabela acima: startup 411,9–559,0ms, throughput
+5,03–5,50 ms/ícone). 100% de sucesso em todas as quatro linhas, em todas as 5 execuções, 0
+timeouts no pool PowerShell em qualquer uma delas. Este último run também é o que ficou em
+`.tmp/cache` quando `scripts/verify.mjs` rodou nesta revisão (round 9): `populationComplete:
+true`, `115/115` apps concordando entre pontes, `0` erros de decodificação, `0` desacordos além
+do limiar — ver `verify-results.json` comitado.
 Throughput agregado do pool PowerShell (tempo de parede da passada de 115 apps ÷ 115, média de
 2 passadas) **não é comparável linha a linha** com a mediana de addon/koffi — reflete paralelismo
 de 4 processos simultâneos, não custo por chamada síncrona. Ver "Decisão" sobre por que isso não
 decide a escolha.
 
 **Baseline frio, agnóstico de ponte** (medido uma única vez por execução, com o addon, antes de
-qualquer candidata tocar os arquivos — ver "Método"): na última execução, N=115, mediana
-**22,91 ms**, p95 **46,39 ms**, média 25,68 ms, 100% sucesso — na mesma faixa dos 43,2 ms/ícone
-medidos anteriormente em `WINDOWS-STACK.md` §6.2, mas tipicamente abaixo. **Não investiguei a
-causa exata da diferença** — candidatas honestas, nenhuma confirmada (hedge mantida idêntica às
-versões anteriores deste ADR):
+qualquer candidata tocar os arquivos — ver "Método"): na última execução (round 9), N=115,
+mediana **22,31 ms**, p95 **36,65 ms**, média 24,27 ms, 100% sucesso — na mesma faixa dos
+43,2 ms/ícone medidos anteriormente em `WINDOWS-STACK.md` §6.2, mas abaixo, consistente com as
+execuções anteriores deste ADR (22,91ms no round 4/5/6/7/8). **Não investiguei a causa exata da
+diferença** — candidatas honestas, nenhuma confirmada (hedge mantida idêntica às versões
+anteriores deste ADR):
 1. o conjunto de apps mudou (122 → 111 → 115 ao longo das rodadas) e o cache de thumbnail do
    Windows pode já estar mais quente hoje por uso normal da máquina;
 2. **mais provável que a anterior:** a própria sessão de trabalho aqueceu o cache antes da
@@ -542,7 +573,10 @@ padrão se manteve em duas re-execuções independentes do mesmo comando comitad
 citado acima), ~1h de intervalo dentro da mesma sessão de trabalho (`generatedAt`
 2026-09-18T02:22:09.968Z em `349a3fd` e 2026-09-18T03:17:16.617Z em `4287998`, delta de 55,1 min),
 com números diferentes mas a mesma ordenação qualitativa — não semanas nem sessões distintas.
-**Não executada nesta revisão: uma re-execução cross-sessão/cross-reboot; nenhuma robustez
+**Round 9 confirma pela terceira vez** (ver "Resultados medidos", "Round 9 re-execução"): mesmo
+comando, mesma máquina, gap 0,68ms contra spread próprio de 1,23ms (koffi) — a mesma ordenação
+qualitativa (spread ≥ gap) numa terceira execução independente, com um terceiro par de números
+diferente dos dois anteriores. **Não executada nesta revisão: uma re-execução cross-sessão/cross-reboot; nenhuma robustez
 cross-sessão é afirmada.** Isso é esperado: as duas chamam exatamente
 a mesma API COM
 (`IShellItemImageFactory::GetImage`) e o grosso do tempo é gasto dentro do shell do Windows, não
@@ -1653,6 +1687,155 @@ procediam quando verificados; nenhum foi contestado.
    measure/windows/icon-bench/scripts/list-apps.mjs` retornando apenas `0c772ba`, `349a3fd`,
    `2c8cc99`, `2ffab25`). O texto agora se apoia só no código citado entre crases, que não
    envelhece, seguindo a alternativa que o próprio achado ofereceu.
+
+Todos os três achados têm evidência colada nesta revisão (comando executado + saída real).
+Nenhum achado foi contestado.
+
+## Revisão round 9
+
+Um nono reviewer rigoroso rejeitou a v8 deste ADR com 3 achados (1 blocker, 1 major, 1 minor).
+Todos corrigidos nesta revisão, evidência colada abaixo (comando executado + saída real).
+
+1. **[blocker] O gate `populationComplete` do round 8 só foi aplicado pela metade: `verify.mjs`
+   — o script que este próprio ADR designa como a verificação independente do harness, e o
+   produtor do `verify-results.json` comitado — lia `data/apps.json` sem nenhum gate, e tanto o
+   comentário novo do código quanto o ADR afirmavam a premissa falsa de que `bench.mjs` é o único
+   consumidor de `apps.json`.** Verificado nesta revisão: `grep -rn "apps\.json" measure/ --include=*.mjs`
+   retorna QUATRO consumidores sob `scripts/` — `bench.mjs`, `verify.mjs` (`:68-70`,
+   `const appsFile = path.join(rootDir, "data", "apps.json")` / `appsData` / `const apps =
+   appsData.apps`), `verify-path-contract.mjs:46` e `verify-lnk-encoding.mjs:25`. A metade
+   funcional foi reproduzida pelo reviewer: um `data/apps.json` com `populationComplete:false,
+   unreadableDirCount:1` e `apps` reduzido a 4 (o exato modo de falha do round 8: uma subpasta
+   ilegível do Start Menu encolheu a população), rodando `node scripts/bench.mjs --passes 1
+   --allow-incomplete` (exit 0) e então `ICON_BENCH_VERIFY_REPORT=<scratch> node scripts/verify.mjs`
+   — saída: `[verify] === cross-bridge pixel verification: 4 apps ...` ...
+   `[verify] ALL 4/4 apps agree across all bridges within the stated threshold (0 decode errors),
+   and both negative controls correctly failed. Verification PASSED.` com `VERIFY_EXIT=0`, e o
+   relatório gravado sem nenhum sinal de incompletude.
+
+   **Corrigido**, aplicando exatamente o mesmo gate que `bench.mjs:87-98` aplica, também em
+   `verify.mjs`: recusa por padrão quando `apps.json.populationComplete !== true` (incluindo o
+   campo ausente — mesma regra do round 8, ausência não é tratada como completo), `--allow-incomplete`
+   como opt-in explícito, e os três carimbos (`populationComplete`, `unreadableDirCountAtListTime`,
+   `allowIncompleteFlag`) gravados em `verify-results.json`, com o banner de incompletude
+   reimpresso perto da linha final "Verification PASSED" pela mesma razão do `bench.mjs`
+   (um banner só no carregamento some acima de centenas de linhas de saída por app).
+   `list-apps.mjs:257` e o ADR (`:1538` na revisão anterior) também foram corrigidos: a alegação
+   falsa de "único consumidor" foi substituída por uma lista dos quatro consumidores reais, com
+   qual gate se aplica a cada um — `bench.mjs` e `verify.mjs` agregam a população inteira e por
+   isso são GATED; `verify-path-contract.mjs` e `verify-lnk-encoding.mjs` usam só UMA entrada de
+   `apps.json.apps` (a primeira com espaço, ou `apps[0]`) como fixture, nunca fazem uma alegação
+   sobre o tamanho da população, e por isso permanecem NÃO gated deliberadamente — gatear um
+   script que nunca alegou nada sobre a população não o tornaria mais confiável.
+
+   Evidência do caminho hoje-não-gateado (população incompleta → `verify.mjs` recusa), reproduzida
+   nesta revisão com os scripts corrigidos, restaurando `data/apps.json` ao original logo depois
+   (`git diff` confirmado limpo abaixo):
+   ```
+   $ node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync('data/apps.json','utf8'));
+     d.apps=d.apps.slice(0,4);d.populationComplete=false;d.unreadableDirCount=1;
+     fs.writeFileSync('<scratch>/apps.incomplete.round9.json',JSON.stringify(d,null,2));"
+   $ cp <scratch>/apps.incomplete.round9.json data/apps.json
+   $ node scripts/bench.mjs --passes 1 --allow-incomplete   # popula .tmp/cache pros 4 apps
+   ... EXIT=0 (idêntico ao caminho C do round 8 — --allow-incomplete continua funcionando)
+
+   $ ICON_BENCH_VERIFY_REPORT=<scratch>/verify-round9-refused.json node scripts/verify.mjs
+   [verify] *** INCOMPLETE POPULATION *** apps.json.populationComplete=false (unreadableDirCount=1) — the verified app set may be smaller than the real Start Menu contents, and "ALL N/N apps agree" below would describe a shrunken N, not the full population.
+   [verify] FATAL: refusing to verify an incomplete population. Re-run scripts/list-apps.mjs after fixing the unreadable directory, or pass --allow-incomplete to proceed deliberately (the incompleteness will be stamped into verify-results.json and re-printed at the end).
+   VERIFY_EXIT=1
+   $ test -f <scratch>/verify-round9-refused.json && echo "REPORT WAS WRITTEN (unexpected)" || echo "no report written (expected)"
+   no report written (expected)
+   ```
+   E o caminho `--allow-incomplete` (opt-in deliberado), com os três carimbos presentes no
+   relatório desta vez:
+   ```
+   $ ICON_BENCH_VERIFY_REPORT=<scratch>/verify-round9-allowed.json node scripts/verify.mjs --allow-incomplete
+   [verify] *** INCOMPLETE POPULATION *** apps.json.populationComplete=false (unreadableDirCount=1) — ...
+   [verify] --allow-incomplete given: proceeding anyway. This is a deliberate opt-in, not a default.
+   ... (4/4 apps, negative controls PASS) ...
+   [verify] wrote <scratch>/verify-round9-allowed.json
+   [verify] *** INCOMPLETE POPULATION *** this run used --allow-incomplete against an apps.json with populationComplete=false (unreadableDirCountAtListTime=1). "ALL 4/4 apps agree" below describes a KNOWN-SHRUNKEN population, not the full real app set. See verify-results.json.populationComplete.
+   [verify] ALL 4/4 apps agree across all bridges within the stated threshold (0 decode errors), and both negative controls correctly failed. Verification PASSED.
+   VERIFY_EXIT=0
+   $ node -e "const d=require('<scratch>/verify-round9-allowed.json');
+     console.log({populationComplete:d.populationComplete, unreadableDirCountAtListTime:d.unreadableDirCountAtListTime, allowIncompleteFlag:d.allowIncompleteFlag, appCount:d.appCount});"
+   { populationComplete: false, unreadableDirCountAtListTime: 1, allowIncompleteFlag: true, appCount: 4 }
+   ```
+   Restauração confirmada:
+   ```
+   $ cp <scratch>/apps.json.backup data/apps.json
+   $ git status --porcelain -- measure/windows/icon-bench/data/apps.json
+   (sem saída — restaurado)
+   ```
+
+2. **[major] O `results.json` comitado — o artefato de evidência principal do PROOF-01 — é
+   anterior ao gate e não carrega nenhum dos três carimbos que o fix do round 8 existe pra
+   produzir, então, pela própria regra "ausência não é completude" do `bench.mjs`, a completude
+   populacional do resultado comitado do próprio repositório era desconhecida.** Verificado:
+   `git log --oneline -- measure/windows/icon-bench/results.json` mostra a última escrita em
+   `4287998` (round 4), quatro rounds antes do commit do gate (`78fc8ff`, round 8). Lendo o
+   arquivo comitado no HEAD anterior a esta revisão: chaves de topo eram `generatedAt, appCount,
+   iconSize, measurePasses, poolSize, coldBaseline, measuredBaselineComparison, candidates` — sem
+   `populationComplete`, sem `unreadableDirCountAtListTime`, sem `allowIncompleteFlag`. O mesmo
+   valia para `verify-results.json` (produto do fix do achado 1 acima, mas o `verify-results.json`
+   comitado antes desta revisão também datava de antes do gate existir em `verify.mjs`).
+
+   **Corrigido**: re-executado `node scripts/bench-repeat.mjs --runs 5 -- --passes 2 --pool 4`
+   (a receita de "Reprodutibilidade" do próprio ADR), seguido de `node scripts/verify.mjs` sobre
+   o cache da última das 5 rodadas — exatamente a ordem que "Reprodutibilidade" já documentava.
+   Saída real (5 rodadas, todas 100% sucesso, 0 timeouts):
+   ```
+   $ node scripts/bench-repeat.mjs --runs 5 -- --passes 2 --pool 4
+   [bench-repeat] === run 1/5 === ... addon 10.26 koffi 11.06 pwsh 20.21 (medianas, n=230 cada)
+   [bench-repeat] === run 2/5 === ... addon 10.72 koffi 10.94 pwsh 19.60
+   [bench-repeat] === run 3/5 === ... addon 9.87  koffi 10.76 pwsh 19.88
+   [bench-repeat] === run 4/5 === ... addon 9.66  koffi 10.96 pwsh 21.23
+   [bench-repeat] === run 5/5 === ... addon 10.30 koffi 9.83  pwsh 19.34
+   [bench-repeat] addon-vs-koffi median-of-medians gap: 0.68ms. Largest single candidate's own
+   between-run spread (addon or koffi): 1.23ms. The between-run spread is >= the addon-vs-koffi
+   gap: the two candidates are NOT reliably distinguishable by ms/icon alone at this repeat count.
+   [bench-repeat] wrote .../bench-repeat-results.json
+
+   $ node -e "const r=require('./results.json'); console.log({appCount:r.appCount,
+     populationComplete:r.populationComplete, unreadableDirCountAtListTime:r.unreadableDirCountAtListTime,
+     allowIncompleteFlag:r.allowIncompleteFlag});"
+   { appCount: 115, populationComplete: true, unreadableDirCountAtListTime: 0, allowIncompleteFlag: false }
+
+   $ node scripts/verify.mjs
+   [verify] === cross-bridge pixel verification: 115 apps, bridges=[addon,koffi,pwsh], reference=addon ===
+   [verify] decode errors: 0/115
+   [verify] GLOBAL max per-channel delta observed (across all apps x all bridge comparisons): 0
+   [verify] per-bridge max delta vs addon: {"koffi":0,"pwsh":0}
+   ...
+   [verify] ALL 115/115 apps agree across all bridges within the stated threshold (0 decode errors),
+   and both negative controls correctly failed. Verification PASSED.
+   VERIFY_EXIT=0
+
+   $ node -e "const d=require('./verify-results.json'); console.log({appCount:d.appCount,
+     populationComplete:d.populationComplete, unreadableDirCountAtListTime:d.unreadableDirCountAtListTime,
+     allowIncompleteFlag:d.allowIncompleteFlag, agreeCount:d.agreeCount, disagreeCount:d.disagreeCount,
+     errorCount:d.errorCount});"
+   { appCount: 115, populationComplete: true, unreadableDirCountAtListTime: 0, allowIncompleteFlag: false,
+     agreeCount: 115, disagreeCount: 0, errorCount: 0 }
+   ```
+   `results.json`, `verify-results.json` e `bench-repeat-results.json` comitados por esta revisão
+   são o output real desses comandos, não editados à mão. A tabela e a prosa de "Resultados
+   medidos" foram atualizadas pros números desta execução (mantendo as tabelas de rounds
+   anteriores como histórico, não apagadas) — ver a seção "Round 9 re-execução" ali. A decisão
+   (addon vence) **não muda**: o gap addon-vs-koffi (0,68ms) continua menor que o spread
+   entre-execuções de uma única candidata (1,23ms), a mesma conclusão qualitativa de todo round
+   anterior desde o round 2 — a vitória do addon nunca dependeu de ms/ícone, ver "Decisão".
+
+3. **[minor] `bench.mjs` ganhou a flag `--allow-incomplete` no round 8 mas a linha de uso no topo
+   do mesmo arquivo não foi atualizada, então a auto-documentação do arquivo omite a flag da qual
+   ele agora depende.** Verificado: `bench.mjs:5` (antes desta revisão) ainda dizia
+   `// Usage: node scripts/bench.mjs [--limit N] [--passes N] [--pool N]`, enquanto a flag é lida
+   51 linhas abaixo (`const ALLOW_INCOMPLETE = args.includes("--allow-incomplete");`) e é a única
+   forma de passar pelo gate fatal.
+
+   **Corrigido**: `bench.mjs:5-9` agora lista `--allow-incomplete` na linha de uso, com uma nota
+   de uma linha sobre o que a flag habilita (rodar deliberadamente contra uma população conhecida
+   como incompleta).
 
 Todos os três achados têm evidência colada nesta revisão (comando executado + saída real).
 Nenhum achado foi contestado.

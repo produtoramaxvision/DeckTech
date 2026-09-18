@@ -69,6 +69,36 @@ const appsFile = path.join(rootDir, "data", "apps.json");
 const appsData = JSON.parse(readFileSync(appsFile, "utf8"));
 const apps = appsData.apps;
 
+// Round-9 review fix (finding 1, BLOCKER): verify.mjs is the harness-
+// independent, ADR-designated verification of the benchmarked population
+// (bench.mjs itself names it as such — see the NOTE block in that file) and
+// the producer of the committed verify-results.json. It read the FULL
+// apps.json.apps array with NO gate, so an apps.json shrunk by an unreadable
+// Start Menu subdirectory (populationComplete:false) reached this script
+// ungated: it would print "ALL N/N apps agree ... Verification PASSED" and
+// write a verify-results.json carrying zero incompleteness signal, exactly
+// the defect bench.mjs's own round-8 gate was written to prevent one script
+// over. Fixed by applying the SAME gate bench.mjs:87-98 applies: refuse by
+// default on an incomplete/unstamped population, --allow-incomplete opts in
+// deliberately, and the three stamps (populationComplete,
+// unreadableDirCountAtListTime, allowIncompleteFlag) are written into
+// verify-results.json below so a reader of that artifact alone — without
+// having seen this stdout banner — can still tell the population was known
+// incomplete.
+const ALLOW_INCOMPLETE = process.argv.includes("--allow-incomplete");
+const populationComplete = appsData.populationComplete === true;
+if (!populationComplete) {
+  const unreadableDirCount = appsData.unreadableDirCount ?? "unknown (apps.json predates the populationComplete stamp — re-run scripts/list-apps.mjs)";
+  const banner = `[verify] *** INCOMPLETE POPULATION *** apps.json.populationComplete=${JSON.stringify(appsData.populationComplete)} (unreadableDirCount=${unreadableDirCount}) — the verified app set may be smaller than the real Start Menu contents, and "ALL N/N apps agree" below would describe a shrunken N, not the full population.`;
+  if (!ALLOW_INCOMPLETE) {
+    console.error(banner);
+    console.error("[verify] FATAL: refusing to verify an incomplete population. Re-run scripts/list-apps.mjs after fixing the unreadable directory, or pass --allow-incomplete to proceed deliberately (the incompleteness will be stamped into verify-results.json and re-printed at the end).");
+    process.exit(1);
+  }
+  console.error(banner);
+  console.error("[verify] --allow-incomplete given: proceeding anyway. This is a deliberate opt-in, not a default.");
+}
+
 const BRIDGES = ["addon", "koffi", "pwsh"];
 const REFERENCE_BRIDGE = "addon";
 // Agreement threshold: the round-2 reviewer independently confirmed
@@ -260,6 +290,13 @@ function main() {
   const report = {
     generatedAt: new Date().toISOString(),
     appCount: apps.length,
+    // Round-9 review fix (finding 1, BLOCKER): same stamps as
+    // results.json (bench.mjs:246-252), applied here for the same reason —
+    // so a reader of verify-results.json alone can tell whether "ALL N/N
+    // apps agree" describes the full real population or a shrunken one.
+    populationComplete,
+    unreadableDirCountAtListTime: appsData.unreadableDirCount ?? null,
+    allowIncompleteFlag: ALLOW_INCOMPLETE,
     bridges: BRIDGES,
     referenceBridge: REFERENCE_BRIDGE,
     agreementMaxDeltaThreshold: AGREEMENT_MAX_DELTA,
@@ -308,6 +345,14 @@ function main() {
       console.error(`\n[verify] FATAL: a negative control did not disagree as required — see negativeControls in ${outputReportFile}`);
     }
     process.exit(1);
+  }
+  // Round-9 review fix (finding 1, BLOCKER): re-print the incomplete-
+  // population banner here too, mirroring bench.mjs:434-440 — the load-time
+  // banner scrolls off above hundreds of lines of per-app output by the time
+  // a reader reaches this final line, and a banner nobody scrolls back to is
+  // functionally silent.
+  if (!populationComplete) {
+    console.log(`\n[verify] *** INCOMPLETE POPULATION *** this run used --allow-incomplete against an apps.json with populationComplete=${JSON.stringify(appsData.populationComplete)} (unreadableDirCountAtListTime=${report.unreadableDirCountAtListTime}). "ALL ${agreeCount}/${apps.length} apps agree" below describes a KNOWN-SHRUNKEN population, not the full real app set. See verify-results.json.populationComplete.`);
   }
   console.log(`\n[verify] ALL ${agreeCount}/${apps.length} apps agree across all bridges within the stated threshold (0 decode errors), and both negative controls correctly failed. Verification PASSED.`);
 }

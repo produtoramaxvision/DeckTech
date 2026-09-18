@@ -254,16 +254,42 @@ if (!hasSpace) {
 }
 
 // Round-8 review fix (finding 2, major): unreadableDirCount was write-only —
-// recorded here, but bench.mjs (the sole consumer of apps.json) never read
-// it, so a subdirectory-level EPERM could silently shrink the benchmarked
-// population all the way into the benchmark with no downstream gate. A
-// subfolder-level unreadable is still deliberately non-fatal HERE (see the
-// round-7 decision in walkLnk() above: a locked/EPERM subfolder shouldn't
-// kill the whole benchmark run) — but the resulting incompleteness must be
-// load-bearing somewhere, not just printed. `populationComplete` is that
-// load-bearing signal: bench.mjs refuses to run against an incomplete
-// population unless the caller explicitly opts in with `--allow-incomplete`,
-// per the round-8 fix in that file.
+// recorded here, but nothing downstream read it, so a subdirectory-level
+// EPERM could silently shrink the benchmarked population all the way into
+// the benchmark with no downstream gate. A subfolder-level unreadable is
+// still deliberately non-fatal HERE (see the round-7 decision in walkLnk()
+// above: a locked/EPERM subfolder shouldn't kill the whole benchmark run) —
+// but the resulting incompleteness must be load-bearing somewhere, not just
+// printed. `populationComplete` is that load-bearing signal.
+//
+// Round-9 review fix (finding 1, BLOCKER): the comment above previously
+// claimed "bench.mjs (the sole consumer of apps.json)". That was false —
+// `grep -rn "apps\.json" scripts/*.mjs` finds FOUR consumers of this file:
+//   - scripts/bench.mjs            — reads the FULL apps.json.apps array and
+//     measures every entry. GATED (refuses on populationComplete!==true
+//     unless --allow-incomplete is passed; see the gate in that file).
+//   - scripts/verify.mjs           — reads the FULL apps.json.apps array and
+//     cross-bridge-verifies every entry (the harness-independent
+//     verification this ADR designates, and the producer of the committed
+//     verify-results.json). GATED the same way as bench.mjs, as of this fix
+//     (see the gate in that file) — an incomplete population used to reach
+//     verify.mjs ungated and it would report "ALL N/N apps agree" with zero
+//     incompleteness signal in verify-results.json, which is the exact
+//     defect class this fix closes.
+//   - scripts/verify-path-contract.mjs — reads apps.json.apps but only to
+//     pick ONE app whose target path contains a space (falls back to
+//     apps[0]); it does not aggregate over or report on the population as a
+//     whole, so an incomplete population does not make its result
+//     population-dependent. NOT gated, deliberately: gating it would refuse
+//     a path-contract check that only ever needed one valid entry.
+//   - scripts/verify-lnk-encoding.mjs  — same shape: reads apps.json.apps but
+//     only uses apps[0] as a template .lnk to copy into a synthetic
+//     non-ASCII directory. NOT gated, for the same reason as
+//     verify-path-contract.mjs.
+// Population-aggregating consumers (bench.mjs, verify.mjs) are gated;
+// single-entry consumers (verify-path-contract.mjs, verify-lnk-encoding.mjs)
+// are not, because gating them would not make their result any more
+// trustworthy — they never claimed anything about the population size.
 const populationComplete = unreadableDirs.length === 0;
 
 mkdirSync(outDir, { recursive: true });

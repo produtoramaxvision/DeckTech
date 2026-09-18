@@ -2,7 +2,11 @@
 // three calling the SAME COM interface (IShellItemImageFactory::GetImage)
 // against the SAME real, on-disk app set, with a control and repetitions.
 //
-// Usage: node scripts/bench.mjs [--limit N] [--passes N] [--pool N]
+// Usage: node scripts/bench.mjs [--limit N] [--passes N] [--pool N] [--allow-incomplete]
+//   --allow-incomplete: deliberate opt-in to run against an apps.json whose
+//   population is known incomplete (populationComplete!==true — see the gate
+//   below). Without it, an incomplete population is a fatal error, not a
+//   silently-shrunken benchmark.
 import { readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

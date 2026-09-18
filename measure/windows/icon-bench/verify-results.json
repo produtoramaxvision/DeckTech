@@ -1,6 +1,9 @@
 {
-  "generatedAt": "2026-09-18T02:37:33.697Z",
+  "generatedAt": "2026-09-18T04:59:20.767Z",
   "appCount": 115,
+  "populationComplete": true,
+  "unreadableDirCountAtListTime": 0,
+  "allowIncompleteFlag": false,
   "bridges": [
     "addon",
     "koffi",
@@ -217,7 +220,7 @@
     "noiseVsReal": {
       "app": "Administrative Tools",
       "maxAbsDelta": 255,
-      "meanAbsDelta": 109.0495,
+      "meanAbsDelta": 108.7693,
       "correctlyDisagreed": true
     }
   },
