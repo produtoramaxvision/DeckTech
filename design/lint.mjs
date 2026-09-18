@@ -56,12 +56,72 @@ const SCANNABLE_EXT = new Set([".html", ".css", ".js", ".mjs"]);
 // `findViolationsInRegion` below uses it only via `String.matchAll`, which
 // the spec requires to clone the regex per call, so reuse there is safe;
 // `hasColorLiteral` instead builds a fresh non-global regex per call.
-const COLOR_LITERAL_SOURCE = "#[0-9a-fA-F]{3,8}\\b|rgba?\\([^)]*\\)";
+// Round-3 review finding 3: the hex/rgb() alternation missed every other
+// modern color-function syntax. hsl()/hsla(), oklch() and lab() are added
+// here, free-floating like hex/rgb — their syntax (a function call with a
+// fixed name immediately followed by `(`) is unambiguous enough that it does
+// not need property-scoping the way bare named-color keywords do below.
+const COLOR_LITERAL_SOURCE =
+  "#[0-9a-fA-F]{3,8}\\b|rgba?\\([^)]*\\)|hsla?\\([^)]*\\)|oklch\\([^)]*\\)|lab\\([^)]*\\)";
 const COLOR_LITERAL_RE = new RegExp(COLOR_LITERAL_SOURCE, "g");
 
-/** True if `value` contains a #hex or rgb()/rgba() color literal. Safe to call repeatedly. */
+/** True if `value` contains a #hex, rgb()/rgba(), hsl()/hsla(), oklch() or lab() color literal. Safe to call repeatedly. */
 export function hasColorLiteral(value) {
   return new RegExp(COLOR_LITERAL_SOURCE).test(value);
+}
+
+// CSS Color Module Level 4 named-color keywords (the full extended/X11 set,
+// "transparent" included, "currentcolor" excluded — it resolves to another
+// property's computed value, not a hardcoded literal). Deliberately checked
+// ONLY inside color-property declaration values (see COLOR_PROPERTY_RE
+// below), never free-floating over a whole region: several of DeckTech's
+// own real token names contain these words as substrings (`--dt-red`,
+// `--dt-green`), and this codebase's own comments use prose like
+// "near-black"/"near-white" — a free-floating `\b(red|white|...)\b` scan
+// would false-positive on both (round-3 review finding 3 evidence).
+const NAMED_COLORS = [
+  "aliceblue", "antiquewhite", "aqua", "aquamarine", "azure", "beige", "bisque", "black",
+  "blanchedalmond", "blue", "blueviolet", "brown", "burlywood", "cadetblue", "chartreuse",
+  "chocolate", "coral", "cornflowerblue", "cornsilk", "crimson", "cyan", "darkblue", "darkcyan",
+  "darkgoldenrod", "darkgray", "darkgreen", "darkgrey", "darkkhaki", "darkmagenta",
+  "darkolivegreen", "darkorange", "darkorchid", "darkred", "darksalmon", "darkseagreen",
+  "darkslateblue", "darkslategray", "darkslategrey", "darkturquoise", "darkviolet", "deeppink",
+  "deepskyblue", "dimgray", "dimgrey", "dodgerblue", "firebrick", "floralwhite", "forestgreen",
+  "fuchsia", "gainsboro", "ghostwhite", "gold", "goldenrod", "gray", "grey", "green",
+  "greenyellow", "honeydew", "hotpink", "indianred", "indigo", "ivory", "khaki", "lavender",
+  "lavenderblush", "lawngreen", "lemonchiffon", "lightblue", "lightcoral", "lightcyan",
+  "lightgoldenrodyellow", "lightgray", "lightgreen", "lightgrey", "lightpink", "lightsalmon",
+  "lightseagreen", "lightskyblue", "lightslategray", "lightslategrey", "lightsteelblue",
+  "lightyellow", "lime", "limegreen", "linen", "magenta", "maroon", "mediumaquamarine",
+  "mediumblue", "mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue",
+  "mediumspringgreen", "mediumturquoise", "mediumvioletred", "midnightblue", "mintcream",
+  "mistyrose", "moccasin", "navajowhite", "navy", "oldlace", "olive", "olivedrab", "orange",
+  "orangered", "orchid", "palegoldenrod", "palegreen", "paleturquoise", "palevioletred",
+  "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "purple", "rebeccapurple",
+  "red", "rosybrown", "royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen", "seashell",
+  "sienna", "silver", "skyblue", "slateblue", "slategray", "slategrey", "snow", "springgreen",
+  "steelblue", "tan", "teal", "thistle", "tomato", "transparent", "turquoise", "violet", "wheat",
+  "white", "whitesmoke", "yellow", "yellowgreen",
+];
+const NAMED_COLOR_RE = new RegExp(`\\b(?:${NAMED_COLORS.join("|")})\\b`, "i");
+
+// Color-ish properties whose value is worth scanning for a bare named-color
+// keyword. Longhand border-*-color forms are covered by `border[-a-z]*color`
+// the same way the radius matcher covers border-*-radius longhands below.
+const COLOR_PROPERTY_RE =
+  /(?:^|[{;])\s*(?:color|background(?:-color)?|border[-a-z]*color|outline-color|fill|stroke|box-shadow|text-shadow)\s*:\s*([^;}"']+)/gi;
+
+// Strips every `--custom-property-name` substring (not the whole var(...)
+// call — a fallback literal like `var(--dt-token, red)` must stay scannable)
+// before the named-color scan, so a token reference such as `var(--dt-red)`
+// or `var(--dt-green)` — real DeckTech token names — is never mistaken for
+// the literal keyword "red"/"green". `--dt-red-fallback` style names using
+// other color words are covered the same way, uniformly, for both the bare
+// and the fallback var() form.
+const CUSTOM_PROP_NAME_RE = /--[a-zA-Z0-9-]+/g;
+
+function stripCustomPropNames(value) {
+  return value.replace(CUSTOM_PROP_NAME_RE, " ");
 }
 
 // Matches a bare `var(--token)` reference with NO fallback (no comma inside
@@ -118,18 +178,37 @@ function findViolationsInRegion(text) {
   for (const m of text.matchAll(COLOR_LITERAL_RE)) {
     out.push({ category: "color", match: m[0] });
   }
-  for (const m of text.matchAll(new RegExp(`border-radius\\s*:\\s*(${DECL_VALUE})`, "gi"))) {
+  // Round-3 review finding 3: the old `border-radius` literal missed every
+  // longhand corner property (`border-top-left-radius`, ...) because those
+  // insert "top-left"/etc. BETWEEN "border" and "radius", breaking the plain
+  // substring match. `[-a-z]*border[-a-z]*radius` covers the shorthand, all
+  // four logical/physical longhands, and vendor-prefixed forms
+  // (`-webkit-border-radius`) in one pattern.
+  for (const m of text.matchAll(new RegExp(`[-a-z]*border[-a-z]*radius\\s*:\\s*(${DECL_VALUE})`, "gi"))) {
     const stripped = stripBareVarRefs(m[1]).trim();
     if (stripped && !BARE_ZERO_RE.test(stripped) && /[0-9]/.test(stripped)) {
       out.push({ category: "radius", match: m[0].trim() });
     }
   }
+  // Round-3 review finding 3: `-delay` added alongside `-duration` so
+  // `transition-delay`/`animation-delay` are no longer invisible to the scan.
   for (const m of text.matchAll(
-    new RegExp(`(?:transition|animation)(?:-duration)?\\s*:\\s*(${DECL_VALUE})`, "gi"),
+    new RegExp(`(?:transition|animation)(?:-duration|-delay)?\\s*:\\s*(${DECL_VALUE})`, "gi"),
   )) {
     const stripped = stripBareVarRefs(m[1]);
     if (/\d+(\.\d+)?(ms|s)\b/.test(stripped)) {
       out.push({ category: "duration", match: m[0].trim() });
+    }
+  }
+  // Round-3 review finding 3: a bare CSS named-color keyword (`color: red;`)
+  // was invisible — the old scan only matched #hex and rgb()/rgba(). Scoped
+  // to color-ish properties (see COLOR_PROPERTY_RE) and with custom-property
+  // names stripped first, so `var(--dt-red)` / `var(--dt-green)` — real
+  // DeckTech token references — are never mistaken for the keyword.
+  for (const m of text.matchAll(COLOR_PROPERTY_RE)) {
+    const stripped = stripCustomPropNames(m[1]);
+    if (NAMED_COLOR_RE.test(stripped)) {
+      out.push({ category: "color", match: m[0].trim() });
     }
   }
   return out;

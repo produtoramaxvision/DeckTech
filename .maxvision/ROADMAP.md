@@ -228,9 +228,10 @@ invariantes estruturais do PRD §7, consumidas pelas três superfícies em vez d
 **Depends on**: Nothing (roda em paralelo com as Fases 0-5)
 **Requirements**: DES-01, DES-02, DES-03, DES-04, DES-05, DES-06, FIX-08, TEST-01
 **Success Criteria** (what must be TRUE):
-  1. Os 50 tokens da pesquisa existem num arquivo único com proveniência `path:linha`, e um teste
-     falha se um valor de cor, raio ou duração aparecer hardcoded fora dele nas superfícies
-     novas.
+  1. Os 63 tokens da pesquisa (a enumeração completa do §12 de DESIGN-LANGUAGE.md — "50" era uma
+     estimativa anterior à transcrição; ver "COUNT DISCREPANCY" em `design/tokens.mjs`) existem
+     num arquivo único com proveniência `path:linha`, e um teste falha se um valor de cor, raio ou
+     duração aparecer hardcoded fora dele nas superfícies novas.
   2. Toda entrada de cor tem par claro e escuro; uma galeria de tokens renderiza os dois temas
      lado a lado e um teste falha se algum token de cor existir só num deles (D11).
   3. A landing carrega Inter de verdade — `@font-face` ou link presente em `docs/` — e o DevTools

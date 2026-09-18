@@ -94,7 +94,7 @@ zero de bytes; e 7 de 7 tasks do plano TDD herdado sobrevivem contra 4 de 7.
 
 ### Design system
 
-- [ ] **DES-01**: Declarar os tokens extraídos da pesquisa (50 tokens com proveniência `path:linha`) como fonte única.
+- [ ] **DES-01**: Declarar os tokens extraídos da pesquisa (63 tokens com proveniência `path:linha` — a enumeração completa do §12 de DESIGN-LANGUAGE.md, transcrita em `design/tokens.mjs`; "50" era uma estimativa anterior à transcrição, ver cabeçalho "COUNT DISCREPANCY" em `design/tokens.mjs`) como fonte única.
 - [ ] **DES-02**: **Tema claro completo** além do escuro — cada token de cor duplicado, os 5 call sites de glass revisados, ambos os temas testados em toda superfície. *(D11)*
 - [ ] **DES-03**: Carregar Inter de verdade na landing. Hoje é declarada com `font-synthesis: none` e **nunca carregada** (`style.css:11-12`), então os pesos 650/750 caem para o que o SO oferece — e quem cai em Segoe UI é justamente o público Windows. *(Q3)*
 - [ ] **DES-04**: Eliminar tokens mortos que leem como spec: `--glass` e `--edge` (`index.html:28-29`), `--purple` (`style.css:8`), todos com zero referências. *(Q36)*

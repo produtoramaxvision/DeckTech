@@ -211,6 +211,79 @@ describe("design tokens — hardcoded literal lint over new surfaces", () => {
     assert.equal(violations.length, 6);
   });
 
+  // ---------------------------------------------------------------------
+  // Round-3 review finding 3 — the matchers were shorthand-only for
+  // radius/duration and hex/rgb-only for color. These are the same 15
+  // probes the reviewer ran against scanForHardcodedTokenLiterals; the
+  // ones below are the shapes that were MISSED (the ones already CAUGHT
+  // are already exercised by the fixtures above and are not repeated).
+  // ---------------------------------------------------------------------
+
+  test("longhand corner radius — `border-top-left-radius: 12px` (previously invisible — no `border-radius` substring)", () => {
+    const violations = scanFixture(".x { border-top-left-radius: 12px; }");
+    const radiusViolations = violations.filter((v) => v.category === "radius");
+    assert.equal(radiusViolations.length, 1, "border-top-left-radius must be caught like border-radius");
+  });
+
+  test("logical/physical corner radius longhands are all caught, not just border-radius shorthand", () => {
+    const violations = scanFixture(
+      [
+        ".a { border-top-left-radius: 1px; }",
+        ".b { border-top-right-radius: 2px; }",
+        ".c { border-bottom-left-radius: 3px; }",
+        ".d { border-bottom-right-radius: 4px; }",
+      ].join("\n"),
+    );
+    assert.equal(violations.filter((v) => v.category === "radius").length, 4);
+  });
+
+  test("transition-delay: 300ms (previously invisible — only -duration was matched)", () => {
+    const violations = scanFixture(".x { transition-delay: 300ms; }");
+    assert.equal(violations.filter((v) => v.category === "duration").length, 1);
+  });
+
+  test("animation-delay: 300ms (previously invisible — only -duration was matched)", () => {
+    const violations = scanFixture(".x { animation-delay: 300ms; }");
+    assert.equal(violations.filter((v) => v.category === "duration").length, 1);
+  });
+
+  test("bare named color keyword — `color: red;` (previously invisible — only hex/rgb were matched)", () => {
+    const violations = scanFixture(".x { color: red; }");
+    const colorViolations = violations.filter((v) => v.category === "color");
+    assert.equal(colorViolations.length, 1, "the named-color keyword 'red' must be caught in a color property");
+  });
+
+  test("modern color functions — hsl()/oklch()/lab() (previously invisible — only hex/rgb were matched)", () => {
+    const violations = scanFixture(
+      [
+        ".a { color: hsl(20 100% 50%); }",
+        ".b { color: oklch(0.7 0.15 30); }",
+        ".c { color: lab(52 40 60); }",
+      ].join("\n"),
+    );
+    assert.equal(violations.filter((v) => v.category === "color").length, 3);
+  });
+
+  test("named-color scan is property-scoped and strips token names — `background: var(--dt-red)` must NOT false-positive", () => {
+    // --dt-red and --dt-green are real DeckTech token names (design/tokens.mjs)
+    // that literally contain the substrings "red"/"green"; a free-floating
+    // named-color scan would flag every compliant var(--dt-red) reference.
+    const violations = scanFixture(
+      ".a { background: var(--dt-red); }\n.b { background-color: var(--dt-green); }",
+    );
+    assert.deepEqual(violations, [], "a var() reference to a token whose NAME contains a color word must not false-positive");
+  });
+
+  test("named-color scan is scoped to color-ish properties, not free-floating prose", () => {
+    // Comment prose in this very codebase (design/tokens.mjs) uses phrases
+    // like "near-black"/"near-white" — a free-floating scan over the whole
+    // .mjs file body would flag them. Simulate that shape directly.
+    const violations = scanFixture(
+      "// a warm near-black canvas inverts to a warm near-white one\n.x { background: var(--dt-canvas); }",
+    );
+    assert.deepEqual(violations, [], "prose containing color words outside a color-property value must not be flagged");
+  });
+
   // Round-2 review finding 1 (vacuity): a misconfigured NEW_SURFACE_DIRS
   // entry must fail loudly, not silently scan zero files and report [].
   test("scanning a directory that does not exist throws, instead of silently reporting no violations", () => {
@@ -236,18 +309,17 @@ describe("design tokens — light/dark pair completeness (D11)", () => {
     }
   });
 
-  test("no color token exists in only one theme — every token name pairs with itself", () => {
-    // Simulates the fixture a reviewer would build: a per-theme map keyed by
-    // token name, exactly what the gallery iterates over per panel.
-    const darkNames = new Set(COLOR_TOKENS.map((t) => t.name));
-    const lightNames = new Set(
-      COLOR_TOKENS.filter((t) => t.light && t.light.value).map((t) => t.name),
-    );
-    const onlyDark = [...darkNames].filter((n) => !lightNames.has(n));
-    const onlyLight = [...lightNames].filter((n) => !darkNames.has(n));
-    assert.deepEqual(onlyDark, [], `color token(s) with a dark value but no light value: ${onlyDark}`);
-    assert.deepEqual(onlyLight, [], `color token(s) with a light value but no dark value: ${onlyLight}`);
-  });
+  // Round-3 review finding 2: a prior "no color token exists in only one
+  // theme" test here built lightNames as a FILTER of COLOR_TOKENS (the same
+  // array darkNames comes from), so lightNames was a subset of darkNames by
+  // construction and onlyLight/onlyDark were provably always []. It could
+  // not fail independently of the "every color token has both..." test
+  // immediately above, despite its name claiming to be the D11 pairing
+  // guard. The real independent guard now lives in the
+  // "generated CSS carries every colour in BOTH theme blocks" describe
+  // block below, which parses design/tokens.generated.css — a source that
+  // is NOT COLOR_TOKENS — so the two sides being compared can actually
+  // disagree.
 
   test("non-color tokens are theme-independent by design (radius/space/motion/type never pair)", () => {
     for (const t of NON_COLOR_TOKENS) {
@@ -267,6 +339,94 @@ describe("design tokens — light/dark pair completeness (D11)", () => {
         hasColorLiteral(t.value),
         false,
         `${t.name} is classified as ${t.kind} but its value "${t.value}" contains a color literal`,
+      );
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Round-3 review finding 1 — design/tokens.generated.css is the artifact that
+// actually makes the side-by-side light/dark render true (gallery.html only
+// links to it via var(); it never inlines a value). Nothing previously read
+// this file, so build-gallery.mjs could drop every colour from one theme's
+// CSS block and the suite stayed green (M6b/M6c in the round-3 review).
+//
+// This reads the GENERATED file directly — independent of both COLOR_TOKENS
+// (the source) and the gallery markup (which only carries data-token
+// attributes, not resolved values) — and fails loudly rather than silently
+// passing on an empty parse: each guard below asserts non-emptiness BEFORE
+// the set comparison that depends on it, so a renamed selector or a regex
+// that stops matching can't collapse to `[] === []`.
+// ---------------------------------------------------------------------------
+
+describe("design tokens — generated CSS carries every colour in BOTH theme blocks (D11)", () => {
+  const cssPath = path.join(REPO_ROOT, "design", "tokens.generated.css");
+  const generatedCss = readFileSync(cssPath, "utf8");
+
+  function extractThemeBlock(theme) {
+    const m = generatedCss.match(
+      new RegExp(`\\[data-theme="${theme}"\\]\\s*\\{([\\s\\S]*?)\\n\\}`),
+    );
+    assert.ok(m, `[data-theme="${theme}"] block not found in tokens.generated.css`);
+    return m[1];
+  }
+
+  // name -> raw declared value (only --dt-* — --gallery-chrome-* is tool
+  // chrome, not a design token, and deliberately excluded from this map so
+  // it can never make the two theme sets "equal" for the wrong reason).
+  function parseDtDeclarations(blockText) {
+    const map = new Map();
+    for (const m of blockText.matchAll(/(--dt-[a-z0-9-]+)\s*:\s*([^;]*);/g)) {
+      map.set(m[1], m[2].trim());
+    }
+    return map;
+  }
+
+  const darkBlock = extractThemeBlock("dark");
+  const lightBlock = extractThemeBlock("light");
+  const darkDecls = parseDtDeclarations(darkBlock);
+  const lightDecls = parseDtDeclarations(lightBlock);
+
+  test("both theme blocks parsed at least one --dt- declaration (a regex/selector break must fail, not pass vacuously)", () => {
+    assert.ok(darkDecls.size > 0, "parsed zero --dt- declarations from the dark block");
+    assert.ok(lightDecls.size > 0, "parsed zero --dt- declarations from the light block");
+  });
+
+  test("every declared value is non-empty (an emitted `--dt-x: ;` must fail)", () => {
+    for (const [name, value] of darkDecls) {
+      assert.ok(value.length > 0, `${name} has an empty value in the dark block`);
+    }
+    for (const [name, value] of lightDecls) {
+      assert.ok(value.length > 0, `${name} has an empty value in the light block`);
+    }
+  });
+
+  test("the dark block's --dt- name set equals COLOR_TOKENS exactly", () => {
+    const expected = new Set(COLOR_TOKENS.map((t) => t.name));
+    assert.deepEqual(
+      [...darkDecls.keys()].sort(),
+      [...expected].sort(),
+      "dark block's declared --dt- tokens diverge from design/tokens.mjs COLOR_TOKENS",
+    );
+  });
+
+  test("the light block's --dt- name set equals COLOR_TOKENS exactly (this is what M6b/M6c broke)", () => {
+    const expected = new Set(COLOR_TOKENS.map((t) => t.name));
+    assert.deepEqual(
+      [...lightDecls.keys()].sort(),
+      [...expected].sort(),
+      "light block's declared --dt- tokens diverge from design/tokens.mjs COLOR_TOKENS — a colour " +
+        "token exists in the generated CSS for only one theme",
+    );
+  });
+
+  test("light and dark values differ per token (a light block that is secretly a copy of dark must fail)", () => {
+    for (const name of darkDecls.keys()) {
+      if (!lightDecls.has(name)) continue; // already reported by the set-equality test above
+      assert.notEqual(
+        lightDecls.get(name),
+        darkDecls.get(name),
+        `${name} has the identical value in both theme blocks — not a real light/dark pair`,
       );
     }
   });
