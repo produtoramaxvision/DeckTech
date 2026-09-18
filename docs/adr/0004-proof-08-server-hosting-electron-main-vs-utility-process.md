@@ -721,12 +721,16 @@ this correction disputes: an intermittent race legitimately produces
 different counts on different runs of a live, variably-loaded machine. What
 round-3 fixed was not the race itself (still present in code, still not
 required to be fixed — it affects no number §8's decision uses) but the
-**reporting** of it: round-2's ADR text gave two mutually contradictory
-counts for the same quantity in different places (§5.1 said "4 of 7 not
-captured", the comparison table cell said "0/4", neither matched "2 of 7
-captured" stated a third place) and silently mixed a 3-rep battery
-denominator with a 1-rep standalone `crash-timeline.mjs` re-run in one
-table cell. Round-3's rule going forward: **report only the current
+**reporting** of it: round-2's ADR text gave two counts of the same
+quantity that did not reconcile — §5.1 said the text was "present in only 2
+of 7 total A-arm crash reps" (implying 5 of 7 *not* captured), while §6
+separately said the forwarding "did not fire in 4 of 7" — 4 and 5 are not
+the same number for the same denominator, and exactly one was wrong.
+Separately (a distinct, non-arithmetic defect, not a third conflicting
+count): the comparison-table cell reported "0/4 A-arm reps", silently
+mixing a 3-rep battery denominator with a 1-rep standalone
+`crash-timeline.mjs` re-run into one undisclosed composite. Round-3's rule
+going forward: **report only the current
 battery's own `raw-results.json`, state the denominator's composition
 explicitly, and never fold a standalone `crash-timeline.mjs` run into a
 battery count** — applied throughout §5.1/§5.2/the comparison table above.
@@ -751,6 +755,25 @@ separates health-check-failed reps from successful ones explicitly (printed,
 not silently dropped) and fails the whole run loudly (`process.exitCode =
 1`) if an arm produces zero usable reps, rather than printing an empty
 `n=0` section and exiting 0.
+
+**Round-3 bug — `crash-timeline.mjs`'s health-wait had no deadline (minor
+finding #7).** `while (true) { const s = await httpStatus(); if (s === 200)
+break; ... }` had no deadline, attempt counter or failure path — a port
+collision or any `startServer` failure left the script (and an orphan
+`electron.exe`) hanging forever, with no diagnostic. **Fix:** reuses
+`lib.mjs`'s `waitForHttp200` (30s deadline); on timeout the child is killed,
+captured stderr is printed, and the script exits non-zero naming the
+approach, port and elapsed time. **Verified the failure path actually
+executes** (not just code-reviewed) with a throwaway script (not committed)
+that pre-occupies a fixed port so `main-inprocess.mjs`'s `startServer()`
+fails with `EADDRINUSE` — a realistic "server never bound" case, not an
+artificially-hung process: `waitForHttp200(PORT, {timeoutMs: 3000})` threw
+`timeout waiting for HTTP 200 on /health at 127.0.0.1:25757` as expected;
+the same `child.kill()` call `crash-timeline.mjs`'s catch block uses
+terminated the Electron process cleanly (`child exited code=null
+signal=SIGTERM`); and a `tasklist /FI "PID eq <pid>"` check 1.5s after the
+kill confirmed **no orphan process survived** — the specific risk the
+finding named ("an orphan electron.exe").
 
 **Round-3 bug — the idle sample-point constant wasn't actually used (minor
 finding #6).** `IDLE_SAMPLE_POINTS_MS = [3000, 8000]` was defined
