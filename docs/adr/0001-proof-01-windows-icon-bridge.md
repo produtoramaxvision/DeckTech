@@ -1476,12 +1476,15 @@ procediam quando verificados; nenhum foi contestado.
    comportamento abaixo, não apenas assumido). Discriminação antes de aceitar o resultado, para
    não cair no MESMO erro do achado que este bloco está corrigindo (uma raiz ausente e uma raiz
    ilegível produzem mensagens diferentes — `do not exist` vs. `exist but could not be read` — e
-   só a segunda é a alegação que faltava):
+   só a segunda é a alegação que faltava). Este passo de discriminação foi commitado como
+   `measure/windows/icon-bench/scripts/probe-root-readability.mjs` (não deixado como script
+   descartável de sessão) precisamente para que este bloco seja re-executável por qualquer um,
+   não só uma citação de uma sessão cuja pasta de scratch já não existe:
    ```
-   $ node .../test-root-deny.mjs $root
-   root arg: "C:\\Users\\MaxVision\\AppData\\Local\\Temp\\claude\\proof01-round8-scratch\\FakeAppData\\Microsoft\\Windows\\Start Menu\\Programs"
+   $ node scripts/probe-root-readability.mjs $root
+   root arg: "C:\\Users\\MaxVision\\AppData\\Local\\Temp\\claude\\proof01-round8-scratch2\\FakeAppData\\Microsoft\\Windows\\Start Menu\\Programs"
    existsSync: true
-   readdirSync FAILED: EPERM -4048 EPERM: operation not permitted, scandir '...\Programs'
+   readdirSync FAILED: EPERM -4048 EPERM: operation not permitted, scandir 'C:\Users\MaxVision\AppData\Local\Temp\claude\proof01-round8-scratch2\FakeAppData\Microsoft\Windows\Start Menu\Programs'
    ```
    `existsSync` verdadeiro + `readdirSync` falhando com `EPERM` é exatamente o ramo raiz-ilegível
    (não o ramo raiz-ausente, que teria `existsSync` falso). Run do `list-apps.mjs` real com
@@ -1529,10 +1532,11 @@ procediam quando verificados; nenhum foi contestado.
    write-only. O dano exato que o blocker do round 7 apontava ("a cadeia de proveniência podia
    silenciosamente ser uma cadeia diferente em outra máquina enquanto toda alegação do ADR ainda
    passava") continuava intacto nesse caminho.** Verificado nesta revisão: `grep -n
-   "unreadable|appsData\." measure/windows/icon-bench/scripts/bench.mjs` (antes do fix abaixo)
-   retornava só três linhas — `appsData.hasSpaceInPath`, `appsData.apps`,
-   `appsData.source`/`hasSpaceInPath` — nenhum gate em `unreadableDirCount` em lugar nenhum do
-   harness.
+   "unreadable|appsData\." measure/windows/icon-bench/scripts/bench.mjs` no `bench.mjs` de antes
+   do fix desta revisão (commit `0c772ba` — os números abaixo descrevem ESSE estado do arquivo,
+   não o atual pós-fix, pela mesma razão do achado 3 abaixo) retornava só três linhas — `:63`
+   (`appsData.hasSpaceInPath`), `:67` (`appsData.apps`) e `:70-71` (`appsData.source`,
+   `hasSpaceInPath`) — nenhum gate em `unreadableDirCount` em lugar nenhum do harness.
 
    **Corrigido**, combinando as duas opções que o reviewer ofereceu (não escolhendo só uma):
    - `list-apps.mjs` agora grava `populationComplete: unreadableDirs.length === 0` em
@@ -1556,8 +1560,29 @@ procediam quando verificados; nenhum foi contestado.
    rodadas de demonstração sobrescrevem `results.json` e `data/apps.json` — ambos restaurados ao
    fim, verificado abaixo):
 
-   Caminho A — população completa, sem flag → prossegue (roda o benchmark completo, config real
-   já vista nas seções anteriores do ADR; não repetido aqui por já estar coberto).
+   Caminho A — população completa (`populationComplete: true`), sem flag → prossegue direto pro
+   benchmark, sem nenhum banner de incompletude (as seções anteriores do ADR rodaram `bench.mjs`
+   ANTES deste gate existir, então não servem como evidência do gate em si — esta é a primeira
+   vez que o gate roda contra uma população completa e o resultado é observado):
+   ```
+   $ node -e 'console.log(JSON.parse(require("fs").readFileSync("data/apps.json","utf8")).populationComplete)'
+   true
+   $ node scripts/bench.mjs --limit 2 --passes 1; echo "EXIT=$?"
+   [bench] config: limit=2 measurePasses=1 poolSize=4 iconSize=256
+   [bench] app set: 2 apps (source: Start Menu .lnk enumeration ...)
+   [bench] at least one path has a space: true
+   [bench] === cold baseline ... ===
+   ... (execução completa dos 4 candidatos, nenhuma linha "INCOMPLETE POPULATION" em lugar nenhum
+   da saída) ...
+   [bench] wrote full results to ...\results.json
+   [bench] === SUMMARY TABLE ===
+   candidate       n     median(ms)  p95(ms)  success%   startup(ms)
+   control         2     2.05        2.12     100.0      0
+   addon           2     9.12        12.39    100.0      2
+   koffi           2     9.57        12.75    100.0      6
+   pwsh            2     10.96       12.64    100.0      411
+   EXIT=0
+   ```
 
    Caminho B — população incompleta (`populationComplete: false`, `unreadableDirCount: 1`), sem
    `--allow-incomplete` → recusa:
