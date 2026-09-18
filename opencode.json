@@ -1,0 +1,89 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "clipey": {
+      "enabled": false
+    },
+    "media-forge": {
+      "enabled": false
+    },
+    "web-search-prime": {
+      "enabled": false
+    },
+    "web-reader": {
+      "enabled": false
+    },
+    "zread": {
+      "enabled": false
+    },
+    "zai-vision": {
+      "enabled": false
+    },
+    "asaas-mcp": {
+      "enabled": false
+    },
+    "cloudflare": {
+      "enabled": false
+    },
+    "gtm-mcp": {
+      "enabled": false
+    },
+    "supabase-mcp": {
+      "enabled": false
+    },
+    "supabase-site-mcp": {
+      "enabled": false
+    },
+    "meta-ads-official": {
+      "enabled": false
+    },
+    "lighthouse-mcp": {
+      "enabled": false
+    },
+    "magic-mcp": {
+      "enabled": false
+    },
+    "stitch-mcp": {
+      "enabled": false
+    },
+    "stripe-mcp": {
+      "enabled": false
+    },
+    "stripe-live": {
+      "enabled": false
+    },
+    "testsprite-mcp": {
+      "enabled": false
+    },
+    "notebooklm-mcp-cli": {
+      "enabled": false
+    },
+    "blender": {
+      "enabled": false
+    },
+    "meta-ads": {
+      "enabled": false
+    },
+    "n8n-mcp": {
+      "enabled": false
+    },
+    "vps-oracle-arm64": {
+      "enabled": false
+    },
+    "ga4": {
+      "enabled": false
+    },
+    "google-ads-n8n": {
+      "enabled": false
+    },
+    "kinocut": {
+      "enabled": false
+    },
+    "openchatcut": {
+      "enabled": false
+    },
+    "metaads-n8n-mcp": {
+      "enabled": false
+    }
+  }
+}
