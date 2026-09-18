@@ -1,3 +1,19 @@
+/*
+ * Self-hosted (not CDN) so the landing keeps working offline and the font
+ * file is version-locked with the release — see DES-03 / ADR rationale.
+ * Variable font (wght axis 100–900) is required, not a per-weight static
+ * cut: Inter's static family only ships weights in steps of 100, so the
+ * 650/750 headings below can only render as their true weight through the
+ * axis. A static face would silently snap them to 600/700.
+ */
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./fonts/InterVariable.woff2") format("woff2");
+}
+
 :root {
   --ink: #1d1d1f;
   --muted: #77747d;
