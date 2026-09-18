@@ -105,7 +105,9 @@ for (const f of [RULE, DEDUPE, RESOLVE]) originals.set(f, readFileSync(f, "utf8"
 // for the full chain). What IS measured directly, on the timer path that
 // same loop mechanism also serves: a 50ms `setTimeout` scheduled
 // immediately before a 2000ms `execFileSync` did not fire until the call
-// returned (t+2062ms, not t+50ms), and the same held across the gap
+// returned (t+2057ms in this file's committed probe run, not t+50ms —
+// see ADR §9.1c for two other independent runs of the same probe), and
+// the same held across the gap
 // between two consecutive `execFileSync` calls with nothing but ordinary
 // synchronous statements in between (fired only once the whole script's
 // own top-level synchronous code had finished, not in the gap) — see ADR

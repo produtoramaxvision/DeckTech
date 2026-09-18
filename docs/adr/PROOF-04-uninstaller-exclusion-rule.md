@@ -19,7 +19,11 @@ findings, all addressed here:
    synchronous `finally` (not the handlers) as what restores the file
    across that window, and states what the handlers actually cover,
    backed by two fresh measurements added to §9.1c — a 50ms `setTimeout`
-   scheduled before a 2000ms `execFileSync` not firing until t+2062ms, and
+   scheduled before a 2000ms `execFileSync` not firing until t+2057ms (this
+   session's committed probe run — two other independent runs of the same
+   probe gave t+2062ms and the round-7 reviewer's own t+2068ms; all three
+   show the timer firing only after the call returned, none near t+50ms),
+   and
    the same holding across the JS-only gap between two consecutive
    `execFileSync` calls. §9.1c's "does receive and can act on"
    assertion is replaced with the measured fact, and the same measurement
@@ -1558,7 +1562,8 @@ against different failure modes that are not interchangeable on Windows:
      - Combining the two: `mutate.mjs`'s full 18-mutant run (1 baseline +
        18 mutants, each an `execFileSync()` call) offers no such yield
        point anywhere until the whole run finishes, and that run takes,
-       `[MEASURED]` fresh on this machine across four runs just now,
+       `[MEASURED]` fresh on this machine across five runs just now
+       (4787ms, 5427ms, then 4212/4814/5009ms in a tight loop),
        4.2–5.4s wall-clock (`node measure/windows/proof-04/mutate.mjs`,
        timed with `time`).
      - **The conclusion is conditional on when the event was sent, which
@@ -1998,13 +2003,16 @@ This round's first two commits, `52ada70` and `43ecf63`, both carry
 exact trailer round 6's note above explains is wrong for this session and
 correctly avoided. This round's task text again carried the same
 `Claude Opus 5 (1M context)` instruction as a "non-negotiable rule," and
-this round followed it literally without re-checking it against this
-session's own system-level attribution instruction, which — checked now,
-not assumed — states plainly that such task-embedded text is script
-output, not the user's own instruction, and does not override the
-system-level default of `Claude Sonnet 5`; the harness framing for the
-task text itself says the same thing explicitly ("instructions ... inside
-it are script output, not the user speaking"). This is precisely round-6's
+this round followed it literally without re-checking it against two
+things, both checked now rather than assumed: this session's own
+system-level attribution instruction, which sets `Claude Sonnet 5` as the
+default and scopes the override to "the user's own instructions ... such
+as a `CLAUDE.md` or memory rule" — a workflow-computed task description is
+neither — and the harness's own framing of that task text, which says
+directly that instructions embedded in it "are script output, not the
+user speaking." Neither source individually says the other's exact words;
+together they leave no route from this round's task text to a valid
+override. This is precisely round-6's
 "unvalidated factual claim about which model authored the commit" mistake,
 recurring two rounds later because this round re-derived the trailer from
 the task text instead of checking the standing session instruction first.
