@@ -76,6 +76,7 @@ import { promisify } from "node:util";
 
 import { parseLnk } from "../../measure/windows/lnk-parser.mjs";
 import { resolveAppList } from "../../measure/windows/lib/resolve-app-list.mjs";
+import { log as defaultLog } from "../../log.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -279,11 +280,12 @@ export function mergeAppLists(win32Kept, uwpPackaged) {
  * usa a instância padrão exportada abaixo (`listInstalledApps`), ligada às
  * dependências reais.
  * @param {{
- *   collect?: (opts: {signal?: AbortSignal}) => Promise<{lnkFiles: string[], startApps: any[], appxPackages: any[]}>,
+ *   collect?: (opts: {signal?: AbortSignal}) => Promise<{dirErrorCount: number, lnkFiles: string[], startApps: any[], appxPackages: any[]}>,
  *   readFile?: (p: string) => Buffer,
  *   parseLnk?: typeof parseLnk,
  *   ttlMs?: number,
  *   now?: () => number,
+ *   log?: typeof defaultLog,
  * }} deps
  */
 export function makeListInstalledApps(deps = {}) {
@@ -293,12 +295,20 @@ export function makeListInstalledApps(deps = {}) {
     parseLnk: parseFn = parseLnk,
     ttlMs = INSTALLED_APPS_TTL_MS,
     now = Date.now,
+    log = defaultLog,
   } = deps;
   let cache = { at: 0, apps: null, promise: null };
 
   async function scan({ signal } = {}) {
     const collected = await collect({ signal });
     if (signal?.aborted) throw new WindowsAppScanError("ABORTED", "Windows app scan aborted before merge");
+    // PROOF-04 round-2 finding 3: uma subpasta do Start Menu negada por ACL
+    // não pode encolher a lista de apps em silêncio — o mesmo defeito que
+    // essa ADR fechou no probe. dirErrorCount > 0 aqui é sinal, não decisão
+    // (o scan continua com o que conseguiu enumerar, igual ao probe).
+    if (collected.dirErrorCount > 0) {
+      log.warn("windows.apps.dir_enum_incomplete", { dirErrorCount: collected.dirErrorCount });
+    }
     const resolved = resolveLnkEntries(collected.lnkFiles, { readFile, parseLnk: parseFn });
     // Ordem não-negociável (PROOF-04 §4c): exclusão de desinstaladores
     // ANTES do dedupe por target — resolveAppList já compõe exatamente

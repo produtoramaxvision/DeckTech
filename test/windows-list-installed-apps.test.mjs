@@ -12,6 +12,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path/win32";
 
+// Gate legítimo: PowerShell + Get-StartApps/Get-AppxPackage + Start Menu
+// real só existem em win32. Em CI (ubuntu-latest) os testes que usam isto
+// contam como skipped -- nomeado explicitamente, não escondido. Nesta
+// máquina (win32) eles RODAM de verdade.
+const win32Only = process.platform === "win32" ? {} : { skip: "requer Windows real (PowerShell + Start Menu)" };
+
 import {
   makeListInstalledApps,
   resolveLnkEntries,
@@ -212,11 +218,49 @@ test("cancelamento: o AbortSignal é de fato repassado a collect()", async () =>
   assert.equal(seenSignal, controller.signal);
 });
 
+test("PROOF-04 round-2 finding 3: dirErrorCount > 0 é logado (warn), não engolido em silêncio", async () => {
+  const warnCalls = [];
+  const fakeLog = { warn: (event, data) => warnCalls.push({ event, data }), debug() {}, info() {}, error() {} };
+  const collect = async () => ({ dirErrorCount: 2, lnkFiles: [], startApps: [], appxPackages: [] });
+  const listInstalledApps = makeListInstalledApps({ collect, readFile: fakeReadFile, parseLnk: () => ({}), log: fakeLog });
+  await listInstalledApps();
+  assert.equal(warnCalls.length, 1, "dirErrorCount > 0 deve gerar exatamente 1 warn");
+  assert.equal(warnCalls[0].data.dirErrorCount, 2);
+});
+
+test("dirErrorCount === 0 (caso comum) não gera nenhum warn", async () => {
+  const warnCalls = [];
+  const fakeLog = { warn: (event, data) => warnCalls.push({ event, data }), debug() {}, info() {}, error() {} };
+  const collect = async () => ({ dirErrorCount: 0, lnkFiles: [], startApps: [], appxPackages: [] });
+  const listInstalledApps = makeListInstalledApps({ collect, readFile: fakeReadFile, parseLnk: () => ({}), log: fakeLog });
+  await listInstalledApps();
+  assert.equal(warnCalls.length, 0);
+});
+
 test("runPowerShellCollect: guarda de plataforma falha tipado e alto fora de win32 (testável em qualquer SO)", async (t) => {
   t.mock.property(process, "platform", "linux");
   await assert.rejects(runPowerShellCollect(), (err) => {
     assert.ok(err instanceof WindowsAppScanError);
     assert.equal(err.code, "UNSUPPORTED_PLATFORM");
+    return true;
+  });
+});
+
+// Gate legítimo — precisa de um powershell.exe real para abortar de verdade
+// (child_process.execFile's `signal` mata o processo e entrega um
+// AbortError ao callback: verificado via context7 /nodejs/node/v25.9.0,
+// child_process.md "AbortController with child_process.execFile" + o code
+// ABORT_ERR documentado em errors.md — não só por recall). Sem este teste,
+// só o cheque PÓS-collect (`signal?.aborted` em scan()) tinha cobertura; o
+// próprio branch catch/reclassifica dentro de runPowerShellCollect nunca
+// era exercitado.
+test("runPowerShellCollect: abortar via AbortController mata o processo real e rejeita com WindowsAppScanError(ABORTED)", win32Only, async () => {
+  const controller = new AbortController();
+  const promise = runPowerShellCollect({ signal: controller.signal });
+  controller.abort();
+  await assert.rejects(promise, (err) => {
+    assert.ok(err instanceof WindowsAppScanError, `esperava WindowsAppScanError, veio ${err?.constructor?.name}: ${err}`);
+    assert.equal(err.code, "ABORTED");
     return true;
   });
 });
@@ -252,11 +296,6 @@ test("mergeAppLists: descarta .lnk sem target resolvido (shortcut CLSID/URL) e n
 });
 
 // --- Máquina real (Windows) ------------------------------------------------
-// Gate legítimo: PowerShell + Get-StartApps/Get-AppxPackage + Start Menu
-// real só existem em win32. Em CI (ubuntu-latest) este bloco conta como
-// skipped -- nomeado explicitamente aqui, não escondido, como pedido pela
-// tarefa. Nesta máquina (win32) ele RODA de verdade.
-const win32Only = process.platform === "win32" ? {} : { skip: "requer Windows real (PowerShell + Start Menu)" };
 
 test("PLAT-02 end-to-end nesta máquina real: >=122 apps, UWP presente, sem unins*.exe, ordenado, sem target duplicado", win32Only, async () => {
   const apps = await realListInstalledApps();
