@@ -272,15 +272,29 @@ export function createWindowsAppearanceTracker(deps = {}) {
   let child = null;
   let stopped = false;
   let autoStartAttempted = false; // trava o lazy-start pra rodar no máximo 1x
+  // Round-3 finding 1: contador de geração. onWatcherChange() incrementa
+  // isto no MESMO instante em que zera `cached` (ver abaixo). Uma leitura
+  // já em voo captura a geração vigente em `startedAt` antes de começar;
+  // se uma invalidação chegar enquanto ela ainda está no ar, a geração
+  // global avança e o `.then` de sucesso, ao terminar, percebe que sua
+  // geração ficou velha e DESCARTA o resultado em vez de escrevê-lo em
+  // `cached` — sem isto, o valor pré-mudança que essa leitura já tinha em
+  // mãos sobrescrevia a invalidação, e o token ficava errado até a
+  // PRÓXIMA mudança de tema (nenhum TTL por trás pra se autocurar, ao
+  // contrário do MAC_ICON_APPEARANCE_TTL_MS de apps.js). O braço de erro
+  // (`.catch()` abaixo) já não escreve em `cached`, então só o braço de
+  // sucesso precisa da guarda.
+  let generation = 0;
 
   function ensureToken() {
     maybeAutoStart();
     if (cached !== null) return Promise.resolve(cached);
     if (inflight) return inflight;
+    const startedAt = generation;
     inflight = Promise.resolve()
       .then(() => read())
       .then(token => {
-        cached = token;
+        if (generation === startedAt) cached = token;
         inflight = null;
         return token;
       })
@@ -321,6 +335,7 @@ export function createWindowsAppearanceTracker(deps = {}) {
     // `defaults -g` em qualquer mudança em vez de tentar interpretar o
     // evento.
     cached = null;
+    generation++; // Round-3 finding 1: descarta qualquer leitura já em voo (ver `generation` acima)
     log.debug("icon.win.theme_changed", {});
   }
 

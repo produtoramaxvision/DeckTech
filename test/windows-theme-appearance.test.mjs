@@ -125,6 +125,62 @@ test("createWindowsAppearanceTracker: evento onChange do watcher invalida o cach
   tracker.stop();
 });
 
+// Round-3 finding 1: uma invalidação que chega ENQUANTO uma leitura já está
+// em voo não pode ser engolida pelo `.then` de sucesso dessa leitura
+// escrevendo o valor PRÉ-mudança de volta em `cached` por cima do `null`
+// que onWatcherChange() acabou de colocar lá. Sem guarda de geração, o
+// token fica errado pro resto da vida do tracker — nenhum TTL por trás pra
+// se autocurar (diferente do MAC_ICON_APPEARANCE_TTL_MS de apps.js) — até a
+// PRÓXIMA mudança de tema. Determinístico: a 1ª leitura só resolve quando
+// este teste manda (`releaseFirst`), então dá pra disparar o evento
+// exatamente NO MEIO da janela, sem timer nenhum.
+test("createWindowsAppearanceTracker: onChange chegando NO MEIO de uma leitura em voo não é engolido — a PRÓXIMA token() relê e vê o valor novo, não o poisoned (Round-3 finding 1)", async () => {
+  let reads = 0;
+  let current = "apps=dark";
+  let releaseFirst;
+  let onChangeCb;
+  const tracker = createWindowsAppearanceTracker({
+    read: () => {
+      reads++;
+      if (reads === 1) {
+        // 1ª leitura fica pendurada até este teste liberar — simula a
+        // janela real medida (~21ms) onde uma mudança pode chegar.
+        return new Promise((resolve) => { releaseFirst = () => resolve("apps=dark"); });
+      }
+      return Promise.resolve(current);
+    },
+    startWatcher: (keyPath, { onChange }) => { onChangeCb = onChange; return { kill() {} }; },
+  });
+
+  const first = tracker.token(); // leitura #1 em voo, ainda não resolvida
+  // `ensureToken()` encadeia `read()` dentro de um `.then()` — ele só roda
+  // depois que a microtask atual esvazia, não sincronamente aqui. Um
+  // `await` de uma promise já resolvida força exatamente essa drenagem
+  // (confirmado via context7 /nodejs/node: callbacks de `.then()` rodam
+  // como microtask, depois do código síncrono corrente) — sem isto,
+  // `releaseFirst` ainda não teria sido atribuído por `read()`.
+  await Promise.resolve();
+  assert.equal(reads, 1, "leitura #1 já deveria estar em voo depois da drenagem de microtask");
+  onChangeCb();                  // o tema muda ENQUANTO a leitura #1 ainda está no ar
+  current = "apps=light";
+  releaseFirst();                // leitura #1 finalmente resolve com o valor PRÉ-mudança
+
+  assert.equal(await first, "apps=dark", "quem já estava esperando a leitura em voo recebe o valor que ela de fato leu — mesmo comportamento do TTL de 1s do macOS pra um co-chamador dentro da janela");
+  assert.equal(
+    await tracker.token(),
+    "apps=light",
+    "SEM a guarda de geração, isto seria 'apps=dark' — o .then de sucesso da leitura #1 escreveria o valor velho em cima do cached=null que onChange() acabou de colocar, engolindo a invalidação",
+  );
+  assert.equal(reads, 2, "a invalidação mid-flight deveria ter forçado uma releitura de verdade, não servido do cache poisoned");
+
+  tracker.stop();
+});
+
+// Contra-discriminador: se a guarda fosse invertida (`generation !== startedAt`),
+// TODA escrita de cache ficaria bloqueada, inclusive a normal — o teste "token()
+// é preguiçoso" (linha ~68 acima) já cobre isso e falharia, provando que a
+// guarda não é um no-op na direção oposta.
+
 test("createWindowsAppearanceTracker: onExit inesperado do watcher NÃO reinicia sozinho (sem crash-loop) — token() continua funcionando via leitura avulsa", async () => {
   let reads = 0;
   let spawnCount = 0;
