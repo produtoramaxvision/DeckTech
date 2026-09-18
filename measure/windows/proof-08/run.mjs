@@ -60,14 +60,66 @@ const args = process.argv.slice(2);
 // round-tagged path under measure/windows/proof-08/results/, in addition
 // to (not instead of) the per-rep scratch dir (which still holds the
 // high-volume per-rep log/heartbeat files — those were never what the ADR
-// cited by name). `--out-tag` lets a future round pick its own tag instead
-// of silently overwriting round-8's committed evidence; default is
-// "round8" since this script has no other way to know which round is
-// invoking it.
+// cited by name).
+//
+// ROUND-9 FIX (major finding #1): the `--out-tag` flag round-8 added to
+// protect that committed evidence had no validation of its own —
+// `node run.mjs --out-tag` (flag last, value missing) silently wrote a
+// full battery's evidence to `raw-results-undefined.json`, and because
+// `JSON.stringify` drops object keys whose value is `undefined`, the
+// orphan file didn't even carry its own tag in `meta` — reintroducing, in
+// the provenance fix itself, exactly the silent-failure class the
+// ROUND-3 FIX for `--reps` below exists to rule out. Same standard now
+// applies here, enforced at module top level (before `main()` does
+// anything, so this always runs before any Electron process is spawned):
+// a supplied `--out-tag` value must be present and match
+// `SAFE_TAG_RE` — a single filename-safe component, which by construction
+// rules out `/`, `\`, `:` and `..` (a tag like `../../x` previously
+// escaped `RESULTS_DIR` because `join()` silently normalizes the
+// traversal inside the template literal) — or the script exits 1 naming
+// the flag and the exact value received.
+//
+// ROUND-9 FIX (minor finding #3): the round-8 default tag was the literal
+// string `"round8"`, so a bare `node run.mjs` (no `--out-tag`) would
+// silently overwrite `raw-results-round8.json` in place — the single file
+// every "this round" figure in §4/§4.1/§4.2/§5.1/§5.2/§6/§8 is cited to —
+// with no existence check and no `--force`; the flag's own header comment
+// claimed to prevent this but nothing enforced it. Two independent fixes,
+// not one traded for the other: (a) the hardcoded `"round8"` default is
+// gone — an omitted `--out-tag` now derives a timestamp-based tag that
+// cannot collide with any previous round's committed filename by
+// construction, and (b) regardless of which tag is in play (derived or
+// explicit), writing is refused outright — before any Electron process is
+// spawned — if `COMMITTED_RESULTS_FILE` already exists, unless `--force`
+// is passed. This is the same "structural boundary, not operator
+// discipline" standard §8 reason (1) uses to prefer Approach A's process
+// boundary over Approach B's "whether someone remembered to install the
+// handler" — clobbering committed evidence is now impossible by default,
+// not merely discouraged by a comment.
 const RESULTS_DIR = join(here, "results");
 const outTagFlagIndex = args.indexOf("--out-tag");
-const OUT_TAG = outTagFlagIndex >= 0 ? args[outTagFlagIndex + 1] : "round8";
+const FORCE = args.includes("--force");
+const SAFE_TAG_RE = /^[A-Za-z0-9_-]+$/;
+let OUT_TAG;
+if (outTagFlagIndex >= 0) {
+  const raw = args[outTagFlagIndex + 1];
+  if (typeof raw !== "string" || raw.length === 0 || !SAFE_TAG_RE.test(raw)) {
+    console.error(`FATAL: invalid --out-tag value: ${JSON.stringify(raw)} — expected a non-empty single filename component matching ${SAFE_TAG_RE} (no "/", "\\", ":", "." or ".." — nothing that can escape RESULTS_DIR).`);
+    process.exit(1);
+  }
+  OUT_TAG = raw;
+} else {
+  // Timestamp-derived, not a fixed literal: two default-tag runs, even on
+  // the same day, get two different filenames — a bare invocation can
+  // never land on a previous round's committed evidence.
+  OUT_TAG = `run-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+}
 const COMMITTED_RESULTS_FILE = join(RESULTS_DIR, `raw-results-${OUT_TAG}.json`);
+if (existsSync(COMMITTED_RESULTS_FILE) && !FORCE) {
+  console.error(`FATAL: ${COMMITTED_RESULTS_FILE} already exists — refusing to overwrite committed evidence.`);
+  console.error(`  Pass a different --out-tag <tag>, or --force to overwrite it deliberately.`);
+  process.exit(1);
+}
 
 // ROUND-3 FIX (minor finding #5): the old flag() parser did `Number(args[i+1])`
 // with no validation — a malformed value (e.g. --reps abc) becomes NaN,
@@ -352,13 +404,33 @@ function stats(nums) {
 // Lifted into a shared helper and now applied to BOTH cold start and idle
 // RSS, so neither metric can publish a "the delta is far outside both arms'
 // spreads" claim the run's own numbers don't support.
+//
+// ROUND-9 FIX (major finding #2): this guard failed open at small n. With
+// n=1 each arm's `spread` is 0 BY CONSTRUCTION (max-min of a single value),
+// so `delta < maxSpread` is false for any nonzero delta and the function
+// printed the "directionally supported" verdict — the exact opposite of the
+// FLAG the identical metric earned at n=8 in the committed round-8 evidence.
+// A within-arm spread computed from a handful of reps cannot bound
+// run-to-run variation on this machine (documented throughout §6 as
+// variable under concurrent load) — the guard would "pass" identically if
+// the reproducibility check were deleted outright. Fixed: `stats()` already
+// carries each arm's own `n`; both are now required, and below a named
+// minimum the function refuses to render EITHER verdict and says so
+// explicitly, so a zero (or small-n) spread can never be silently read as
+// agreement.
+const MIN_N_FOR_DIRECTIONAL_VERDICT = 5;
 function deltaVsSpread(title, unit, statsA, statsB, fmt) {
   if (!statsA || !statsB) return;
+  const n = Math.min(statsA.n, statsB.n);
   const delta = Math.abs(statsA.median - statsB.median);
   const maxSpread = Math.max(statsA.spread, statsB.spread);
   console.log(`\n=== ${title}: delta vs. within-arm spread ===`);
-  console.log(`median delta A vs B: ${fmt(delta)} ${unit}`);
+  console.log(`median delta A vs B: ${fmt(delta)} ${unit} (n: A=${statsA.n}, B=${statsB.n})`);
   console.log(`A spread: ${fmt(statsA.spread)} ${unit} | B spread: ${fmt(statsB.spread)} ${unit}`);
+  if (n < MIN_N_FOR_DIRECTIONAL_VERDICT) {
+    console.log(`n too small to judge directionality (n=${n}, minimum ${MIN_N_FOR_DIRECTIONAL_VERDICT}) — a within-arm spread from fewer reps cannot bound run-to-run variation on this machine; no verdict rendered.`);
+    return;
+  }
   if (delta < maxSpread) {
     console.log(`FLAG: median delta (${fmt(delta)} ${unit}) is SMALLER than at least one arm's own spread (${fmt(maxSpread)} ${unit}) — not a reproducible directional claim at this n.`);
   } else {

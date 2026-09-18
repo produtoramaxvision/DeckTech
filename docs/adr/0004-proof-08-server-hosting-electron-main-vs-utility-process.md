@@ -5,7 +5,7 @@
   2026-09-18 (round-3 — see below), revised 2026-09-18 (round-4 — see below),
   revised 2026-09-18 (round-5 — see below), revised 2026-09-18
   (round-6 — see below), revised 2026-09-18 (round-7 — see below), revised
-  2026-09-18 (round-8 — see below)
+  2026-09-18 (round-8 — see below), revised 2026-09-18 (round-9 — see below)
 - Requirement: PROOF-08 (`.maxvision/REQUIREMENTS.md` Fase 0), decides D15,
   informs SHELL-01/SHELL-02/SHELL-03 (Fase 5)
 - Supersedes: nothing. Closes the gap `WINDOWS-STACK.md` §9 left open — that
@@ -272,6 +272,85 @@
 > "ROUND-8 FIX" comment in `measure/windows/proof-08/run.mjs` for the
 > mechanism of the fix, and `measure/windows/proof-08/results/` for the
 > committed evidence.
+
+> **Round-9 revision note.** A rigorous review rejected the round-8 version
+> on 3 findings (2 major, 1 minor) — all in `run.mjs`'s own provenance
+> machinery, none in the measured numbers §4/§5 report. **Major #1:**
+> `--out-tag`, the flag round-8 added specifically to protect committed
+> evidence, had no validation — `node run.mjs --reps 8 --crash-reps 3
+> --out-tag` (flag last, value missing) silently wrote a full battery's
+> evidence to `raw-results-undefined.json`, and because `JSON.stringify`
+> drops keys whose value is `undefined`, the orphan file carried no in-band
+> record of its own tag either — the provenance fix reintroducing exactly
+> the silent-failure class the ROUND-3 FIX for `--reps` exists to rule out.
+> A tag containing separators (e.g. `--out-tag ../../x`) also escaped
+> `RESULTS_DIR`, since `join()` silently normalizes the traversal inside the
+> template literal. **Major #2:** `deltaVsSpread()` — the automatic guard
+> the ADR cites by name as its defense against prose assertions ("printed by
+> `run.mjs` itself, not asserted in prose", §4's note) — failed open at
+> small n: with n=1 each arm's spread is 0 by construction, so `delta <
+> maxSpread` is false for any nonzero delta and the function printed the
+> "directionally supported" verdict, the exact opposite of the FLAG the
+> identical metric earned at n=8 in the committed round-8 evidence; the
+> guard would "pass" identically if the reproducibility check were deleted.
+> **Minor #3:** the default tag was the literal string `"round8"`, so a bare
+> `node run.mjs` would silently overwrite `raw-results-round8.json` — the
+> single file every "this round" figure in §4/§4.1/§4.2/§5.1/§5.2/§6/§8 is
+> cited to — in place, with no existence check and no `--force`; the flag's
+> own header comment claimed to prevent this but nothing enforced it, the
+> same discipline-dependence §8 reason (1) rejects as a reason to prefer
+> Approach A's structural boundary over Approach B's "whether someone
+> remembered to install the handler". **Fixed, all three, in `run.mjs`** (see
+> the inline "ROUND-9 FIX" comments): `--out-tag`, when supplied, must match
+> `SAFE_TAG_RE` (`/^[A-Za-z0-9_-]+$/` — a single filename-safe component,
+> ruling out `/`, `\`, `:`, `.` and `..` by construction) or the script exits
+> 1 before any Electron process spawns, naming the flag and the exact value
+> received; `meta.outTag` is set from that validated string unconditionally.
+> `deltaVsSpread()` now takes each arm's own `n` (already carried on the
+> `stats()` objects `summarize()` builds) and refuses to render either
+> verdict below `MIN_N_FOR_DIRECTIONAL_VERDICT = 5`, printing "n too small to
+> judge directionality" instead — a zero (or small-n) spread can no longer
+> read as agreement. The hardcoded `"round8"` default is gone — an omitted
+> `--out-tag` now derives a timestamp-based tag (`run-<ISO timestamp>`) that
+> cannot collide with a previous round's filename by construction — and,
+> independently, writing is refused outright (exit 1, before any Electron
+> process spawns) if `COMMITTED_RESULTS_FILE` already exists, unless
+> `--force` is passed; this is a structural guard, not a second comment
+> asking the operator to remember. **Verified, all three, by actually
+> running the fixed script, not by reading the diff:** `node run.mjs --reps 8
+> --crash-reps 3 --out-tag` (flag last, no value) → `FATAL: invalid
+> --out-tag value: undefined ...`, exit 1, no `raw-results-undefined.json`
+> written. `node run.mjs --reps 1 --crash-reps 1 --out-tag "../../x"` →
+> `FATAL: invalid --out-tag value: "../../x" ...`, exit 1. `node run.mjs
+> --reps 1 --crash-reps 1 --out-tag round8` (the committed round-8 file
+> already exists) → `FATAL: ...raw-results-round8.json already exists —
+> refusing to overwrite committed evidence.`, exit 1 — the committed
+> round-8 evidence this ADR's numbers cite was never touched by any of this
+> round's runs. A full `--reps 1 --crash-reps 1 --out-tag round9fixverifn1`
+> battery was then run to completion (committed at
+> `measure/windows/proof-08/results/raw-results-round9fixverifn1.json` and
+> `round9fixverifn1-run-output.txt`): at n=1, both cold start and idle RSS
+> printed `n too small to judge directionality (n=1, minimum 5) ... no
+> verdict rendered` — not the old code's false "directionally supported".
+> A second battery, `--reps 5 --crash-reps 1 --out-tag round9review-n5`
+> (committed at `raw-results-round9review-n5.json` and
+> `round9review-n5-run-output.txt`), confirmed the guard renders an actual
+> verdict once n reaches the minimum, on both sides of the FLAG: cold start
+> at n=5 printed `FLAG: median delta (118 ms) is SMALLER than at least one
+> arm's own spread (155 ms) — not a reproducible directional claim at this
+> n.`, idle RSS at n=5 printed `Median delta exceeds both arms' spread —
+> directionally supported at this n.` (delta 58.4 MB vs. spreads 15.9/6.5
+> MB). Both smoke batteries carried `meta.outTag` set to their own validated
+> tag in the committed JSON, confirmed by reading the file back, not
+> assumed. **None of this touches §4/§5's own headline numbers:** round-8's
+> committed battery ran at n=8 ≥ `MIN_N_FOR_DIRECTIONAL_VERDICT`, so the new
+> guard changes nothing about its printed verdicts — §4's 55 ms/152 ms cold
+> start FLAG and §4's 57.7 MB idle-RSS "directionally supported" result are
+> unchanged, still cited from `raw-results-round8.json`, not re-derived. The
+> decision (ship `utilityProcess.fork`) is unchanged. See the inline
+> "ROUND-9 FIX" comments in `measure/windows/proof-08/run.mjs` and
+> `measure/windows/proof-08/results/` for the two new smoke-verification
+> batteries' committed evidence.
 
 > Evidence convention: every number and behavior below is `[MEASURED]` — produced
 > by running the probes in `measure/windows/proof-08/` on this machine — or
@@ -1815,8 +1894,8 @@ D15 is resolved: `utilityProcess.fork`, pointing at the real, unmodified
 
 ```sh
 pnpm install   # electron@44.4.1 already committed as a devDependency in package.json
-node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3 --out-tag round8   # full battery this ADR's §4/§4.1/§4.2/§5.1/§5.2/§6/§8 numbers come from (round-8); writes measure/windows/proof-08/results/raw-results-round8.json, the committed evidence
-node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1   # quick smoke run
+node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3 --out-tag round8   # full battery this ADR's §4/§4.1/§4.2/§5.1/§5.2/§6/§8 numbers come from (round-8); writes measure/windows/proof-08/results/raw-results-round8.json, the committed evidence. ROUND-9 NOTE: raw-results-round8.json is now committed on disk, so re-running this EXACT line today exits 1 (`FATAL: ...raw-results-round8.json already exists — refusing to overwrite committed evidence.`) — that refusal is the round-9 fix working as intended (minor finding #3), not a regression; pass a different --out-tag, or --force, to actually re-run this battery.
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1   # quick smoke run — no --out-tag given, so (round-9) this derives a fresh timestamp-based tag (`run-<ISO timestamp>`) each time, never "round8", so it can never collide with the committed evidence above
 node measure/windows/proof-08/crash-timeline.mjs utility                    # timeline, A, default handler
 node measure/windows/proof-08/crash-timeline.mjs inprocess                  # timeline, B, default handler — §5's window/dialog box
 node measure/windows/proof-08/crash-timeline.mjs inprocess --matched-handler  # same, B, matched handler (§5.2)
@@ -1843,7 +1922,14 @@ node measure/windows/proof-08/crash-timeline.mjs inprocess 2>&1 | tee measure/wi
 
 # Round-8 additions:
 node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3 --out-tag round8 2>&1 | tee measure/windows/proof-08/results/round8-run-output.txt   # closes round-8 blocker finding #1: `run.mjs` previously wrote its aggregate JSON only into a per-run mkdtemp scratch dir, never committed, structurally unrecoverable once the process exited. Now also writes measure/windows/proof-08/results/raw-results-<tag>.json (default tag "round8") after EVERY phase (idle/crashDefault/crashMatched), not only at the end, and this console output is separately captured with `| tee` the same way round-6 captured crash-timeline's — both are committed. Every "this round" figure in §4/§4.1/§4.2/§5.1/§5.2/§6/§8 is re-derived from these two committed files.
-node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag <tag>   # --out-tag lets a future round pick its own tag instead of silently overwriting round-8's committed evidence at raw-results-round8.json
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag <tag>   # --out-tag lets a future round pick its own tag instead of silently overwriting round-8's committed evidence at raw-results-round8.json. ROUND-9 NOTE: at n=1 this now prints "n too small to judge directionality (n=1, minimum 5)" for both cold start and idle RSS instead of a verdict — see the Round-9 additions below.
+
+# Round-9 additions:
+node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3 --out-tag   # flag present, value missing (last arg) — closes round-9 major finding #1: exits 1, `FATAL: invalid --out-tag value: undefined — expected a non-empty single filename component matching /^[A-Za-z0-9_-]+$/ ...`, before any Electron process spawns, no raw-results-undefined.json written
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag "../../x"   # path-traversal tag — exits 1, `FATAL: invalid --out-tag value: "../../x" ...`, same finding
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round8   # tag collides with already-committed evidence — closes round-9 minor finding #3: exits 1, `FATAL: ...raw-results-round8.json already exists — refusing to overwrite committed evidence.`, before any Electron process spawns; pass --force to override deliberately
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round9fixverifn1 2>&1 | tee measure/windows/proof-08/results/round9fixverifn1-run-output.txt   # closes round-9 major finding #2 at n=1 (below MIN_N_FOR_DIRECTIONAL_VERDICT): both cold start and idle RSS print "n too small to judge directionality (n=1, minimum 5) ... no verdict rendered" instead of the old code's false "directionally supported"; committed at raw-results-round9fixverifn1.json (meta.outTag: "round9fixverifn1", confirmed present by reading the file back)
+node measure/windows/proof-08/run.mjs --reps 5 --crash-reps 1 --out-tag round9review-n5 2>&1 | tee measure/windows/proof-08/results/round9review-n5-run-output.txt   # closes round-9 major finding #2 at n=5 (at MIN_N_FOR_DIRECTIONAL_VERDICT): the guard renders an actual verdict again once n reaches the minimum — cold start printed a FLAG (118 ms delta < 155 ms spread), idle RSS printed "directionally supported" (58.4 MB delta > 15.9/6.5 MB spreads); committed at raw-results-round9review-n5.json
 ```
 
 `crash-timeline.mjs`'s per-iteration cadence is now printed inline (`iter
