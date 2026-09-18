@@ -21,6 +21,7 @@ import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { COLOR_TOKENS, NON_COLOR_TOKENS } from "./tokens.mjs";
+import { CHROME_VARS, CHROME_CAVEAT_BY_THEME } from "./gallery-chrome.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CSS_OUTPUT_PATH = path.join(__dirname, "tokens.generated.css");
@@ -34,30 +35,11 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-// Gallery-tool-only presentation constants. Not DeckTech design tokens —
-// kept out of design/tokens.mjs so they can never be mistaken for one, but
-// still generated (not hand-authored) so they stay out of the surface lint
-// the same way design/tokens.mjs does.
-const CHROME_VARS = {
-  "--gallery-chrome-page-bg": "#efefef",
-  "--gallery-chrome-text": "#111111",
-  "--gallery-chrome-lede": "#444444",
-  "--gallery-chrome-card-bg": "rgba(127,127,127,.08)",
-  "--gallery-chrome-border": "#dddddd",
-  "--gallery-chrome-badge-bg": "#dddddd",
-  "--gallery-chrome-swatch-base": "#808080",
-  "--gallery-chrome-source": "#555555",
-  "--gallery-chrome-pill-radius": "999px",
-};
-
-// Theme-scoped so the warning color keeps AA-ish contrast against BOTH the
-// near-black dark panel and the near-white light panel, instead of one fixed
-// hex compromising on both (the low-contrast-text finding this file was
-// reviewed against).
-const CHROME_CAVEAT_BY_THEME = {
-  dark: "#ffb37a", // light amber on a near-black canvas
-  light: "#7a3900", // burnt-amber on a near-white canvas
-};
+// Gallery-tool-only presentation constants (page bg, badge pill, caveat
+// callout, ...) live in ./gallery-chrome.mjs, NOT here — see that file's
+// header for why (round-2 review finding 2: this module used to declare
+// them inline and needed its own lint allowlist exemption to do it; moving
+// them out means build-gallery.mjs no longer needs one).
 
 // ---------------------------------------------------------------------------
 // design/tokens.generated.css
