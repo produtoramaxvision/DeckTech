@@ -277,38 +277,55 @@ document last "fixed" it, exactly as this round's reviewer predicted it
 would ("every future reviewer breaks it").
 
 **Ratio evidence — canonical statement (this is the ONE place this
-document states the CURRENT Node-vs-COM speedup conclusion — round-8
-blocker finding 1: this is a narrower claim than "every ratio range in
-the file," and deliberately so — the separate COM-vs-third-party-baseline
-per-item rate gap ("The COM baseline" below, 5.9x–11.3x, a different
-metric with its own scope statement) is untouched by this parenthetical.
-Restricted to the Node-vs-COM speedup this paragraph is about, every
-other range in the file is either (a) inside "Revision history" below, an
-appendix of past-round entries that are historical by construction, (b)
-inside a table row or the round-6 history entry reporting one specific
-PAST run's own result, never generalized into a document-wide claim, (c)
-one of the two round-5-era paragraphs in this section — "Provenance
-of the round-5 four-run committed set" and the "Combining all three
-clusters" sentence just above — which now say, at the point of statement,
-that they are superseded by this paragraph, or (d) the "Round 6 found..."
-and "Round 7 finding..." narrative paragraphs immediately above this one,
-which each state a prior round's number and, in that same paragraph or
-the next, that the following round found it broken — narrating what
-happened, not asserting a current bound; "Decision," the round-6
-history entry below, and "The COM baseline" → "This ADR's speedup claim"
-all point here instead of restating it):** across TWENTY n=5 warm runs
-measured
-for this ADR through round 7 (four committed + four uncommitted
+document states the aggregate, consolidated Node-vs-COM speedup
+conclusion — round-8 blocker finding 1: this is a narrower claim than
+"every ratio range in the file," and deliberately so, on two axes. First
+metric: the separate COM-vs-third-party-baseline per-item rate gap is a
+different number entirely (5.9x–11.1x as first measured, widened to
+5.9x–11.3x by name in the paragraph beginning "The research baseline does
+not reproduce on this machine," at the top of "Measured result," once
+round 6's second run's 11.3x gap is folded in — that same paragraph's own
+"5.9x–11.1x across all five" is the pre-widening figure, scoped to its
+own five specific runs and superseded later in that same paragraph by the
+widening — then referenced again in "The COM baseline" below) and is
+untouched by this parenthetical. Second, an aggregate range in the file
+that is not this paragraph's own is either (a) inside "Revision history"
+below, an appendix of past-round entries that are historical by
+construction, (b) one specific run's own reported result — a table row,
+the round-6 history entry, scoped inline prose ("this round's" five runs
+at "Measured result"'s opening), or the per-run medians in "Round-8
+worker verification" below, none of them generalized into a
+document-wide claim, (c) one of the two round-5-era paragraphs in this
+section — "Provenance of the round-5 four-run committed set" and the
+"Combining all three clusters" sentence just above — which now say, at
+the point of statement, that they are superseded by this paragraph, (d)
+the "Round 6 found..." and "Round 7 finding..." narrative paragraphs
+immediately above this one, which each state a prior round's number and,
+in that same paragraph or the next, that the following round found it
+broken — narrating what happened, not asserting a current bound — or (e)
+a site citing THIS paragraph's own aggregate range WITH attribution back
+to it, not asserting a second, independent claim: "Decision" item 3 and
+"The COM baseline" → "This ADR's speedup claim" both do this):** across
+TWENTY-THREE n=5 warm runs
+measured for this ADR through round 8 (four committed + four uncommitted
 first-party round 5, two second-hand round 3, two second-hand round 6,
 two first-party round 6, three second-hand round 7 — the reviewer's own
 re-runs that rejected round 6's ADR, quoted in the "Round-7 revision"
-entry above — and three first-party round 7, this round's own worker,
-this section's table above plus the three round-7 worker runs just
-described), the binary reader has been faster than COM in every
+entry above — three first-party round 7 and three first-party round 8,
+each round's own worker, this section's table above plus the three
+round-7 and three round-8 worker runs just described), the binary reader
+has been faster than COM in every
 individual warm iteration FOR WHICH per-iteration data is recoverable
-(roughly 35 of the roughly 100 total iterations across all twenty runs —
-see below for why the rest are not recoverable), and faster at the
-run-median level in all twenty runs without exception (every reported
+(roughly 35 of the roughly 115 total iterations across all twenty-three
+runs — see below for why the rest are not recoverable; the membership of
+this 35 changed this round: round 7's three worker runs, previously
+counted here, are removed — round-8 major finding 2 established their
+raw per-iteration values were never quoted or committed anywhere, only
+their medians and an iteration-level min/max; round 8's three worker
+runs, with raw values quoted in full in "Round-8 worker verification"
+below, take their place, so the count is unchanged at 35 but the specific
+runs behind it are not), and faster at the
+run-median level in all twenty-three runs without exception (every reported
 median exceeds 1.0x). Among the iterations with recoverable data, the
 factor has ranged from **as low as ~5.7x to as high as ~18x** at the
 individual-iteration level (5.7x from this round's own reviewer's third
@@ -320,17 +337,20 @@ range observed to date, not a bound**: a pooled percentile over the full
 iteration set was considered and rejected for this document, because
 most of the second-hand rows (the round-3, round-6, and round-7 reviewer
 runs) report only a median and a min/max, not the per-iteration raw
-values a defensible percentile needs — only the four committed JSONs
-plus this round's three worker-run fresh runs (~35 of the ~100
-iterations) have recoverable raw per-iteration data, and computing a
-percentile over 35-of-100 and presenting it as "the" pooled floor would
+values a defensible percentile needs — and round 7's own three worker
+runs turn out to be in the same position (round-8 major finding 2: only
+a median and an iteration-level min/max were ever recorded for them,
+never the five individual raw values per run) — only the four committed
+JSONs plus round 8's three worker runs (~35 of the ~115 iterations) have
+recoverable raw per-iteration data, and computing a percentile over
+35-of-115 and presenting it as "the" pooled floor would
 be a new, narrower-sounding overclaim of the same shape this finding
 exists to stop. The honest statement is the one above: an observed
 range, expected to widen
 (specifically downward) as more runs accumulate, with **no** "lowest
 ever", "no lower than", or "floor" language attached to any specific
 number, because the very next run — on this machine or anyone else's —
-can and, on this document's own seven-round track record, reliably does
+can and, on this document's own eight-round track record, reliably does
 move that number. **PLAT-10 must not plan capacity or set an SLA against
 any ratio figure in this document.** For a planning input that does NOT
 have this defect, see the absolute-saving band immediately below, which
@@ -338,7 +358,7 @@ is the number "Decision" leads with.
 
 **Absolute magnitude — the figure that has NOT moved (round-4 blocker
 finding 1; the figure round 6 already found survives fresh sampling,
-confirmed again in round 7):** across the four repo-verifiable committed
+confirmed again in rounds 7 and 8):** across the four repo-verifiable committed
 runs, the binary reader saves COM-median minus Node-median per full
 182-shortcut Start Menu scan: 226.5 ms (`7819df6`), 254.1 ms (`1fa06ae`),
 289.5 ms (`14a44ac`), 456.3 ms (`6932c45`, canonical) — **roughly a
@@ -373,8 +393,8 @@ was no "above" to compute from. They still count toward the band because
 the document has no reason to doubt three numbers this document's own
 prior round typed down, only to independently verify them; a reader who
 wants that independent verification should use the round-8 runs below
-instead). Fifteen samples across seven review rounds, zero of them
-outside 0.23–0.46 s.
+instead). Fifteen samples across seven review rounds (through round 7),
+zero of them outside 0.23–0.46 s.
 
 **Round-8 worker verification — three fresh runs, fully verbatim
 (round-8 major finding 2's fix: independently reproducible confirmation
@@ -793,10 +813,10 @@ parser produced somewhere in a candidate list:
    with, specifically because — unlike the ratio in item 3 below — it has
    not required revision in four consecutive rounds.
 3. **The ratio (ancillary context, not a planning floor — round-7 blocker
-   finding 1):** across twenty n=5 runs measured for this ADR over seven
-   review rounds, the binary reader has been faster than COM in every
+   finding 1):** across twenty-three n=5 runs measured for this ADR over
+   eight review rounds, the binary reader has been faster than COM in every
    iteration for which raw per-iteration data survives and faster at the
-   run-median level in all twenty runs without exception, by a factor
+   run-median level in all twenty-three runs without exception, by a factor
    observed so far to span roughly 5.7x–18x at the single-iteration level
    and roughly 7.8x–17x at the run-median level (full accounting,
    including which rows lack recoverable data and why, in "Measured
@@ -804,8 +824,10 @@ parser produced somewhere in a candidate list:
    will not again, publish a minimum from this distribution as a design
    floor:** rounds 5 and 6 each did exactly that (11.6x, then 6.2x/8.3x),
    and both were falsified by the next round's fresh measurement —
-   including this round's own three confirmation runs, one of which
-   (6.18x) landed below round 6's just-published floor. See "Measured
+   including round 7's own three confirmation runs, one of which
+   (6.18x) landed below round 6's just-published floor; round 8's three
+   confirmation runs (7.8x–11.3x, medians 10.2x/9.9x/9.2x) did not move
+   either extreme. See "Measured
    result" → "Ratio evidence — canonical statement" above for the full
    reasoning, including why a pooled percentile was considered and
    rejected. **PLAT-10 must not plan capacity or set an SLA against any
@@ -923,12 +945,31 @@ findings.
    it" parenthetical is rewritten to name every remaining ratio-range
    site in the file and say why each is historical, rather than merely
    asserting uniqueness — see that parenthetical itself for the full,
-   current four-category accounting of every ratio range remaining in
-   the file (plus one metric explicitly out of its scope: the separate
-   COM-vs-baseline per-item rate gap in "The COM baseline," never part of
-   this finding). `grep -n "x–[0-9]"` was re-run against this revision to
-   produce that accounting, not merely asserted; every hit traces to one
-   of the four categories or the excluded metric.
+   current accounting (a different metric excluded by name, a distinct
+   "attributed citation of this paragraph" case for "Decision" item 3 and
+   the two other sites that cite these exact figures WITH attribution,
+   and four categories — appendix, per-run row, the two superseded
+   round-5 paragraphs, the two narrated-as-broken round-6/7 paragraphs —
+   for everything else). A first draft of this accounting claimed
+   "instead of restating it" for the three attributed-citation sites,
+   which was false — they DO restate the figures, just with attribution,
+   which is not the defect this finding addresses; caught by an
+   independent review of commit `d4daa7d` (see below) and corrected here
+   to say so explicitly, along with
+   line 114's pre-round-6-widening figure, which the first draft's
+   category list did not actually cover, and the round-8 worker
+   verification block's own per-run medians, which are genuinely NEW
+   numbers (their first appearance in the document), not restatements of
+   anything — placed under the same "one specific run's own result"
+   category as every other per-run row, not under the attributed-citation
+   case, which is reserved for sites restating the canonical paragraph's
+   own aggregate range. `grep -n "x–[0-9]"` was re-run against the
+   corrected revision; every hit traces to a named case. (These two
+   corrections were caught by an independent review of commit `d4daa7d`,
+   which already carried this finding's marking/pointer changes but
+   stated the parenthetical's coverage claim too strongly; this commit
+   corrects the parenthetical itself, not merely this appendix entry's
+   description of it.)
 2. **[major, fixed]** The three round-7 "fresh confirmation" COM/Node
    medians behind three of the fifteen samples in the 0.23–0.46 s
    absolute-saving band (277.0546/35.407, 264.8426/28.5819,
@@ -953,7 +994,23 @@ findings.
    across eight review rounds. The same three runs' speedup medians
    (10.2x, 9.9x, 9.2x; iteration range 7.8x–11.3x) also land inside the
    existing ratio ranges without moving either edge, confirming rather
-   than revising the canonical statement.
+   than revising the canonical statement. An independent review of commit
+   `d4daa7d` (which added this section but left the canonical statement's
+   own run count untouched) caught that these three new n=5 warm runs
+   qualify under that statement's own inclusion criteria and would have
+   left it stale in the identical shape this round's finding 1 fixes
+   elsewhere. This commit corrects it: the canonical statement, its
+   recoverable-iteration count, and "Decision" item 3 all now read
+   twenty-three n=5 runs / eight review rounds. The recoverable-iteration
+   count itself is corrected a second way in the same pass: round 7's
+   three worker runs, which `d4daa7d`'s canonical statement counted as
+   contributing recoverable raw data, turn out not to — this finding's
+   own `git log --all -S` audit established only their medians and an
+   iteration-level min/max were ever recorded, never the five raw values
+   per run — so they are removed from that count and round 8's three
+   runs, whose raw values ARE quoted in full below, take their place;
+   the count stays 35-of-115 (up from 35-of-100, since the denominator
+   grew) but its membership changed.
 3. **[minor, fixed]** "Decision" item 3 pointed to "Measured result"
    → "Ratio evidence — canonical statement" with "below," but that
    subsection is inside "Measured result," which precedes "Decision" in
