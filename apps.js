@@ -7,6 +7,9 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { deflateSync, inflateSync } from "node:zlib";
 import { log as defaultLog } from "./log.js";
+// PLAT-04: cores/raio do monograma vêm dos design tokens (Fase 6), não
+// inventados aqui — ver comentário de monogramPng mais abaixo.
+import { findToken } from "./design/tokens.mjs";
 
 const ex = promisify(execFile);
 const LSAPPINFO = "/usr/bin/lsappinfo";
@@ -372,22 +375,228 @@ function pngIsEmpty(buf) {
   }
 }
 
-const MONOGRAM_COLORS = [
-  ["#0a84ff","#5e5ce6"], ["#ff375f","#ff9f0a"], ["#30d158","#0a84ff"],
-  ["#bf5af2","#ff375f"], ["#ff9f0a","#ff453a"], ["#64d2ff","#0a84ff"],
-  ["#ffd60a","#ff9f0a"], ["#32d74b","#64d2ff"],
+// PLAT-04: pares de cor do gradiente do monograma — SÓ tokens de
+// design/tokens.mjs (Fase 6), nunca hex inventado aqui. Os 5 tokens
+// semânticos disponíveis (accent/accent-alt/green/amber/red) não têm a
+// mesma cardinalidade da paleta antiga de 8 pares (que incluía roxo/ciano
+// sem token equivalente) — 5 combinações é a variedade real que os tokens
+// hoje sustentam sem inventar uma 6ª cor.
+//
+// Conhecido, não escondido: public/index.html:953 (PALETTE, o fallback CSS
+// client-side) continua com a paleta antiga hardcoded — não foi tocado
+// aqui (fora do escopo desta ticket, que é apps.js/monogramPng; ver
+// unresolved[] do relatório desta tarefa). As duas paletas divergem agora;
+// antes eram idênticas por acidente de terem sido copiadas uma da outra.
+const MONOGRAM_TOKEN_PAIRS = [
+  ["--dt-accent", "--dt-accent-alt"],
+  ["--dt-red", "--dt-amber"],
+  ["--dt-green", "--dt-accent"],
+  ["--dt-amber", "--dt-red"],
+  ["--dt-accent-alt", "--dt-green"],
 ];
 
+function hexToRgbTriple(hex) {
+  let h = String(hex || "").replace("#", "");
+  if (h.length === 3) h = h.split("").map(c => c + c).join("");
+  const n = parseInt(h, 16) || 0;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** Faz parse de um literal `rgba(r,g,b,a)`/`rgb(r,g,b)` de design/tokens.mjs. */
+function parseRgbaLiteral(value) {
+  const m = String(value || "").match(/rgba?\(([^)]+)\)/);
+  if (!m) return { r: 255, g: 255, b: 255, a: 1 };
+  const parts = m[1].split(",").map(s => parseFloat(s.trim()));
+  const [r, g, b] = parts;
+  return { r, g, b, a: parts.length > 3 ? parts[3] : 1 };
+}
+
+/**
+ * Resolve o par de cores do gradiente e a cor da tinta do texto a partir dos
+ * design tokens (Fase 6), para o `theme` pedido ("dark" | "light" — D11
+ * exige as duas). `--dt-ink` já é semi-transparente (.94) nos dois temas;
+ * essa alpha é preservada e usada de verdade em rasterizeMonogramPixels
+ * (blend contra o fundo), em vez de virar branco/preto sólido inventado.
+ */
+function resolveMonogramTokens(name, theme) {
+  const t = theme === "light" ? "light" : "dark";
+  const [aName, bName] = MONOGRAM_TOKEN_PAIRS[monogramHash(name) % MONOGRAM_TOKEN_PAIRS.length];
+  const c1 = findToken(aName)[t].value;
+  const c2 = findToken(bName)[t].value;
+  const ink = parseRgbaLiteral(findToken("--dt-ink")[t].value);
+  // --dt-r-tile-icon (0.19): mesmo raio proporcional que a CSS do client já
+  // aplica em `.atile .aglass img.aicon{ border-radius: 18% }` — não um
+  // valor novo, o token cujo NOME já é literalmente "raio do ícone do tile".
+  const radiusRatio = parseFloat(findToken("--dt-r-tile-icon").value);
+  return { c1, c2, ink, radiusRatio };
+}
+
+/**
+ * Extrai as iniciais do monograma, código-a-código (nunca por índice cru de
+ * UTF-16 — um par substituto cortado ao meio virava metade de um glifo).
+ * Acentos latinos são removidos via NFD antes de extrair (mesma técnica já
+ * usada em normalizeAppLabel acima) para que "Índice" vire "IN", não caia
+ * no glifo de fallback por causa só do acento. Scripts fora do alfabeto do
+ * monograma (CJK, emoji, cirílico) não têm glifo — ver glyphRowsFor, que
+ * troca CADA caractere sem glifo pelo "?" em vez de deixar o canvas vazio.
+ */
 function monogramInitials(name) {
-  const w = name.trim().split(/\s+/);
-  if (w.length > 1) return (w[0][0] + w[1][0]).toUpperCase();
-  return name.trim().slice(0, 2).toUpperCase() || "?";
+  const stripped = String(name || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+  const trimmed = stripped.trim();
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  let raw;
+  if (words.length > 1) {
+    raw = (Array.from(words[0])[0] || "") + (Array.from(words[1])[0] || "");
+  } else {
+    raw = Array.from(trimmed).slice(0, 2).join("");
+  }
+  const upper = raw.toLocaleUpperCase("en-US");
+  return upper || "?";
 }
 
 function monogramHash(name) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return h;
+}
+
+// Fonte bitmap 5x7 pura-JS — A-Z, 0-9 e "?" (glifo de fallback pra qualquer
+// caractere fora deste alfabeto). Desenhada à mão para esta ticket: não é
+// uma cópia de nenhuma fonte existente, é um bloco 5x7 simples o bastante
+// pra ser auditável linha a linha. "#" = pixel de tinta, "." = vazio.
+const MONOGRAM_FONT = {
+  A: [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+  B: ["####.", "#...#", "#...#", "####.", "#...#", "#...#", "####."],
+  C: [".####", "#....", "#....", "#....", "#....", "#....", ".####"],
+  D: ["####.", "#...#", "#...#", "#...#", "#...#", "#...#", "####."],
+  E: ["#####", "#....", "#....", "####.", "#....", "#....", "#####"],
+  F: ["#####", "#....", "#....", "####.", "#....", "#....", "#...."],
+  G: [".####", "#....", "#....", "#.###", "#...#", "#...#", ".####"],
+  H: ["#...#", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+  I: ["#####", "..#..", "..#..", "..#..", "..#..", "..#..", "#####"],
+  J: ["..###", "...#.", "...#.", "...#.", "...#.", "#..#.", ".##.."],
+  K: ["#...#", "#..#.", "#.#..", "##...", "#.#..", "#..#.", "#...#"],
+  L: ["#....", "#....", "#....", "#....", "#....", "#....", "#####"],
+  M: ["#...#", "##.##", "#.#.#", "#...#", "#...#", "#...#", "#...#"],
+  N: ["#...#", "##..#", "#.#.#", "#..##", "#...#", "#...#", "#...#"],
+  O: [".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."],
+  P: ["####.", "#...#", "#...#", "####.", "#....", "#....", "#...."],
+  Q: [".###.", "#...#", "#...#", "#...#", "#.#.#", "#..#.", ".##.#"],
+  R: ["####.", "#...#", "#...#", "####.", "#.#..", "#..#.", "#...#"],
+  S: [".####", "#....", "#....", ".###.", "....#", "....#", "####."],
+  T: ["#####", "..#..", "..#..", "..#..", "..#..", "..#..", "..#.."],
+  U: ["#...#", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."],
+  V: ["#...#", "#...#", "#...#", "#...#", "#...#", ".#.#.", "..#.."],
+  W: ["#...#", "#...#", "#...#", "#.#.#", "#.#.#", "##.##", "#...#"],
+  X: ["#...#", "#...#", ".#.#.", "..#..", ".#.#.", "#...#", "#...#"],
+  Y: ["#...#", "#...#", ".#.#.", "..#..", "..#..", "..#..", "..#.."],
+  Z: ["#####", "....#", "...#.", "..#..", ".#...", "#....", "#####"],
+  0: [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."],
+  1: ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", "#####"],
+  2: [".###.", "#...#", "....#", "...#.", "..#..", ".#...", "#####"],
+  3: ["####.", "....#", "....#", ".###.", "....#", "....#", "####."],
+  4: ["...#.", "..##.", ".#.#.", "#..#.", "#####", "...#.", "...#."],
+  5: ["#####", "#....", "#....", "####.", "....#", "....#", "####."],
+  6: [".###.", "#....", "#....", "####.", "#...#", "#...#", ".###."],
+  7: ["#####", "....#", "...#.", "..#..", ".#...", ".#...", ".#..."],
+  8: [".###.", "#...#", "#...#", ".###.", "#...#", "#...#", ".###."],
+  9: [".###.", "#...#", "#...#", ".####", "....#", "....#", ".###."],
+  "?": [".###.", "#...#", "....#", "...#.", "..#..", ".....", "..#.."],
+};
+const MONOGRAM_GLYPH_COLS = 5;
+const MONOGRAM_GLYPH_ROWS = 7;
+
+function glyphRowsFor(ch) {
+  return MONOGRAM_FONT[ch] || MONOGRAM_FONT["?"];
+}
+
+/** Cobertura anti-serrilhada (0..1) de um ponto num retângulo de cantos
+ * arredondados — só os cantos precisam de faixa suave de 1px; as bordas
+ * retas são cobertura total/zero, sem custo de supersample. */
+function roundedRectCoverage(px, py, w, h, radius) {
+  const r = Math.max(0, Math.min(radius, w / 2, h / 2));
+  const cx = Math.min(Math.max(px, r), w - r);
+  const cy = Math.min(Math.max(py, r), h - r);
+  const dx = px - cx, dy = py - cy;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist <= r - 0.5) return 1;
+  if (dist >= r + 0.5) return 0;
+  return r + 0.5 - dist;
+}
+
+/**
+ * Rasteriza o monograma em pixels RGBA puros — sem SVG, sem sips, sem
+ * nenhuma dependência de sistema. Fundo: gradiente diagonal entre `c1`/`c2`
+ * (hex dos design tokens) recortado por um retângulo de cantos arredondados
+ * (`radiusRatio` proporcional, também de token). Texto: até 2 glifos da
+ * MONOGRAM_FONT, escala inteira (nearest-neighbor deliberado — num grid 5x7
+ * a essa resolução, supersample não muda a leitura, só custa CPU), com a
+ * tinta (`ink`, {r,g,b,a} de --dt-ink) alpha-blendada contra o fundo em vez
+ * de pintada opaca — honra a alpha .94 do token em vez de inventar branco
+ * sólido.
+ * Nunca lança nem devolve canvas vazio: `initials` sem glifo conhecido cai
+ * no "?" por caractere (ver glyphRowsFor), nunca em branco.
+ */
+export function rasterizeMonogramPixels({ initials, c1, c2, ink, size, radiusRatio }) {
+  const w = size, h = size;
+  const pixels = Buffer.alloc(w * h * 4);
+  const [r1, g1, b1] = hexToRgbTriple(c1);
+  const [r2, g2, b2] = hexToRgbTriple(c2);
+  const radiusPx = radiusRatio * Math.min(w, h);
+  const diag = Math.max(1, (w - 1) + (h - 1));
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const cov = roundedRectCoverage(x + 0.5, y + 0.5, w, h, radiusPx);
+      if (cov <= 0) continue;
+      const t = (x + y) / diag;
+      const idx = (y * w + x) * 4;
+      pixels[idx] = Math.round(r1 + (r2 - r1) * t);
+      pixels[idx + 1] = Math.round(g1 + (g2 - g1) * t);
+      pixels[idx + 2] = Math.round(b1 + (b2 - b1) * t);
+      pixels[idx + 3] = Math.round(255 * cov);
+    }
+  }
+
+  const chars = Array.from(String(initials || "?")).slice(0, 2);
+  const glyphs = (chars.length ? chars : ["?"]).map(glyphRowsFor);
+  const glyphH = Math.max(MONOGRAM_GLYPH_ROWS, Math.round(size * 0.46));
+  const scale = Math.max(1, Math.floor(glyphH / MONOGRAM_GLYPH_ROWS));
+  const gW = MONOGRAM_GLYPH_COLS * scale;
+  const gH = MONOGRAM_GLYPH_ROWS * scale;
+  const gap = glyphs.length > 1 ? scale : 0;
+  const totalW = glyphs.length * gW + (glyphs.length - 1) * gap;
+  const startX = Math.round((w - totalW) / 2);
+  const startY = Math.round((h - gH) / 2);
+
+  glyphs.forEach((rows, gi) => {
+    const ox = startX + gi * (gW + gap);
+    for (let ry = 0; ry < MONOGRAM_GLYPH_ROWS; ry++) {
+      const rowStr = rows[ry] || "";
+      for (let rx = 0; rx < MONOGRAM_GLYPH_COLS; rx++) {
+        if (rowStr[rx] !== "#") continue;
+        for (let py = 0; py < scale; py++) {
+          const y = startY + ry * scale + py;
+          if (y < 0 || y >= h) continue;
+          for (let px = 0; px < scale; px++) {
+            const x = ox + rx * scale + px;
+            if (x < 0 || x >= w) continue;
+            const idx = (y * w + x) * 4;
+            if (pixels[idx + 3] === 0) continue; // fora do retângulo arredondado — nunca pinta lá
+            const a = ink.a;
+            pixels[idx] = Math.round(ink.r * a + pixels[idx] * (1 - a));
+            pixels[idx + 1] = Math.round(ink.g * a + pixels[idx + 1] * (1 - a));
+            pixels[idx + 2] = Math.round(ink.b * a + pixels[idx + 2] * (1 - a));
+            pixels[idx + 3] = 255;
+          }
+        }
+      }
+    }
+  });
+
+  return pixels;
 }
 
 function paeth(a, b, c) {
@@ -508,15 +717,25 @@ export function normalizePngIcon(buf, maxPx = ICON_MAX_PX) {
     }
   }
 
-  const stride = maxPx * 4;
-  const scanlines = Buffer.alloc(maxPx * (stride + 1));
-  for (let y = 0; y < maxPx; y++) {
+  return encodeRgbaPng(canvas, maxPx, maxPx);
+}
+
+/**
+ * Encoder RGBA -> PNG (IHDR/IDAT/IEND colorType 6, sem interlace) — a peça
+ * que já existia aqui dentro de normalizePngIcon (mesmo bloco, extraído sem
+ * mudar comportamento) e que PLAT-04 reusa pra rasterizar o monograma em
+ * pure JS. Nenhuma dependência nova: só node:zlib (já importado no topo).
+ */
+function encodeRgbaPng(pixels, width, height) {
+  const stride = width * 4;
+  const scanlines = Buffer.alloc(height * (stride + 1));
+  for (let y = 0; y < height; y++) {
     const row = y * (stride + 1);
-    canvas.copy(scanlines, row + 1, y * stride, (y + 1) * stride);
+    pixels.copy(scanlines, row + 1, y * stride, (y + 1) * stride);
   }
   const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(maxPx, 0);
-  ihdr.writeUInt32BE(maxPx, 4);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
   ihdr[8] = 8;
   ihdr[9] = 6;
   const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
@@ -528,15 +747,52 @@ export function normalizePngIcon(buf, maxPx = ICON_MAX_PX) {
   ]);
 }
 
-async function monogramPng(name, execFn, cacheDir, maxPx, log = defaultLog) {
+/**
+ * PLAT-04 — monograma de fallback, agora rasterizado em pure JS
+ * (rasterizeMonogramPixels + encodeRgbaPng acima), sem nenhum binário
+ * externo no caminho que roda no win32.
+ *
+ * `sips` continua REACHABLE só atrás de `platform === "darwin"` — nunca no
+ * win32 (grep -n "sips" apps.js precisa achar a chamada só dentro desse
+ * `if`). Não foi removido do macOS: é o caminho já medido/testado ali, e
+ * trocar um caminho funcionando por causa de um critério do Windows seria
+ * regressão numa plataforma que não dá pra testar nesta máquina. Se o sips
+ * falhar mesmo no darwin (disco cheio, binário ausente etc.), cai no MESMO
+ * rasterizador JS em vez de devolver null — antes disso o macOS também
+ * podia terminar "sem ícone nenhum" nesse caso; agora não termina mais em
+ * nenhuma das duas plataformas.
+ *
+ * `theme` ("dark" default | "light") resolve os tokens de design/tokens.mjs
+ * pra cor/tinta — D11 exige as duas variantes existirem e serem testáveis.
+ * Nenhum chamador real passa "light" hoje: a rota /api/apps/:name/icon está
+ * congelada por PLAT-08 e o client (public/index.html) não tem alternância
+ * de tema ainda (verificado: 0 ocorrências de `--dt-` nesse arquivo) — ver
+ * unresolved[] do relatório desta tarefa.
+ *
+ * `rasterize`/`platform` são injetáveis (mesmo padrão de `exec`/`scan` no
+ * resto do arquivo) só pra teste: um teste força platform:"win32" com um
+ * execFn que lança se for chamado (prova que sips é inatingível) e outro
+ * injeta um `rasterize` que lança (repõe o caminho de falha genuína que o
+ * exec-mudo antigo cobria pro cache negativo em memMiss).
+ */
+async function monogramPng(name, execFn, cacheDir, maxPx, log = defaultLog, deps = {}) {
+  const {
+    platform = process.platform,
+    theme = "dark",
+    rasterize = rasterizeMonogramPixels,
+  } = deps;
+
   const key = createHash("sha1").update(name).digest("hex");
-  const cacheFile = join(cacheDir, `mono-${key}-z${maxPx}.png`);
+  const cacheFile = join(cacheDir, `mono-${key}-${theme}-z${maxPx}.png`);
   try { return await readFile(cacheFile); } catch {}
 
   const initials = monogramInitials(name);
-  const [c1, c2] = MONOGRAM_COLORS[monogramHash(name) % MONOGRAM_COLORS.length];
+  const { c1, c2, ink, radiusRatio } = resolveMonogramTokens(name, theme);
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${maxPx}" height="${maxPx}" viewBox="0 0 128 128">
+  await mkdir(cacheDir, { recursive: true });
+
+  if (platform === "darwin") {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${maxPx}" height="${maxPx}" viewBox="0 0 128 128">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
     <stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/>
   </linearGradient></defs>
@@ -545,24 +801,32 @@ async function monogramPng(name, execFn, cacheDir, maxPx, log = defaultLog) {
     font-weight="700" font-size="${initials.length > 1 ? 48 : 56}" fill="white"
     dominant-baseline="central">${initials.replace(/&/g,"&amp;").replace(/</g,"&lt;")}</text>
 </svg>`;
+    const tmpSvg = join(cacheDir, `mono-${monogramHash(name)}-z${maxPx}.svg`);
+    await writeFile(tmpSvg, svg);
+    try {
+      await execFn("sips", ["-s", "format", "png", "-z", String(maxPx), String(maxPx), tmpSvg, "--out", cacheFile]);
+      return await readFile(cacheFile);
+    } catch (err) {
+      // Não é mais o fim silencioso da cadeia (W1 original): sips falhou,
+      // mas cai no rasterizador JS abaixo em vez de devolver null aqui.
+      log.warn("icon.monogram.sips_failed", { name, stage: "monogram-raster-sips", code: err?.code ?? null, message: err?.message ?? String(err) });
+    } finally {
+      try { await unlink(tmpSvg); } catch {}
+    }
+  }
 
-  const tmpSvg = join(cacheDir, `mono-${monogramHash(name)}-z${maxPx}.svg`);
-  await mkdir(cacheDir, { recursive: true });
-  await writeFile(tmpSvg, svg);
   try {
-    await execFn("sips", ["-s", "format", "png", "-z", String(maxPx), String(maxPx), tmpSvg, "--out", cacheFile]);
-    const buf = await readFile(cacheFile);
+    const pixels = rasterize({ initials, c1, c2, ink, size: maxPx, radiusRatio });
+    const buf = encodeRgbaPng(pixels, maxPx, maxPx);
+    await writeFile(cacheFile, buf);
     return buf;
   } catch (err) {
-    // W1: este era o fim silencioso da cadeia inteira de ícone — quando
-    // chega aqui, `sips` (ou o rasterizador que a substitua no Windows)
-    // falhou e o app fica sem ícone nenhum, real ou monograma. Por isso
-    // warn mesmo com o nível padrão (quieto): 121 outros apps não passam
-    // por aqui num scan normal, então não é ruído de volume.
-    log.warn("icon.monogram.failed", { name, stage: "monogram-raster", code: err?.code ?? null, message: err?.message ?? String(err) });
+    // W1: aqui SIM é o fim silencioso real da cadeia inteira de ícone — se
+    // o rasterizador puro (que não deveria falhar em uso normal) lançar,
+    // o app fica sem ícone nenhum, real ou monograma. warn mesmo no nível
+    // padrão (quieto): não é ruído de volume, é sempre um evento raro.
+    log.warn("icon.monogram.failed", { name, stage: "monogram-raster-js", code: err?.code ?? null, message: err?.message ?? String(err) });
     return null;
-  } finally {
-    try { await unlink(tmpSvg); } catch {}
   }
 }
 
@@ -581,6 +845,12 @@ export function realIconService(deps = {}) {
     iconHelper = process.platform === "darwin" && existsSync(MAC_ICON_HELPER) ? MAC_ICON_HELPER : null,
     appearanceToken = null,
     log = defaultLog,
+    // PLAT-04: injetáveis só pra teste determinístico do monograma em
+    // qualquer SO — ver JSDoc de monogramPng. Produção nunca passa nenhum
+    // dos três (usa os defaults: SO real, tema escuro, rasterizador real).
+    monogramPlatform = process.platform,
+    monogramTheme = "dark",
+    rasterizeMonogram = rasterizeMonogramPixels,
   } = deps;
   let appsByName = null;
   let appsAt = 0;
@@ -700,7 +970,11 @@ export function realIconService(deps = {}) {
     }
 
     if (!buf) {
-      buf = await monogramPng(name, exec, cacheDir, maxPx, log);
+      buf = await monogramPng(name, exec, cacheDir, maxPx, log, {
+        platform: monogramPlatform,
+        theme: monogramTheme,
+        rasterize: rasterizeMonogram,
+      });
       source = buf ? "monogram" : "none";
     }
 

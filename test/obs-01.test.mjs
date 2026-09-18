@@ -62,6 +62,13 @@ test("mkdir: no nível padrão (warn) o caminho feliz fica quieto — sem ruído
 // ---------------------------------------------------------------------
 
 test("W1: cadeia de ícone esgotada loga warn com o nome do app MESMO em nível padrão (quieto)", async () => {
+  // PLAT-04: um `exec` (sips) que lança não esgota mais a cadeia sozinho —
+  // monogramPng cai no rasterizador pure JS nesse caso (ver apps.js), que
+  // normalmente TEM sucesso. Pra reproduzir "cadeia genuinamente esgotada"
+  // (o cenário que este teste documenta: warn logado mesmo em nível
+  // quieto), a falha precisa ser injetada no PRÓPRIO rasterizador, não
+  // mais no exec — mesma técnica de test/icon.test.mjs ("miss em memória
+  // não rescaneia").
   const cacheDir = await mkdtemp(join(tmpdir(), "j5-icon-log-"));
   try {
     const { logger, records } = capture(); // nível padrão (warn) — não injeta "debug"
@@ -69,6 +76,7 @@ test("W1: cadeia de ícone esgotada loga warn com o nome do app MESMO em nível 
       scan: async () => [{ name: "SemIcone", path: "/nowhere/SemIcone.app", icon: true }],
       findIcon: async () => null,
       exec: async () => { throw new Error("sips indisponível (simulado)"); },
+      rasterizeMonogram: () => { throw new Error("rasterização falhou (simulado)"); },
       cacheDir,
       iconHelper: null,
       log: logger,
@@ -89,6 +97,9 @@ test("W1: cadeia de ícone esgotada loga warn com o nome do app MESMO em nível 
 });
 
 test("W1: nível debug expõe entrada e cada ramo da cadeia (helper → manual → monograma)", async () => {
+  // PLAT-04: mesma razão do teste acima — a falha final da cadeia agora
+  // precisa vir do rasterizador JS, não do exec (que não é mais chamado
+  // pra monograma fora do darwin).
   const cacheDir = await mkdtemp(join(tmpdir(), "j5-icon-log-"));
   try {
     const { logger, records } = capture({ level: "debug" });
@@ -96,6 +107,7 @@ test("W1: nível debug expõe entrada e cada ramo da cadeia (helper → manual �
       scan: async () => [{ name: "ComIcone", path: "/apps/ComIcone.app", icon: true }],
       findIcon: async () => "/apps/ComIcone.app/Contents/Resources/icon.icns",
       exec: async () => { throw new Error("sips indisponível (simulado)"); },
+      rasterizeMonogram: () => { throw new Error("rasterização falhou (simulado)"); },
       cacheDir,
       iconHelper: "/fake/icon-helper",
       log: logger,

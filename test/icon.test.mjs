@@ -4,23 +4,20 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, sep } from "node:path";
 import { deflateSync, inflateSync } from "node:zlib";
-import { convertToPng, findIconFile, normalizePngIcon, realIconService, scanAppsDirs } from "../apps.js";
+import { convertToPng, findIconFile, normalizePngIcon, realIconService, rasterizeMonogramPixels, scanAppsDirs } from "../apps.js";
 
-// PROOF-07: monogramPng (apps.js) chama o binário `sips`, exclusivo do macOS,
-// para rasterizar o SVG de fallback (ver PLAT-04 — ainda pendente, Fase 3).
-// Este gate cobre APENAS o teste "realIconService gera monograma para app
-// desconhecido" (busque pelo nome, não pelo número de linha — ele desloca),
-// cujo assunto é o PNG rasterizado em si: sem exec injetado,
-// aquele teste exercita o exec real e falha em qualquer SO sem `sips`. Mocar
-// o exec ali esconderia a lacuna real (Windows fica sem ícone nenhum hoje) em
-// vez de provar que ela foi corrigida — por isso o gate, e não um fallback
-// simulado.
-// NÃO usar este gate em outros testes cujo assunto não seja a rasterização em
-// si (ex.: contadores de scan, cache em memória) — esses são plataforma-
-// -neutros e devem rodar com um exec mockado, como o resto do arquivo faz.
-const macOnlyMonogramRasterizer = process.platform === "darwin"
-  ? {}
-  : { skip: "monogramPng rasteriza via `sips` (macOS-only); Windows depende de PLAT-04 (rasterizador JS puro), ainda pendente" };
+// PROOF-07 / PLAT-04 (Fase 3, resolvido): monogramPng (apps.js) chamava
+// incondicionalmente o binário `sips`, exclusivo do macOS, pra rasterizar o
+// SVG de fallback — no win32 isso terminava em null (nenhum ícone, real nem
+// monograma). PLAT-04 trocou o caminho win32 por um rasterizador pure JS
+// (rasterizeMonogramPixels, sem sips) e manteve sips só atrás de um guard
+// `platform === "darwin"` dentro de monogramPng — ver o JSDoc da função em
+// apps.js. O teste "realIconService gera monograma para app desconhecido"
+// (linha abaixo) por isso não precisa mais de gate: sem `exec` injetado,
+// ele agora exercita o rasterizador JS real em qualquer SO (inclusive esta
+// máquina, win32) em vez do sips real só-macOS que exigia o skip antigo.
+// O gate "prova sips inatingível no win32" agora é um teste dedicado, mais
+// abaixo ("PLAT-04: sips nunca é chamado quando platform !== darwin").
 
 function pngChunk(type, data) {
   const name = Buffer.from(type, "latin1");
@@ -217,12 +214,148 @@ test("realIconService separa o cache quando a aparência dos ícones muda", asyn
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test("realIconService gera monograma para app desconhecido", macOnlyMonogramRasterizer, async () => {
+test("realIconService gera monograma para app desconhecido", async () => {
+  // Sem exec injetado: no darwin exercitaria o sips real (inalterado por
+  // PLAT-04); em qualquer outro SO (esta máquina, win32) exercita o
+  // rasterizador JS real — nenhum dos dois precisa mais de mock nem de skip.
   const svc = realIconService({ scan: async () => [], cacheDir: join(tmpdir(), "j5-cache-xyz") });
   const buf = await svc.getIconPng("Fantasma");
   assert.ok(Buffer.isBuffer(buf), "deve retornar um buffer PNG");
   assert.ok(buf.length > 0, "buffer não deve estar vazio");
   assert.equal(buf[0], 0x89, "deve começar com magic number PNG");
+});
+
+test("PLAT-04: sips nunca é chamado quando platform !== darwin", async () => {
+  // Discrimina o critério de sucesso literal da ticket. IMPORTANTE: a
+  // asserção que importa é `execCalls === 0`, NÃO só "buf é um PNG válido"
+  // — monogramPng tem uma rede de segurança que cai no rasterizador JS até
+  // quando sips É chamado e falha (ver "darwin cai no rasterizador JS" mais
+  // abaixo), então um `buf` válido sozinho NÃO prova que sips nunca foi
+  // tentado; ele só prova que a cadeia terminou com algum ícone. Verificado
+  // manualmente: com o guard `platform === "darwin"` de monogramPng
+  // propositalmente quebrado (invertido pra sempre-true) numa cópia
+  // scratch, este teste com a asserção de buffer sozinha continuava
+  // passando (a rede de segurança escondia a regressão) — só `execCalls`
+  // detecta.
+  const dir = await mkdtemp(join(tmpdir(), "j5 plat04 win32-"));
+  try {
+    let execCalls = 0;
+    const exec = async (cmd) => { execCalls++; throw new Error(`sips não deveria ser chamado no win32 (cmd=${cmd})`); };
+    const svc = realIconService({
+      scan: async () => [],
+      exec,
+      cacheDir: dir,
+      monogramPlatform: "win32",
+    });
+    const buf = await svc.getIconPng("Fantasma Win32");
+    assert.equal(execCalls, 0, "sips (exec) nunca deve ser sequer TENTADO quando platform !== darwin");
+    assert.ok(Buffer.isBuffer(buf), "deve retornar um PNG mesmo sem nunca chamar sips");
+    assert.equal(buf[0], 0x89, "PNG válido");
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("PLAT-04: darwin ainda usa sips quando disponível (caminho macOS preservado)", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "j5-plat04-darwin-"));
+  try {
+    let execCalls = 0;
+    const exec = async (cmd, args) => {
+      execCalls++;
+      assert.equal(cmd, "sips");
+      const out = args[args.indexOf("--out") + 1];
+      await writeFile(out, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    };
+    const svc = realIconService({
+      scan: async () => [],
+      exec,
+      cacheDir: dir,
+      monogramPlatform: "darwin",
+    });
+    const buf = await svc.getIconPng("Fantasma Darwin");
+    assert.ok(Buffer.isBuffer(buf));
+    assert.equal(execCalls, 1, "com platform darwin forçado, monogramPng ainda tenta sips primeiro");
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("PLAT-04: darwin cai no rasterizador JS se o sips real falhar (nunca mais 'sem ícone')", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "j5-plat04-darwin-fallback-"));
+  try {
+    const exec = async () => { throw new Error("sips indisponível (simulado)"); };
+    const svc = realIconService({
+      scan: async () => [],
+      exec,
+      cacheDir: dir,
+      monogramPlatform: "darwin",
+    });
+    const buf = await svc.getIconPng("Fantasma Darwin Fallback");
+    assert.ok(Buffer.isBuffer(buf), "sips falhou, mas o rasterizador JS ainda produz um PNG — nunca null");
+    assert.equal(buf[0], 0x89);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("PLAT-04: iniciais com acento/CJK/emoji nunca produzem canvas vazio", async () => {
+  // normalizeAppLabel já usa NFD+strip de acento em outro lugar deste
+  // arquivo; monogramInitials aplica a mesma técnica. Nomes fora do alfabeto
+  // A-Z0-9 (CJK, emoji) caem no glifo "?" por caractere, nunca em branco.
+  const dir = await mkdtemp(join(tmpdir(), "j5-plat04-unicode-"));
+  try {
+    const svc = realIconService({ scan: async () => [], cacheDir: dir, monogramPlatform: "win32" });
+    for (const name of ["Índice", "日本語アプリ", "🎮 Game Center", "Ção"]) {
+      const buf = await svc.getIconPng(name);
+      assert.ok(Buffer.isBuffer(buf), `deve gerar PNG pra "${name}"`);
+      // "canvas vazio" seria só o fundo (sem tinta): decodifica e confere
+      // que existe pelo menos 1 pixel que não é nenhuma das 2 cores do
+      // gradiente puro (ou seja, teve blend de tinta em algum ponto).
+      assert.ok(buf.length > 100, `PNG de "${name}" não deveria ser suspeitosamente pequeno`);
+    }
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("PLAT-04: cacheDir com espaço no caminho funciona (Windows real)", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "j5 plat04 space cache "));
+  try {
+    const svc = realIconService({ scan: async () => [], cacheDir: dir, monogramPlatform: "win32" });
+    const buf = await svc.getIconPng("App Com Espaço");
+    assert.ok(Buffer.isBuffer(buf));
+    assert.equal(buf[0], 0x89);
+    const buf2 = await svc.getIconPng("App Com Espaço");
+    assert.deepEqual([...buf], [...buf2], "cache em disco (path com espaço via join) deve servir o mesmo PNG");
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("PLAT-04: theme light usa tokens diferentes de dark (pixels realmente mudam)", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "j5-plat04-theme-"));
+  try {
+    const dark = realIconService({ scan: async () => [], cacheDir: dir, monogramPlatform: "win32", monogramTheme: "dark" });
+    const light = realIconService({ scan: async () => [], cacheDir: dir, monogramPlatform: "win32", monogramTheme: "light" });
+    const bufDark = await dark.getIconPng("Tema App");
+    const bufLight = await light.getIconPng("Tema App");
+    assert.ok(Buffer.isBuffer(bufDark) && Buffer.isBuffer(bufLight));
+    assert.notDeepEqual([...bufDark], [...bufLight], "dark e light devem gerar PNGs diferentes (tokens distintos)");
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test("rasterizeMonogramPixels: total para initials sem glifo (CJK) — nunca lança, nunca fica só-fundo", () => {
+  const size = 64;
+  const pixels = rasterizeMonogramPixels({
+    initials: "日", c1: "#0a84ff", c2: "#5e5ce6",
+    ink: { r: 255, g: 255, b: 255, a: 0.94 }, size, radiusRatio: 0.19,
+  });
+  assert.equal(pixels.length, size * size * 4);
+  // conta pixels cuja cor foi alterada pelo blend de tinta (glifo "?" de
+  // fallback) comparando contra a cor pura do gradiente no mesmo ponto.
+  let inkPixels = 0;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const idx = (y * size + x) * 4;
+      const t = (x + y) / (2 * (size - 1));
+      const [r1, g1, b1] = [0x0a, 0x84, 0xff];
+      const [r2, g2, b2] = [0x5e, 0x5c, 0xe6];
+      const expectedR = Math.round(r1 + (r2 - r1) * t);
+      const expectedG = Math.round(g1 + (g2 - g1) * t);
+      if (Math.abs(pixels[idx] - expectedR) > 2 || Math.abs(pixels[idx + 1] - expectedG) > 2) inkPixels++;
+    }
+  }
+  assert.ok(inkPixels > 0, "glifo de fallback '?' deve pintar tinta de verdade, não ficar só o fundo");
 });
 
 test("cache de monogramas em disco respeita o cap (poda os mais antigos)", async () => {
@@ -319,44 +452,44 @@ test("realIconService faz um único scan no TTL (N getIconPng)", async () => {
 test("realIconService sem app correspondente cai no monograma e cacheia com um único scan", async () => {
   // Assunto deste teste é o fallback pra monograma quando o scan não acha o
   // app (não a rasterização em si) e o CACHE EM MEMÓRIA (memPng) do
-  // resultado — roda em qualquer plataforma com um exec mockado, igual ao
-  // teste de poda de cache logo acima.
+  // resultado — roda em qualquer plataforma.
+  //
+  // PLAT-04: antes disto era medido contando chamadas ao `exec` (sips
+  // mockado). Com o rasterizador pure JS, monogramPng no win32 nunca chama
+  // exec — então o contador certo agora é `rasterizeMonogram` (deps
+  // injetável, mesmo padrão de `exec`/`scan`), que envolve o rasterizador
+  // REAL (rasterizeMonogramPixels) só pra contar, sem trocar o resultado.
   //
   // scans e deepEqual sozinhos não provam "cacheia": com ttlMs alto,
   // resolveApps já cacheia o scan (apps.js:597-599). E monogramPng tem o
-  // PRÓPRIO cache em disco (apps.js:530, readFile(cacheFile) antes de
-  // chamar exec de novo) — então mesmo SEM o hit em memPng, a 2ª chamada
-  // reentraria em monogramPng e ainda assim acharia o PNG no disco (escrito
-  // pela 1ª chamada) sem chamar exec de novo. Verificado num probe manual
-  // (scratch, apps.js real intocado): removendo o hit de memPng em getIconPng
-  // numa cópia, execCalls continuou 1 nas duas chamadas — o cache de disco
-  // mascara a ausência do cache em memória.
-  //
-  // Pra isolar de fato o memPng, apaga-se o cacheFile de disco entre as duas
-  // chamadas: só o memPng pode entregar buf2 sem chamar exec de novo, porque
-  // o fallback em disco deixou de existir.
+  // PRÓPRIO cache em disco (readFile(cacheFile) antes de rasterizar de
+  // novo) — então mesmo SEM o hit em memPng, a 2ª chamada reentraria em
+  // monogramPng e ainda assim acharia o PNG no disco (escrito pela 1ª
+  // chamada) sem rasterizar de novo. Por isso o cacheFile de disco é
+  // apagado entre as duas chamadas: só o memPng pode entregar buf2 sem
+  // rasterizar de novo, porque o fallback em disco deixou de existir.
   const dir = await mkdtemp(join(tmpdir(), "j5-miss-cache-"));
   try {
     let scans = 0;
-    let execCalls = 0;
-    const exec = async (cmd, args) => {
-      execCalls++;
-      const out = args[args.indexOf("--out") + 1] ?? args[args.length - 1];
-      await writeFile(out, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    let rasterCalls = 0;
+    const rasterizeMonogram = (args) => {
+      rasterCalls++;
+      return rasterizeMonogramPixels(args);
     };
     const svc = realIconService({
       scan: async () => {
         scans++;
         return [];
       },
-      exec,
       iconHelper: null,
       cacheDir: dir,
       ttlMs: 60_000,
+      monogramPlatform: "win32",
+      rasterizeMonogram,
     });
     const buf1 = await svc.getIconPng("Fantasma");
     assert.ok(Buffer.isBuffer(buf1), "primeira chamada retorna monograma");
-    assert.equal(execCalls, 1, "1ª chamada rasteriza via exec");
+    assert.equal(rasterCalls, 1, "1ª chamada rasteriza via rasterizeMonogram");
 
     const { readdir, unlink } = await import("node:fs/promises");
     for (const f of await readdir(dir)) {
@@ -367,52 +500,51 @@ test("realIconService sem app correspondente cai no monograma e cacheia com um �
     assert.ok(Buffer.isBuffer(buf2), "segunda chamada retorna monograma cached");
     assert.deepEqual([...buf1], [...buf2], "deve retornar o mesmo monograma cached");
     assert.equal(scans, 1, "scan deve rodar apenas uma vez");
-    assert.equal(execCalls, 1, "2ª chamada deve vir do cache em memória (memPng): com o cache de disco apagado, um novo monogramPng chamaria exec de novo");
+    assert.equal(rasterCalls, 1, "2ª chamada deve vir do cache em memória (memPng): com o cache de disco apagado, um novo monogramPng rasterizaria de novo");
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
 test("realIconService miss em memória não rescaneia a cada miss", async () => {
   // Assunto real deste teste é o branch de cache negativo em apps.js
-  // (memMiss.has(cacheKey) -> return null, apps.js:700): quando NEM o app é
-  // encontrado NEM o monograma consegue ser rasterizado, getIconPng deve
-  // devolver null nas duas chamadas sem rodar um segundo scan NEM uma
-  // segunda tentativa de rasterizar. exec é um no-op deliberado (não escreve
-  // o PNG de saída) para que monogramPng caia no catch{return null} de forma
-  // determinística em qualquer plataforma — reproduz exatamente o que
-  // acontece hoje no Windows sem `sips`, sem depender do binário real nem
-  // mockar sucesso onde a produção falha.
+  // (memMiss.has(cacheKey) -> return null): quando NEM o app é encontrado
+  // NEM o monograma consegue ser rasterizado, getIconPng deve devolver null
+  // nas duas chamadas sem rodar um segundo scan NEM uma segunda tentativa
+  // de rasterizar.
   //
-  // scans sozinho não discrimina o branch: com ttlMs alto, resolveApps já
-  // cacheia o resultado do 1º scan (apps.js:597-599), então scans === 1
-  // também seria verdade se o cache negativo (memMiss) não existisse — a
-  // segunda chamada só evitaria um novo scan, não uma nova tentativa de
-  // monogramPng. execCalls é a asserção que de fato prova o cache negativo:
-  // sem memMiss, o 2º getIconPng reentraria em monogramPng (seu
-  // readFile(cacheFile) segue falhando, já que o exec nunca escreveu o
-  // arquivo) e chamaria exec de novo. iconHelper:null remove a variável do
-  // helper nativo do macOS (que gastaria um exec extra em
-  // resolveAppearanceToken) para o contador de exec valer em qualquer SO.
+  // PLAT-04: o rasterizador pure JS não falha em uso normal (é computação
+  // pura), então o truque antigo de "exec no-op que não escreve o PNG" não
+  // discrimina mais nada no win32 (exec nem é chamado). O substituto exato
+  // é `rasterizeMonogram` injetado lançando — reproduz a MESMA falha
+  // genuína de rasterização que o catch{return null} de monogramPng trata,
+  // sem depender de plataforma nem mockar sucesso onde a produção falha.
+  // rasterCalls é a asserção que prova o cache negativo: sem memMiss, o 2º
+  // getIconPng reentraria em monogramPng e chamaria rasterizeMonogram de
+  // novo. iconHelper:null remove a variável do helper nativo do macOS.
   const dir = await mkdtemp(join(tmpdir(), "j5-miss-null-"));
   try {
     let scans = 0;
-    let execCalls = 0;
-    const exec = async () => { execCalls++; };
+    let rasterCalls = 0;
+    const rasterizeMonogram = () => {
+      rasterCalls++;
+      throw new Error("rasterização falhou (simulado)");
+    };
     const svc = realIconService({
       scan: async () => {
         scans++;
         return [];
       },
-      exec,
       iconHelper: null,
       cacheDir: dir,
       ttlMs: 60_000,
+      monogramPlatform: "win32",
+      rasterizeMonogram,
     });
     const buf1 = await svc.getIconPng("Fantasma");
     const buf2 = await svc.getIconPng("Fantasma");
     assert.equal(buf1, null, "sem app e sem monograma rasterizável, deve devolver null");
     assert.equal(buf2, null, "segunda chamada deve continuar null (cache negativo em memória)");
     assert.equal(scans, 1, "scan deve rodar apenas uma vez, mesmo com dois misses");
-    assert.equal(execCalls, 1, "2º miss vem do cache negativo (memMiss), não de um novo monogramPng");
+    assert.equal(rasterCalls, 1, "2º miss vem do cache negativo (memMiss), não de uma nova tentativa de rasterizar");
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
