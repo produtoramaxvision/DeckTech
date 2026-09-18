@@ -412,6 +412,155 @@
 > `measure/windows/proof-08/run.mjs` and `measure/windows/proof-08/results/`
 > for the two committed smoke-verification batteries' evidence.
 
+> **Round-10 revision note.** A rigorous review rejected the round-9 version
+> on 2 major findings and 1 minor. **Major #1:** round-9's no-clobber guard
+> protected only `raw-results-<tag>.json`; `run.mjs`'s console output was
+> still committed via a separate shell step — the Appendix's own
+> `... | tee measure/windows/proof-08/results/round8-run-output.txt` line —
+> and `tee` truncates its target at pipeline setup, **before** any guard
+> inside `run.mjs` can run. Reproducing the ADR's own Appendix line for
+> `round8` therefore destroyed the exact committed `.txt` this ADR cites by
+> name at §4/§4.1/§5.1 and in the round-8/round-9 revision notes above,
+> while this file's own comment claimed clobbering "is now impossible by
+> default" — true only for the JSON half. **Fixed at the root, not by
+> tightening a comment:** `run.mjs` now captures its own combined
+> stdout+stderr (via `console.log`/`console.error` overrides using
+> `node:util`'s `format()`, verified empirically to reproduce a real
+> `Error`'s stack trace byte-for-byte) and writes it **itself** to
+> `results/<tag>-run-output.txt`, checkpointed after every phase exactly
+> like the JSON already was, under the exact same `checkNoClobber()` guard —
+> which now takes the JSON **and** `.txt` paths together and blocks if
+> **either** already exists (unless `--force`). The Appendix no longer uses
+> `| tee` for any `run.mjs` line — the mechanism that destroyed evidence is
+> gone, not just discouraged. **Disclosure this fix itself requires:** the
+> three `.txt` files already committed under round 8/9
+> (`round8-run-output.txt`, `round9fixverifn1-run-output.txt`,
+> `round9review-n5-run-output.txt`) were captured by the OLD `| tee`
+> mechanism, under the pre-round-10 script. Re-running the corrected
+> Appendix line for an EXISTING tag does not reproduce those files' bytes by
+> a different, safer mechanism — it now refuses to run at all (see below);
+> and a fresh tag's self-written `.txt` is a different shape besides (it
+> gains `[checkpoint] wrote ...` lines and a final `raw console capture
+> (COMMITTED): ...` line the old `tee`-captured files never had). Nobody
+> should expect, or attempt, a byte-identical re-derivation of the three
+> pre-round-10 files; they remain what they always were, historical
+> captures of their own round's run. **Re-verified, all of it, by actually
+> running the corrected code, not by reading the diff:** hashed the
+> committed pair first
+> (`round8-run-output.txt` sha256 `bf59949f...40bb9a8`,
+> `raw-results-round8.json` sha256 `cef29505...93cc1b`), then ran the
+> corrected Appendix line for `round8` for real —
+> `node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3 --out-tag round8`
+> (no `| tee`) — which printed
+> `FATAL: refusing to overwrite committed evidence — already exists:
+> .../raw-results-round8.json, .../round8-run-output.txt` and exited 1, and
+> re-hashing both files afterward reproduced the exact same two hashes
+> (`git status --short` on `measure/windows/proof-08/results/` also empty
+> before and after) — the pair is provably untouched. Then ran a full fresh
+> battery end to end at a disposable tag,
+> `node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round10fixverif`,
+> confirming BOTH committed files were written (JSON 25133 bytes, `.txt`
+> 14036 bytes, the `.txt`'s own head carrying `Electron: v44.4.1` and its
+> tail carrying the run's own final `raw console capture (COMMITTED): ...`
+> line — proving the capture spans the whole run, not just up to the last
+> checkpoint), that re-running the identical command against the same tag
+> refused (`FATAL: refusing to overwrite ...`) with both files byte-identical
+> before and after, and that adding `--force` overwrote **both** files (new
+> hashes on both, confirmed by diff) and recorded `meta: {"forced": true,
+> "overwroteExistingFile": true, "overwroteExistingJsonFile": true,
+> "overwroteExistingTxtFile": true, ...}`, read back from the file, not
+> assumed. This disposable pair was deleted after verification
+> (`git status --short` clean — same disclosure convention round-9's own
+> follow-up used), as was one bare-invocation run confirming the
+> timestamp-derived default tag still satisfies `SAFE_TAG_RE` under the
+> refactored code (produced tag `run-2026-09-18T07-41-34-270Z`,
+> `/^[A-Za-z0-9_-]+$/.test(...)` → `true`).
+>
+> **Major #2:** the round-9 guards (`--out-tag` validation, the no-clobber/
+> `--force` decision, `MIN_N_FOR_DIRECTIONAL_VERDICT`) were pure, trivially
+> testable functions of argv and fs state with **zero** automated coverage —
+> the only enforcement was Appendix prose, the identical failure class
+> round-8 was rejected for ("a header comment claiming a protection nothing
+> enforced"), while this same directory tree already established the
+> opposite precedent for PROOF-04/PROOF-03
+> (`test/windows-uninstaller-rule.test.mjs`, `test/windows-lnk-parser.test.mjs`,
+> `test/windows-dedupe-order.test.mjs`, `test/windows-dedupe-target.test.mjs`).
+> **Fixed by extraction, not by adding a test on top of unchanged inline
+> code:** `resolveOutTag`, `checkNoClobber`, `buildEvidenceMeta` and
+> `deltaVsSpread` (plus `SAFE_TAG_RE`/`MIN_N_FOR_DIRECTIONAL_VERDICT`) now
+> live as pure, exported functions in the new
+> `measure/windows/proof-08/evidence-guards.mjs`, imported and called by
+> `run.mjs` (verified: the three `--out-tag` VALIDATION cases' printed
+> `FATAL:` text is identical, character-for-character, to round-9's, re-run
+> for real above and below — the one deliberate exception is the
+> no-clobber COLLISION message, which by design now names both the JSON and
+> `.txt` paths together instead of only the JSON path, since it now guards
+> the pair; see major finding #1 above and the Appendix's Round-10
+> additions for its current, re-run-for-real wording).
+> `test/windows-proof08-evidence-guards.test.mjs` (new, 18 cases, `node:test`,
+> no Electron booted by any of them — every case is designed to exit or
+> return before `main()` would spawn one) imports this module directly:
+> pure-function coverage of every case the reviewer named (missing,
+> traversal-shaped, space-containing, and flag-shaped `--out-tag`; a tag
+> colliding with an existing file refused without touching its bytes, and
+> `--force` overwriting it while recording `meta.forced`/
+> `meta.overwroteExistingFile`; the omitted-tag default satisfying
+> `SAFE_TAG_RE`; `deltaVsSpread` rendering no verdict below
+> `MIN_N_FOR_DIRECTIONAL_VERDICT` and a real one at/above it) — PLUS two
+> subprocess "wiring" tests that actually spawn `run.mjs` (pointed, via a
+> new `PROOF08_RESULTS_DIR` env override, at a disposable temp directory so
+> the real, committed `results/` is never touched by the suite) and assert
+> the process exits non-zero, writes nothing, and leaves a pre-existing
+> colliding file byte-identical — closing the gap a purely-inline reviewer
+> flagged ("your four pure-function tests all still pass if someone deletes
+> the `if (blocked) process.exit(1)` call site"). **Verified the suite
+> actually fails, not just passes, when a guard is deleted** — temporarily
+> neutered `checkNoClobber` to always return `blocked: false` and re-ran:
+> 3 of the 18 tests failed (both pair-collision unit tests, and — because
+> the neutered guard let the wiring test's subprocess proceed toward
+> actually trying to spawn Electron — the collision wiring test failed too,
+> on its 15s timeout, never hanging); did the same for the
+> `MIN_N_FOR_DIRECTIONAL_VERDICT` branch (forced it to `if (false)`) and the
+> small-n test failed as expected; reverted both and confirmed
+> `git diff --stat` on `evidence-guards.mjs` was empty before continuing.
+> Full suite after adding the file: `node --test` → **tests 389, pass 374,
+> fail 0, skipped 15** (skips pre-exist, unrelated to this file). The
+> previously-reported 2 failures in `test/ui.test.mjs` (Playwright PWA/
+> animation tests, last touched by an unrelated commit) did not reproduce in
+> this run — re-run standalone, `test/ui.test.mjs` alone: 16/16 pass; not
+> claimed fixed, since nothing in this round touched that file, only
+> reported as observed.
+>
+> **Minor #3:** `MIN_N_FOR_DIRECTIONAL_VERDICT = 5` was a named but
+> unjustified constant, and the round-9 commit that introduced it (checked
+> via `git log -p`) never stated a basis beyond "some floor is needed" —
+> confirmed by reading that diff directly, not assumed. **Fixed:** the
+> constant's own comment (now in `evidence-guards.mjs`, moved with the rest
+> of `deltaVsSpread`) states the honest basis — 5 is the smallest n this
+> project actually re-ran (`round9review-n5`) that produced a non-degenerate
+> spread and demonstrated the guard un-jamming, not a statistical power
+> calculation — and spells out both halves of the n-interaction: `spread`
+> (max−min) is monotonically non-decreasing as reps accumulate WITHIN one
+> sample, so the affirmative "directionally supported" verdict gets strictly
+> harder to earn as `--reps` grows; but comparing spread ACROSS independent
+> batteries at different n is dominated by this machine's ambient load, not
+> by n — confirmed from the two already-committed batteries themselves: arm
+> A's idle-RSS spread was **5.3 MB at n=8** (`round8-run-output.txt`) vs.
+> **9.5 MB at n=5** (`round9review-n5-run-output.txt`) — smaller n, bigger
+> spread. Both facts are stated together so the comment cannot be read as
+> claiming spread is simply "bigger at bigger n" across different runs, only
+> within one growing sample.
+>
+> None of this touches §4/§5's own headline numbers — round-8's committed
+> battery (n=8) and its verdicts are unchanged and re-verified byte-identical
+> above; only `run.mjs`'s own evidence-integrity machinery moved (into
+> `evidence-guards.mjs`) and gained test coverage and a self-written `.txt`
+> capture. The decision (ship `utilityProcess.fork`) is unchanged. See the
+> inline "ROUND-10 FIX" comments in `measure/windows/proof-08/run.mjs` and
+> `measure/windows/proof-08/evidence-guards.mjs`, and
+> `test/windows-proof08-evidence-guards.test.mjs`, for the mechanism of each
+> fix.
+
 > Evidence convention: every number and behavior below is `[MEASURED]` — produced
 > by running the probes in `measure/windows/proof-08/` on this machine — or
 > `[DOC]` (Electron/Node documentation, fetched via context7, not memory).
@@ -1981,21 +2130,30 @@ node measure/windows/proof-08/decode-windows.mjs   # post-CharSet-fix verificati
 node measure/windows/proof-08/crash-timeline.mjs inprocess 2>&1 | tee measure/windows/proof-08/crash-timeline-inprocess-run4.txt   # same capture method as run1-3; landed the dialog in iteration 2 on the first attempt (round-7 major finding #2 — closes the round-6 gap where an iteration-2-aligned run was only ever cited in prose, never archived), added to §5's cross-alignment table as run4
 
 # Round-8 additions:
-node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3 --out-tag round8 2>&1 | tee measure/windows/proof-08/results/round8-run-output.txt   # closes round-8 blocker finding #1: `run.mjs` previously wrote its aggregate JSON only into a per-run mkdtemp scratch dir, never committed, structurally unrecoverable once the process exited. Now also writes measure/windows/proof-08/results/raw-results-<tag>.json (default tag "round8") after EVERY phase (idle/crashDefault/crashMatched), not only at the end, and this console output is separately captured with `| tee` the same way round-6 captured crash-timeline's — both are committed. Every "this round" figure in §4/§4.1/§4.2/§5.1/§5.2/§6/§8 is re-derived from these two committed files.
+node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3 --out-tag round8 2>&1 | tee measure/windows/proof-08/results/round8-run-output.txt   # ROUND-8 ORIGIN of this committed pair, run under the PRE-round-10 script: closes round-8 blocker finding #1 (aggregate JSON previously lived only in a per-run mkdtemp scratch dir). Every "this round" figure in §4/§4.1/§4.2/§5.1/§5.2/§6/§8 is re-derived from these two committed files. ROUND-10 NOTE: this exact `| tee` invocation is what destroyed round8-run-output.txt when a round-10 reviewer re-ran it verbatim against round-9's code — see the Round-10 revision note and the Round-10 additions block below for the fix and its re-verification. Do NOT re-run this line to "reproduce" the committed files: against the current script it now correctly REFUSES (both files already exist, see below), and even at a fresh tag the self-written `.txt` is a different shape than this `tee`-captured one (gains its own `[checkpoint]`/`raw console capture` lines) — it was never going to be byte-identical either way.
 node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag <tag>   # --out-tag lets a future round pick its own tag instead of silently overwriting round-8's committed evidence at raw-results-round8.json. ROUND-9 NOTE: at n=1 this now prints "n too small to judge directionality (n=1, minimum 5)" for both cold start and idle RSS instead of a verdict — see the Round-9 additions below.
 
 # Round-9 additions:
 node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3 --out-tag   # flag present, value missing (last arg) — closes round-9 major finding #1: exits 1, `FATAL: invalid --out-tag value: undefined — expected a non-empty single filename component matching /^[A-Za-z0-9_-]+$/ ...`, before any Electron process spawns, no raw-results-undefined.json written
 node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag "../../x"   # path-traversal tag — exits 1, `FATAL: invalid --out-tag value: "../../x" ...`, same finding
-node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round8   # tag collides with already-committed evidence — closes round-9 minor finding #3: exits 1, `FATAL: ...raw-results-round8.json already exists — refusing to overwrite committed evidence.`, before any Electron process spawns; pass --force to override deliberately
-node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round9fixverifn1 2>&1 | tee measure/windows/proof-08/results/round9fixverifn1-run-output.txt   # closes round-9 major finding #2 at n=1 (below MIN_N_FOR_DIRECTIONAL_VERDICT): both cold start and idle RSS print "n too small to judge directionality (n=1, minimum 5) ... no verdict rendered" instead of the old code's false "directionally supported"; committed at raw-results-round9fixverifn1.json (meta.outTag: "round9fixverifn1", confirmed present by reading the file back)
-node measure/windows/proof-08/run.mjs --reps 5 --crash-reps 1 --out-tag round9review-n5 2>&1 | tee measure/windows/proof-08/results/round9review-n5-run-output.txt   # closes round-9 major finding #2 at n=5 (at MIN_N_FOR_DIRECTIONAL_VERDICT): the guard renders an actual verdict again once n reaches the minimum — cold start printed a FLAG, idle RSS printed "directionally supported" (see Round-9 revision note above for this run's exact numbers); committed at raw-results-round9review-n5.json
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round8   # tag collides with already-committed evidence — closes round-9 minor finding #3: (PRE-round-10 wording) exits 1, `FATAL: ...raw-results-round8.json already exists — refusing to overwrite committed evidence.`, before any Electron process spawns; pass --force to override deliberately. ROUND-10 NOTE: the exact message text changed (now names the JSON+txt pair together) — see the Round-10 additions block below for the current wording, re-run for real against the current script.
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round9fixverifn1 2>&1 | tee measure/windows/proof-08/results/round9fixverifn1-run-output.txt   # ROUND-9 ORIGIN of this committed pair, run under the PRE-round-10 script (same `| tee` caveat as round8's line above applies to re-running this verbatim). Closes round-9 major finding #2 at n=1 (below MIN_N_FOR_DIRECTIONAL_VERDICT): both cold start and idle RSS print "n too small to judge directionality (n=1, minimum 5) ... no verdict rendered" instead of the old code's false "directionally supported"; committed at raw-results-round9fixverifn1.json (meta.outTag: "round9fixverifn1", confirmed present by reading the file back)
+node measure/windows/proof-08/run.mjs --reps 5 --crash-reps 1 --out-tag round9review-n5 2>&1 | tee measure/windows/proof-08/results/round9review-n5-run-output.txt   # ROUND-9 ORIGIN of this committed pair, run under the PRE-round-10 script (same `| tee` caveat applies). Closes round-9 major finding #2 at n=5 (at MIN_N_FOR_DIRECTIONAL_VERDICT): the guard renders an actual verdict again once n reaches the minimum — cold start printed a FLAG, idle RSS printed "directionally supported" (see Round-9 revision note above for this run's exact numbers); committed at raw-results-round9review-n5.json
 
 # Round-9 additions (advisor follow-up, closing 4 self-review gaps in this same round's own fix):
 node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag --force   # --out-tag's next arg is itself flag-shaped ("--force") — previously accepted as the literal tag "--force"; now exits 1, `FATAL: invalid --out-tag value: "--force" — ... and not starting with "-" ...`
 node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1   # bare invocation, no --out-tag at all — the timestamp-default path itself, verified for real for the first time this round: prints a checkpoint at raw-results-run-<ISO timestamp>.json, a filename confirmed (not assumed) to satisfy SAFE_TAG_RE; artifact deleted after verification (git status --short clean), not committed
 node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round9forcetest        # first run at a fresh tag — meta.forced=false, meta.overwroteExistingFile=false. NOT COMMITTED: this exact file was deleted after verification (disclosed in the Round-9 revision note above); re-run this line to reproduce it yourself.
 node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round9forcetest --force  # second run, same tag, --force — meta.forced=true, meta.overwroteExistingFile=true. NOT COMMITTED, same as above; re-run both lines in order to reproduce.
+
+# Round-10 additions (closes advisor-review major finding #1 — the no-clobber
+# guard protected only the JSON half of the committed evidence pair, and the
+# `| tee` lines above destroyed the .txt half when reproduced verbatim — and
+# major finding #2 — zero automated coverage of the round-9 guards):
+node measure/windows/proof-08/run.mjs --reps 8 --crash-reps 3 --out-tag round8   # NO `| tee` — run.mjs now writes its own console capture. Re-run for real against round8's already-committed pair: exits 1, `FATAL: refusing to overwrite committed evidence — already exists: .../raw-results-round8.json, .../round8-run-output.txt` then `  Pass a different --out-tag <tag>, or --force to overwrite it/them deliberately.` — both committed files confirmed byte-identical before and after (sha256, pasted in the Round-10 revision note above), `git status --short` on results/ empty throughout.
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag <fresh-tag>   # a fresh tag now writes BOTH raw-results-<tag>.json and <tag>-run-output.txt itself (checkpointed after every phase, final flush after the run's own closing lines) — no shell redirection needed or used. Verified for real at --out-tag round10fixverif: JSON 25133 bytes, .txt 14036 bytes (head: `Electron: v44.4.1`; tail: the run's own `raw console capture (COMMITTED): ...` line, confirming the capture includes the run's very last output). Re-running the identical command refuses (both files untouched, byte-identical); adding --force overwrites both (new hashes, confirmed by diff) and records `meta.forced=true, meta.overwroteExistingFile=true, meta.overwroteExistingJsonFile=true, meta.overwroteExistingTxtFile=true`. This pair was deleted after verification (git status --short clean), same disclosure convention as round-9's round9forcetest.
+node --test test/windows-proof08-evidence-guards.test.mjs   # new suite (18 cases) covering evidence-guards.mjs directly, no Electron booted — closes major finding #2. All 18 pass; verified each of the guard-deletion cases actually FAILS the corresponding test (checkNoClobber neutered to always return blocked:false -> 3 failures incl. the wiring test on its own 15s timeout, not a hang; the MIN_N branch forced to `if(false)` -> the small-n test fails), then reverted (git diff --stat evidence-guards.mjs empty).
+node --test   # full suite after adding the file: tests 389, pass 374, fail 0, skipped 15 (skips pre-exist, unrelated to this round)
 ```
 
 `crash-timeline.mjs`'s per-iteration cadence is now printed inline (`iter

@@ -50,8 +50,10 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { format } from "node:util";
 import electronPath from "electron";
 import { isolatedAppData, waitForHttp200, processTree, sumRss, mb, fmtTree, isPidAlive, discoveryBindOwner } from "./lib.mjs";
+import { resolveOutTag, checkNoClobber, buildEvidenceMeta, deltaVsSpread } from "./evidence-guards.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -104,56 +106,86 @@ const args = process.argv.slice(2);
 // boundary over Approach B's "whether someone remembered to install the
 // handler" — clobbering committed evidence is now impossible by default,
 // not merely discouraged by a comment.
-const RESULTS_DIR = join(here, "results");
-const outTagFlagIndex = args.indexOf("--out-tag");
+// ROUND-10 FIX (advisor-review major finding #2): --out-tag validation and
+// the no-clobber/--force decision below used to live inline, here, as
+// top-level statements with zero automated coverage — the only thing
+// enforcing them was prose in the ADR Appendix, the exact "protection
+// nothing enforces but a comment" failure class round-8 was rejected for
+// once already. Both are now pure functions imported from
+// ./evidence-guards.mjs, covered directly by
+// test/windows-proof08-evidence-guards.test.mjs (which fails if either is
+// deleted or neutered), and called here unchanged in effect — see that
+// file's own header comments for the full history (round-8 blocker #1,
+// round-9 major #1, round-9 minor #3, round-9 follow-up #3).
+//
+// RESULTS_DIR is overridable via PROOF08_RESULTS_DIR so the test suite can
+// point a real subprocess invocation of this script at a disposable temp
+// directory for the guard-collision/--force cases, instead of ever writing
+// into (or needing to clean up after itself in) the committed results/
+// directory a plain `node run.mjs` uses.
+const RESULTS_DIR = process.env.PROOF08_RESULTS_DIR || join(here, "results");
 const FORCE = args.includes("--force");
-// ROUND-9 FOLLOW-UP FIX (advisor review, finding #3): a flag-shaped value
-// like `--out-tag --force` (the next arg happens to start with "-") was
-// previously ACCEPTED as the literal tag "--force" — `-` is inside the
-// character class, so `SAFE_TAG_RE` alone let it through, writing
-// `raw-results---force.json`. Not a traversal risk (provenance survives),
-// but it is the same "flag last, value missing/misread" family this
-// finding was raised against. A leading `-` is now rejected explicitly, so
-// a missing --out-tag value can never silently swallow the next flag.
-const SAFE_TAG_RE = /^[A-Za-z0-9_-]+$/;
-let OUT_TAG;
-if (outTagFlagIndex >= 0) {
-  const raw = args[outTagFlagIndex + 1];
-  const looksLikeAnotherFlag = typeof raw === "string" && raw.startsWith("-");
-  if (typeof raw !== "string" || raw.length === 0 || looksLikeAnotherFlag || !SAFE_TAG_RE.test(raw)) {
-    console.error(`FATAL: invalid --out-tag value: ${JSON.stringify(raw)} — expected a non-empty single filename component matching ${SAFE_TAG_RE} and not starting with "-" (no "/", "\\", ":", "." or ".." — nothing that can escape RESULTS_DIR or be mistaken for another flag).`);
-    process.exit(1);
-  }
-  OUT_TAG = raw;
-} else {
-  // Timestamp-derived, not a fixed literal: two default-tag runs, even on
-  // the same day, get two different filenames — a bare invocation can
-  // never land on a previous round's committed evidence. Verified for real
-  // (advisor review, finding #2): `node run.mjs --reps 1 --crash-reps 1`
-  // (no --out-tag) → checkpoint line
-  // `wrote ...raw-results-run-2026-09-18T06-58-46-583Z.json`, a filename
-  // that itself matches SAFE_TAG_RE (the else branch never runs that
-  // check, so this was confirmed from the real produced filename, not
-  // from reading the expression) — artifact deleted after verification,
-  // `git status --short` clean; see the Round-9 revision note above.
-  OUT_TAG = `run-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+const { tag: OUT_TAG, error: outTagError } = resolveOutTag(args);
+if (outTagError) {
+  console.error(`FATAL: ${outTagError}`);
+  process.exit(1);
 }
 const COMMITTED_RESULTS_FILE = join(RESULTS_DIR, `raw-results-${OUT_TAG}.json`);
-// ROUND-9 FOLLOW-UP FIX (advisor review, finding #1): `--force` overwrites
-// committed evidence but the resulting file carried no record that it had
-// done so — reproducing, inside this round's own fix for minor finding #3,
-// the exact defect major finding #1 was raised against ("the orphan file
-// has neither a valid name nor any in-band record of which run produced
-// it"). Captured here, before the guard below can exit, and written
-// unconditionally into `results.meta` (see main()) so any committed file
-// says in-band whether it replaced a prior one — not just that --force was
-// typed, but the fact that actually matters: whether a file already
-// existed at this exact path when this run started.
-const COMMITTED_FILE_PREEXISTED = existsSync(COMMITTED_RESULTS_FILE);
-if (COMMITTED_FILE_PREEXISTED && !FORCE) {
-  console.error(`FATAL: ${COMMITTED_RESULTS_FILE} already exists — refusing to overwrite committed evidence.`);
-  console.error(`  Pass a different --out-tag <tag>, or --force to overwrite it deliberately.`);
+// ROUND-10 FIX (advisor-review major finding #1): round-9's no-clobber
+// guard protected ONLY this .json path. The console-capture .txt companion
+// this round adds (COMMITTED_TXT_FILE, below) is now protected by the exact
+// same guard, as a PAIR — checkNoClobber() blocks if EITHER path already
+// exists, and (load-bearing) this check runs, and can exit, BEFORE either
+// file is opened for writing anywhere in this script. The ADR Appendix's
+// reproduce lines no longer pipe through `| tee` for this reason: `tee`
+// truncates its target at pipeline setup, before this guard — or any
+// Node-level guard — ever runs, which is exactly how the pre-round-10
+// Appendix line destroyed the committed round8-run-output.txt evidence it
+// was reproducing (see evidence-guards.mjs's own header comment and the ADR
+// §Appendix note next to the round8/round9review-n5/round9fixverifn1
+// lines).
+const COMMITTED_TXT_FILE = join(RESULTS_DIR, `${OUT_TAG}-run-output.txt`);
+const noClobber = checkNoClobber({ jsonPath: COMMITTED_RESULTS_FILE, txtPath: COMMITTED_TXT_FILE, force: FORCE });
+if (noClobber.blocked) {
+  console.error(`FATAL: refusing to overwrite committed evidence — already exists: ${noClobber.collidingPaths.join(", ")}`);
+  console.error(`  Pass a different --out-tag <tag>, or --force to overwrite it/them deliberately.`);
   process.exit(1);
+}
+// Directory must exist before either committed file can be written, and
+// (advisor review) must exist BEFORE the capture buffer below is installed
+// and BEFORE main()'s own body runs, not just inside main() as round-9 had
+// it — otherwise a throw before main()'s own mkdirSync line, or the
+// best-effort flush in the top-level .catch() at the bottom of this file,
+// would silently fail to persist anything. Safe to create unconditionally
+// here: the guard above has already run, so this only executes on a path
+// that intends to write into RESULTS_DIR.
+mkdirSync(RESULTS_DIR, { recursive: true });
+
+// ROUND-10 FIX (advisor-review major finding #1, continued): run.mjs now
+// captures its own combined stdout+stderr console output into
+// COMMITTED_TXT_FILE itself, the same way it already self-writes
+// COMMITTED_RESULTS_FILE — so the ADR Appendix no longer needs `| tee` (or
+// any shell redirection) to produce a committed .txt at all, closing the
+// destructive-pipeline mechanism at its root instead of just documenting
+// it. `format(...)` (node:util) reproduces exactly what console.log/
+// console.error would have printed, verified empirically against a real
+// Error (the shape main()'s own top-level .catch(e) => console.error(e)
+// passes through): `console.error(new Error("boom"))` prints
+// `Error: boom\n    at file://...:10:15\n    at ModuleJob.run (...)...` to
+// the real stderr, and `format(new Error("boom"))` — the exact call this
+// override makes — produces the identical string, stack trace included,
+// diffed byte-for-byte, not assumed from documentation.
+// Every console.log/console.error call in this file (and in the imported
+// deltaVsSpread, which defaults its own `log` param to `console.log`
+// evaluated at call time, i.e. this override) goes through here; nothing in
+// this script writes to process.stdout/process.stderr directly.
+const captureBuffer = [];
+const realConsoleLog = console.log.bind(console);
+const realConsoleError = console.error.bind(console);
+console.log = (...a) => { realConsoleLog(...a); captureBuffer.push(format(...a) + "\n"); };
+console.error = (...a) => { realConsoleError(...a); captureBuffer.push(format(...a) + "\n"); };
+function flushCapture() {
+  writeFileSync(COMMITTED_TXT_FILE, captureBuffer.join(""));
 }
 
 // ROUND-3 FIX (minor finding #5): the old flag() parser did `Number(args[i+1])`
@@ -440,38 +472,16 @@ function stats(nums) {
 // RSS, so neither metric can publish a "the delta is far outside both arms'
 // spreads" claim the run's own numbers don't support.
 //
-// ROUND-9 FIX (major finding #2): this guard failed open at small n. With
-// n=1 each arm's `spread` is 0 BY CONSTRUCTION (max-min of a single value),
-// so `delta < maxSpread` is false for any nonzero delta and the function
-// printed the "directionally supported" verdict — the exact opposite of the
-// FLAG the identical metric earned at n=8 in the committed round-8 evidence.
-// A within-arm spread computed from a handful of reps cannot bound
-// run-to-run variation on this machine (documented throughout §6 as
-// variable under concurrent load) — the guard would "pass" identically if
-// the reproducibility check were deleted outright. Fixed: `stats()` already
-// carries each arm's own `n`; both are now required, and below a named
-// minimum the function refuses to render EITHER verdict and says so
-// explicitly, so a zero (or small-n) spread can never be silently read as
-// agreement.
-const MIN_N_FOR_DIRECTIONAL_VERDICT = 5;
-function deltaVsSpread(title, unit, statsA, statsB, fmt) {
-  if (!statsA || !statsB) return;
-  const n = Math.min(statsA.n, statsB.n);
-  const delta = Math.abs(statsA.median - statsB.median);
-  const maxSpread = Math.max(statsA.spread, statsB.spread);
-  console.log(`\n=== ${title}: delta vs. within-arm spread ===`);
-  console.log(`median delta A vs B: ${fmt(delta)} ${unit} (n: A=${statsA.n}, B=${statsB.n})`);
-  console.log(`A spread: ${fmt(statsA.spread)} ${unit} | B spread: ${fmt(statsB.spread)} ${unit}`);
-  if (n < MIN_N_FOR_DIRECTIONAL_VERDICT) {
-    console.log(`n too small to judge directionality (n=${n}, minimum ${MIN_N_FOR_DIRECTIONAL_VERDICT}) — a within-arm spread from fewer reps cannot bound run-to-run variation on this machine; no verdict rendered.`);
-    return;
-  }
-  if (delta < maxSpread) {
-    console.log(`FLAG: median delta (${fmt(delta)} ${unit}) is SMALLER than at least one arm's own spread (${fmt(maxSpread)} ${unit}) — not a reproducible directional claim at this n.`);
-  } else {
-    console.log(`Median delta exceeds both arms' spread — directionally supported at this n.`);
-  }
-}
+// ROUND-9 FIX (major finding #2) / ROUND-10 FIX (minor finding #3, moved):
+// `deltaVsSpread` and `MIN_N_FOR_DIRECTIONAL_VERDICT` now live in
+// ./evidence-guards.mjs (imported above), covered directly by
+// test/windows-proof08-evidence-guards.test.mjs, and documented there —
+// including the n=5 threshold's actual basis (not a power calculation) and
+// the spread-grows-with-n interaction the round-10 reviewer asked to have
+// spelled out. `deltaVsSpread`'s `log` param defaults to `console.log`
+// evaluated at each call below, which by then is this file's capture-
+// wrapping override, so its output is still recorded into
+// COMMITTED_TXT_FILE exactly like every other console.log call here.
 
 function summarize(label, reps) {
   console.log(`\n=== ${label} ===`);
@@ -615,19 +625,24 @@ position.`);
       idleReps: IDLE_REPS,
       crashReps: CRASH_REPS,
       outTag: OUT_TAG,
-      // ROUND-9 FOLLOW-UP FIX (advisor review, finding #1): both booleans
-      // are unconditional (never `undefined`, so `JSON.stringify` can never
+      // ROUND-9 FOLLOW-UP FIX (advisor review, finding #1) / ROUND-10 FIX
+      // (major finding #1, extended to the pair): both booleans are
+      // unconditional (never `undefined`, so `JSON.stringify` can never
       // silently drop them). `forced` records that the flag was typed;
       // `overwroteExistingFile` records the fact that actually matters — a
-      // file already existed at COMMITTED_RESULTS_FILE's exact path when
-      // this run started, so this run's write replaced it. `forced: true,
+      // committed file (JSON, .txt, or both — see overwroteExisting{Json,Txt}File
+      // below) already existed at this exact tag's path when this run
+      // started, so this run's write replaced it. `forced: true,
       // overwroteExistingFile: false` (flag typed, nothing to overwrite) is
       // a distinct, honestly-recorded case from `forced: true,
       // overwroteExistingFile: true` (flag typed AND something was actually
       // replaced) — collapsing them would hide the one case §8 reason (1)'s
       // "structural boundary, not operator discipline" standard cares about.
-      forced: FORCE,
-      overwroteExistingFile: COMMITTED_FILE_PREEXISTED,
+      // Built from the exact same checkNoClobber(...) output that decided
+      // whether this run was even allowed to proceed (see the top-level
+      // guard above), via buildEvidenceMeta() in evidence-guards.mjs, so
+      // this can never drift from that decision.
+      ...buildEvidenceMeta({ force: FORCE, jsonPreexisted: noClobber.jsonPreexisted, txtPreexisted: noClobber.txtPreexisted }),
       startedAt: new Date().toISOString(),
     },
     utility: { idle: [], crashDefault: [], crashMatched: [] },
@@ -644,12 +659,23 @@ position.`);
   // crash instead of by design. Every completed phase is now durable on
   // disk before the next one starts, so a partial run still leaves
   // real, committed, correctly-labeled partial evidence instead of nothing.
-  mkdirSync(RESULTS_DIR, { recursive: true });
+  // (RESULTS_DIR is created once, at top level, before this function or any
+  // other part of main() runs — see the mkdirSync call near the guard
+  // above; advisor review flagged doing it only here as leaving the
+  // top-level .catch()'s best-effort flush with nowhere to write if main()
+  // threw before reaching this line.)
+  //
+  // ROUND-10 FIX (major finding #1): the committed .txt console capture is
+  // now checkpointed here too, in the same place and on the same cadence as
+  // the JSON — so a mid-battery throw leaves a real, non-truncated partial
+  // .txt alongside the partial JSON, not just the JSON.
   function saveCommitted(phase) {
     results.meta.lastPhaseCompleted = phase;
     results.meta.savedAt = new Date().toISOString();
     writeFileSync(COMMITTED_RESULTS_FILE, JSON.stringify(results, null, 2));
     console.log(`[checkpoint] wrote ${COMMITTED_RESULTS_FILE} after phase "${phase}"`);
+    flushCapture();
+    console.log(`[checkpoint] wrote ${COMMITTED_TXT_FILE} after phase "${phase}"`);
   }
 
   for (let i = 0; i < IDLE_REPS; i++) {
@@ -720,6 +746,30 @@ position.`);
   saveCommitted("complete");
   console.log(`\nraw JSON results (scratch, ephemeral): ${join(runsScratch, "raw-results.json")}`);
   console.log(`raw JSON results (COMMITTED): ${COMMITTED_RESULTS_FILE}`);
+  console.log(`raw console capture (COMMITTED): ${COMMITTED_TXT_FILE}`);
+  // Final flush: the three console.log lines directly above (plus this
+  // function's own closing "run finished" lines, if any run above this one
+  // adds more) are written AFTER saveCommitted("complete")'s own
+  // checkpoint flush, so without this line the committed .txt would be
+  // missing its own last few lines. This is the last statement in a
+  // successful run; see the top-level .catch() below for the
+  // unsuccessful-run case.
+  flushCapture();
 }
 
-main().catch((e) => { console.error(e); process.exitCode = 1; });
+// ROUND-10 addition: best-effort flush of whatever was captured before the
+// throw, so an unhandled error mid-battery (this machine's documented
+// Get-CimInstance flakiness under load, §6, or any other) still leaves the
+// error itself — not just the last completed phase's checkpoint — in the
+// committed .txt. RESULTS_DIR itself is guaranteed to exist by the time
+// this can run (the module-top-level mkdirSync above executes before
+// main() is ever called), so flushCapture()'s writeFileSync below has
+// somewhere to create COMMITTED_TXT_FILE; the try/catch here only guards
+// against flushCapture() itself
+// throwing (e.g. disk full), which must not mask the original error's own
+// non-zero exit code.
+main().catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
+  try { flushCapture(); } catch {}
+});
