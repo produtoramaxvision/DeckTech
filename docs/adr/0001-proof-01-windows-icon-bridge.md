@@ -1,8 +1,8 @@
 # ADR 0001: Ponte Node -> `IShellItemImageFactory` para ícones 256px no Windows
 
 **Status:** Aceita
-**Data:** 2026-09-18 (revisada 2026-09-17, round 2 de review; revisada novamente round 3 — ver
-"Revisão round 2" e "Revisão round 3" abaixo)
+**Data:** 2026-09-18 (revisada 2026-09-17, round 2 de review; revisada novamente round 3; revisada
+novamente round 4 — ver "Revisão round 2", "Revisão round 3" e "Revisão round 4" abaixo)
 **Requisito:** PROOF-01 (`.maxvision/REQUIREMENTS.md`, Fase 0)
 **Máquina de medição:** Windows 11 Pro 10.0.22631, x64, Node v25.5.0, VS Build Tools 2022
 (17.14.37411.7) com componente C++ x64, Windows SDK 10.0.26100.0, Python 3.13.13, locale pt-BR
@@ -30,11 +30,25 @@
 > quem clona o repo. A seção "Revisão round 3" ao final detalha os seis achados e a correção de
 > cada um, com comando+saída real.
 >
-> **Os números na tabela de "Resultados medidos" abaixo já são da re-execução pós-round-3**
-> (115 apps `.exe`-only — o conjunto mudou de 111→115 porque a correção de encoding do round 3
-> recuperou 4 atalhos `.lnk` não-ASCII que a v2 perdia silenciosamente; N=230 amostras/candidata
-> por execução, **5 execuções independentes** — ver "Resultados medidos" pra metodologia e
-> range observado).
+> **Um terceiro round rejeitou a v3** — a linha `%VAR%` do contrato de path prefixava a variável
+> num path já absoluto do app selecionado nesta máquina (Adobe Acrobat), produzindo uma forma
+> malformada que falhava com o MESMO erro fosse `%VAR%` expandido ou não: a linha não
+> discriminava nada, e a tabela citava esse resultado não-discriminante como prova de que
+> `%VAR%` não é expandido; a seção "Decisão" citava números de startup/throughput do pool
+> (~530ms, 6,98ms/ícone) que já não batiam com o `results.json` comitado NA MESMA revisão
+> (584,8ms, 6,52ms) nem eram reprodutíveis pelo reviewer; `bench-repeat-results.json` só
+> agregava `medianMs`, então um range de startup citado na prosa (423–702ms) não tinha artefato
+> committed pra verificar; dois scripts de verificação promovidos na rodada anterior
+> hardcodavam `C:\Windows\System32\notepad.exe` em vez de derivar de `process.env.SystemRoot`
+> como um script irmão no mesmo commit já fazia; e um bloco rotulado "saída real" continha uma
+> linha resumida à mão que o script nunca imprime, com 3 linhas do koffi truncadas em "for ...".
+> A seção "Revisão round 4" ao final detalha os cinco achados e a correção de cada um.
+>
+> **Os números na tabela de "Resultados medidos" abaixo já são da re-execução pós-round-4**
+> (115 apps `.exe`-only — mesmo conjunto do round 3; N=230 amostras/candidata por execução,
+> **5 execuções independentes**, re-executadas nesta revisão — ver "Resultados medidos" pra
+> metodologia e range observado, agora incluindo startup e throughput do pool agregados por
+> rodada em `bench-repeat-results.json`, não só medianMs).
 
 ---
 
@@ -224,15 +238,31 @@ Resultado bruto completo: [`measure/windows/icon-bench/results.json`](../../meas
   e via koffi no lado JS
   ([`lib/win32-path.mjs`](../../measure/windows/icon-bench/lib/win32-path.mjs)) — não uma
   reimplementação em JS que *deveria* ter o mesmo comportamento, a mesma chamada de sistema
-  literal dos dois lados. **Round 3 finding 6:** as 5 linhas abaixo marcadas com † viviam só
+  literal dos dois lados. **Round 3 finding 6:** as linhas abaixo marcadas com † viviam só
   num script ad hoc sob `.tmp/` (gitignored, irreproduzível por quem clona o repo) — agora
-  todas as 8 formas rodam, comitadas, contra os DOIS bridges in-process (não só addon — a
+  todas rodam, comitadas, contra os DOIS bridges in-process (não só addon — a
   origem do finding 3 do round 2 era exatamente os dois fazendo trabalho desigual), via
   [`scripts/verify-path-contract.mjs`](../../measure/windows/icon-bench/scripts/verify-path-contract.mjs),
   sobre um app real com espaço no path (`Adobe Acrobat`,
-  `C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe`) — não `notepad.exe` sintético.
-  **Saída real desta execução, addon E koffi, sem divergência entre os dois em nenhuma das 8
-  formas:**
+  `C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe`) para as formas derivadas do app, e um
+  segundo alvo fixo (`%SystemRoot%\System32\notepad.exe`) para o par discriminador de `%VAR%`
+  (ver "Round 4 finding 1" abaixo — não `notepad.exe` sintético usado como app principal, só como
+  alvo fixo da linha de env var).
+
+  **Round 4 finding 1 (major), corrigido:** a linha `%VAR%` da v3 prefixava `%ProgramFiles%` no
+  path ABSOLUTO do app selecionado (`C:\Program Files\Adobe\...`), produzindo
+  `%ProgramFiles%\C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe` — uma forma malformada
+  que falha com o MESMO hr (`0x80070002`) seja `%VAR%` expandido ou não. Essa linha não
+  discriminava nada: "passava" (isto é, falhava) mesmo que o addon expandisse variáveis de
+  ambiente. Um reviewer provou isso rodando a forma comitada (falha `0x80070002`), a mesma forma
+  expandida à mão (`%ProgramFiles%` → `C:\Program Files`, ainda falha, agora `0x80070057` por
+  duplicar o prefixo), e um par discriminador real: `%SystemRoot%\System32\notepad.exe` (falha
+  `0x80070002`) vs `C:\Windows\System32\notepad.exe` expandido à mão (sucesso). Substituí a
+  linha por exatamente esse par discriminador, como duas linhas `standalone` em
+  `scripts/verify-path-contract.mjs` que ignoram o app selecionado e sempre testam o alvo fixo
+  `%SystemRoot%\System32\notepad.exe` (via
+  [`lib/probe-target.mjs`](../../measure/windows/icon-bench/lib/probe-target.mjs), compartilhado
+  também pelos dois scripts do finding 4 abaixo).
 
   | Forma | Resultado real (addon = koffi) | O que confirma |
   |---|---|---|
@@ -241,34 +271,49 @@ Resultado bruto completo: [`measure/windows/icon-bench/results.json`](../../meas
   | relativo (`..\..\...`) | sucesso, pixel-idêntico ao canônico | resolvido contra o CWD |
   | espaço à direita (`Acrobat.exe `) † | sucesso, pixel-idêntico ao canônico | espaço final removido |
   | ponto à direita (`Acrobat.exe.`) † | sucesso, pixel-idêntico ao canônico | ponto final removido |
-  | `%ProgramFiles%\...` † | **falha**, hr=`0x80070002` (arquivo não encontrado) | `%VAR%` **NÃO** é expandido — tratado como texto literal |
+  | `%SystemRoot%\System32\notepad.exe` (literal, alvo fixo) | **falha**, hr=`0x80070002` (arquivo não encontrado) | `%VAR%` **NÃO** é expandido — tratado como texto literal |
+  | `C:\Windows\System32\notepad.exe` (mesmo alvo, expandido à mão — controle pareado) | **sucesso** | prova que a linha acima falha pela variável literal, não por notepad.exe estar inacessível |
   | `"C:\Program Files\...\Acrobat.exe"` (com aspas) † | **falha**, hr=`0x80070057` (argumento inválido) | aspas **NÃO** são removidas |
   | `Acrobat.exe,0` (sufixo de índice de registro) † | **falha**, hr=`0x80070002` (arquivo não encontrado) | sufixo `,<índice>` **NÃO** é removido |
 
-  As três últimas linhas falham DE PROPÓSITO — confirmam o que o contrato NÃO cobre, não um bug:
-  quem chamar `realIconService` com um valor `DisplayIcon` de registro precisa expandir
-  `%VAR%` (`ExpandEnvironmentStringsW`), remover aspas e cortar o sufixo `,<índice>` **antes**
-  de passar o path pro addon — esse pré-processamento não existe ainda porque `PLAT-03` (o
-  consumidor) é uma fase futura; fica registrado como requisito explícito da interface, não como
-  suposição. Saída real desta execução (todas as 8 formas, addon E koffi):
+  As linhas de `%SystemRoot%` literal, aspas e `,<índice>` falham DE PROPÓSITO — confirmam o que
+  o contrato NÃO cobre, não um bug: quem chamar `realIconService` com um valor `DisplayIcon` de
+  registro precisa expandir `%VAR%` (`ExpandEnvironmentStringsW`), remover aspas e cortar o
+  sufixo `,<índice>` **antes** de passar o path pro addon — esse pré-processamento não existe
+  ainda porque `PLAT-03` (o consumidor) é uma fase futura; fica registrado como requisito
+  explícito da interface, não como suposição. Saída real desta execução, addon E koffi, colada
+  verbatim (nenhuma linha resumida ou parafraseada — as 3 linhas do koffi carregam o path
+  completo que o hr reporta, sem truncar):
   ```
   addon / forward-slash: extraction OK, pixel-identical to canonical: true
   addon / relative: extraction OK, pixel-identical to canonical: true
   addon / trailing space: extraction OK, pixel-identical to canonical: true
   addon / trailing dot: extraction OK, pixel-identical to canonical: true
-  addon / %VAR% (env var, must fail — not expanded): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070002
+  addon / %SystemRoot% (env var, must fail — not expanded): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070002
+  addon / %SystemRoot% control (hand-expanded, must succeed): extraction OK (standalone target, not compared to canonical), 262144 bytes
   addon / surrounding quotes (must fail — not stripped): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070057
   addon / ,0 icon-index suffix (must fail — not stripped): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070002
   koffi / forward-slash: extraction OK, pixel-identical to canonical: true
   koffi / relative: extraction OK, pixel-identical to canonical: true
   koffi / trailing space: extraction OK, pixel-identical to canonical: true
   koffi / trailing dot: extraction OK, pixel-identical to canonical: true
-  koffi / %VAR% (env var, must fail — not expanded): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070002 for ...
-  koffi / surrounding quotes (must fail — not stripped): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070057 for ...
-  koffi / ,0 icon-index suffix (must fail — not stripped): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070002 for ...
+  koffi / %SystemRoot% (env var, must fail — not expanded): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070002 for C:\Users\MaxVision\Desktop\cursor-oficial\decktech\measure\windows\icon-bench\%SystemRoot%\System32\notepad.exe
+  koffi / %SystemRoot% control (hand-expanded, must succeed): extraction OK (standalone target, not compared to canonical), 262144 bytes
+  koffi / surrounding quotes (must fail — not stripped): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070057 for C:\Users\MaxVision\Desktop\cursor-oficial\decktech\measure\windows\icon-bench\"C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe"
+  koffi / ,0 icon-index suffix (must fail — not stripped): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070002 for C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe,0
   [verify-path-contract] === addon vs koffi outcome per form ===
-    (all 7 forms: addon=koffi, 0 divergences)
+    forward-slash: addon=succeeded koffi=succeeded (agree)
+    relative: addon=succeeded koffi=succeeded (agree)
+    trailing space: addon=succeeded koffi=succeeded (agree)
+    trailing dot: addon=succeeded koffi=succeeded (agree)
+    %SystemRoot% (env var, must fail — not expanded): addon=correctly rejected koffi=correctly rejected (agree)
+    %SystemRoot% control (hand-expanded, must succeed): addon=succeeded koffi=succeeded (agree)
+    surrounding quotes (must fail — not stripped): addon=correctly rejected koffi=correctly rejected (agree)
+    ,0 icon-index suffix (must fail — not stripped): addon=correctly rejected koffi=correctly rejected (agree)
   ```
+  0 divergências entre addon e koffi em qualquer uma das 8 formas (o script só imprime a linha
+  `NOTE: N form(s) diverging` quando `divergences > 0` — ausente aqui porque não houve nenhuma,
+  não porque foi omitida).
   O worker PowerShell (.NET `SHCreateItemFromParsingName` via P/Invoke direto, não via
   `WScript.Shell`) foi testado à parte com o mesmo path de barra normal e **também falhou**
   (`SHCreateItemFromParsingName hr=0x80070057`) até receber a forma com barra invertida — ou
@@ -355,34 +400,58 @@ corrigido de 115 apps (round 3 finding 2), N=230 amostras/candidata por execuç�
 abaixo reporta a mediana de cada uma das 5 execuções, a mediana-das-medianas, e o range
 min–max observado — **não** um único ponto de duas casas decimais:
 
+**Round 4 re-execução (findings 2/3):** o round 4 review encontrou a seção "Decisão" citando
+números de startup/throughput do pool que já não batiam com o `results.json` comitado NESTA
+MESMA revisão (~530ms/6,98ms citados na prosa da Decisão vs 584,8ms/6,52ms no `results.json`
+então comitado — nem um nem outro reprodutível pelo reviewer, que mediu startup 426–579ms e
+throughput 5,18–5,92ms/ícone em 5 rodadas próprias). Em vez de tentar acertar um único ponto
+outra vez — o mesmo erro seria trivial de repetir —, os 5 runs foram re-executados nesta máquina
+E `scripts/bench-repeat.mjs` foi estendido (finding 3) para agregar `startupMs` e
+`aggregateThroughputMsPerIcon` do pwsh por rodada, não só `medianMs`, gravando tudo em
+`bench-repeat-results.json` — a tabela e a prosa abaixo citam esse arquivo diretamente, comando
+exato em "Reprodutibilidade":
+
 | Candidata | medianas por execução (ms) | mediana-das-medianas | range min–max | spread |
 |---|---|---:|---:|---:|
-| controle (harness only) | 1,94 / 1,67 / 1,71 / 1,45 / 1,49 | 1,67 | 1,45–1,94 | 0,49 |
-| **N-API addon** | 11,55 / 13,99 / 10,52 / 13,25 / 12,51 | **12,51** | 10,52–13,99 | 3,47 |
-| **koffi (FFI)** | 11,04 / 17,11 / 14,45 / 14,95 / 13,90 | **14,45** | 11,04–17,11 | 6,07 |
-| pool PowerShell (4 processos, latência/request) | 27,24 / 24,61 / 27,10 / 27,12 / 24,20 | 27,10 | 24,20–27,24 | 3,04 |
+| controle (harness only) | 1,87 / 1,73 / 2,13 / 1,49 / 1,82 | 1,82 | 1,49–2,13 | 0,64 |
+| **N-API addon** | 11,30 / 14,28 / 12,48 / 10,92 / 11,44 | **11,44** | 10,92–14,28 | 3,36 |
+| **koffi (FFI)** | 15,01 / 14,56 / 11,64 / 12,64 / 12,13 | **12,64** | 11,64–15,01 | 3,37 |
+| pool PowerShell (4 processos, latência/request) | 29,84 / 30,68 / 26,24 / 24,82 / 25,07 | 26,24 | 24,82–30,68 | 5,86 |
 
-**O gap addon-vs-koffi na mediana-das-medianas é 1,94ms. O spread PRÓPRIO de uma única
-candidata (koffi, 6,07ms) é maior que esse gap.** Isto é o output real de
-`scripts/bench-repeat.mjs`:
+**O gap addon-vs-koffi na mediana-das-medianas é 1,20ms. O spread PRÓPRIO de uma única
+candidata (koffi, 3,37ms) é maior que esse gap.** Isto é o output real de
+`scripts/bench-repeat.mjs` desta execução:
 ```
-[bench-repeat] addon-vs-koffi median-of-medians gap: 1.94ms. Largest single candidate's own
-between-run spread (addon or koffi): 6.07ms. The between-run spread is >= the addon-vs-koffi
+[bench-repeat] addon-vs-koffi median-of-medians gap: 1.20ms. Largest single candidate's own
+between-run spread (addon or koffi): 3.37ms. The between-run spread is >= the addon-vs-koffi
 gap: the two candidates are NOT reliably distinguishable by ms/icon alone at this repeat count.
 ```
-Isso não é uma observação nova desta rodada — a seção "Decisão" abaixo já argumentava, em
-prosa, desde o round 2, que addon e koffi "empatam em velocidade e isso não decide"; o que o
-round 3 corrige é que a TABELA antes implicava o oposto (dois números de duas casas decimais
-lado a lado, como se a diferença entre eles fosse um sinal limpo e estável). Agora a tabela e a
-prosa dizem a mesma coisa: **a decisão é sobre risco de manutenção, não sobre ms/ícone**, porque
-ms/ícone não distingue as duas nesta máquina.
+O número exato do gap (1,94ms no round 3, 1,20ms aqui) e do spread (6,07ms no round 3, 3,37ms
+aqui) mudam de execução para execução — **isso é o ponto, não um problema**: cada re-execução
+independente reproduz a MESMA conclusão qualitativa (spread entre execuções ≥ gap entre
+candidatas) com números diferentes, o que é evidência mais forte de que a conclusão é robusta do
+que um único par de números seria. Isso não é uma observação nova desta rodada — a seção
+"Decisão" abaixo já argumentava, em prosa, desde o round 2, que addon e koffi "empatam em
+velocidade e isso não decide"; o que o round 3 corrigiu foi a TABELA implicando o oposto, e o que
+o round 4 corrige é a seção "Decisão" citando pontos fixos (530ms, 6,98ms) que uma re-execução
+torna obsoletos por definição — ver a correção abaixo em "Por que o pool PowerShell não vence".
+
+Startup do pool PowerShell (4 workers) e throughput agregado, agregados das mesmas 5 execuções
+via `bench-repeat-results.json` (`candidates.pwsh.extra` em cada `results-run{N}.json` — ver
+"Reprodutibilidade"):
+
+| Métrica | por execução | mediana-das-medianas | range min–max | spread |
+|---|---|---:|---:|---:|
+| startup do pool (ms, 4 workers) | 1386,0 / 613,1 / 554,9 / 747,7 / 961,3 | 747,7 | 554,9–1386,0 | 831,1 |
+| throughput agregado (ms/ícone, concorrência=4) | 7,88 / 8,31 / 6,86 / 6,45 / 6,64 | 6,86 | 6,45–8,31 | 1,86 |
 
 A última das 5 execuções (a que fica em `results.json`/`.tmp/cache` no momento deste texto) deu:
-p95 addon 22,04ms / koffi 24,90ms / pwsh 42,07ms; média addon 13,28ms / koffi 15,29ms / pwsh
-25,55ms; min–max addon 7,04–29,53ms / koffi 7,45–60,39ms / pwsh 10,52–53,25ms; startup do pool
-(4 workers) 584,8ms; throughput agregado do pool a concorrência=4: 6,52 ms/ícone (varia por
-execução também — ver range de startup nas 5 rodadas: 423–702ms). 100% de sucesso em todas as
-quatro linhas, em todas as 5 execuções, 0 timeouts no pool PowerShell em qualquer uma delas.
+p95 addon 18,26ms / koffi 18,81ms / pwsh 42,53ms; média addon 12,18ms / koffi 12,58ms / pwsh
+26,10ms; min–max addon 7,43–32,53ms / koffi 7,12–39,56ms / pwsh 11,09–51,64ms; startup do pool
+(4 workers) 961,3ms; throughput agregado do pool a concorrência=4: 6,64 ms/ícone (varia por
+execução — ver range de startup e throughput agregados nas 5 rodadas na tabela acima: startup
+554,9–1386,0ms, throughput 6,45–8,31 ms/ícone). 100% de sucesso em todas as quatro linhas, em
+todas as 5 execuções, 0 timeouts no pool PowerShell em qualquer uma delas.
 Throughput agregado do pool PowerShell (tempo de parede da passada de 115 apps ÷ 115, média de
 2 passadas) **não é comparável linha a linha** com a mediana de addon/koffi — reflete paralelismo
 de 4 processos simultâneos, não custo por chamada síncrona. Ver "Decisão" sobre por que isso não
@@ -390,7 +459,7 @@ decide a escolha.
 
 **Baseline frio, agnóstico de ponte** (medido uma única vez por execução, com o addon, antes de
 qualquer candidata tocar os arquivos — ver "Método"): na última execução, N=115, mediana
-**22,90 ms**, p95 **39,53 ms**, média 25,19 ms, 100% sucesso — na mesma faixa dos 43,2 ms/ícone
+**22,91 ms**, p95 **46,39 ms**, média 25,68 ms, 100% sucesso — na mesma faixa dos 43,2 ms/ícone
 medidos anteriormente em `WINDOWS-STACK.md` §6.2, mas tipicamente abaixo. **Não investiguei a
 causa exata da diferença** — candidatas honestas, nenhuma confirmada (hedge mantida idêntica às
 versões anteriores deste ADR):
@@ -419,12 +488,15 @@ produção.
 
 ### Por que addon e koffi empatam em velocidade e isso não decide
 
-**Round 3 confirma isto com medição, não só com prosa** (ver "Resultados medidos", finding 4):
-rodando `bench.mjs` 5 vezes como invocações independentes, a mediana-das-medianas foi 12,51 ms
-(addon) vs 14,45 ms (koffi) — um gap de 1,94ms — enquanto o spread PRÓPRIO de uma única
-candidata entre as 5 execuções chegou a 6,07ms (koffi). O spread entre execuções é maior que o
-gap entre candidatas: **ms/ícone não distingue addon de koffi nesta máquina**, com qualquer
-número de casas decimais. Isso é esperado: as duas chamam exatamente a mesma API COM
+**Round 3 e round 4 confirmam isto com medição, não só com prosa, em duas rodadas independentes**
+(ver "Resultados medidos", finding 4/round 4 re-execução): rodando `bench.mjs` 5 vezes como
+invocações independentes, o gap addon-vs-koffi na mediana-das-medianas foi 1,94ms no round 3 e
+1,20ms nesta re-execução do round 4 — enquanto o spread PRÓPRIO de uma única candidata entre as 5
+execuções chegou a 6,07ms (round 3) e 3,37ms (round 4), sempre maior que o gap da mesma rodada.
+O spread entre execuções é consistentemente ≥ o gap entre candidatas em ambas as rodadas: **ms/
+ícone não distingue addon de koffi nesta máquina**, com qualquer número de casas decimais — e o
+padrão se manteve em duas invocações independentes deste benchmark, semanas de sessões diferentes
+uma da outra, não só uma vez. Isso é esperado: as duas chamam exatamente a mesma API COM
 (`IShellItemImageFactory::GetImage`) e o grosso do tempo é gasto dentro do shell do Windows, não
 na travessia FFI/N-API. O discriminador real não é ms/ícone — é risco de manutenção e forma de
 falha, que os dois bugs abaixo tornam concreto, não hipotético:
@@ -453,14 +525,26 @@ Electron com addons nativos.
 
 ### Por que o pool PowerShell não vence mesmo com o menor número agregado
 
-- **~530 ms de custo de startup fixo** — compilar C# via `Add-Type` é caro e não amortiza para
-  uma extração pontual (ex.: usuário adiciona 1 app novo ao dock depois do scan inicial). Um
-  addon ou koffi já têm o processo Node rodando; não pagam esse custo de novo.
-- O throughput agregado de 6,98 ms/ícone vem de **paralelismo de 4 processos**, algo que
-  addon/koffi não tiveram chance de exibir aqui — não foram testados sob paralelismo
-  equivalente (ex.: `worker_threads`, múltiplos `utilityProcess`). Isso não foi medido; não
-  reivindico que addon/koffi paralelos seriam mais rápidos ou mais lentos, só que a comparação
-  atual não isola concorrência de eficiência de ponte, e por isso não decide a escolha.
+- **Custo de startup fixo da ordem de centenas de ms** — compilar C# via `Add-Type` é caro e não
+  amortiza para uma extração pontual (ex.: usuário adiciona 1 app novo ao dock depois do scan
+  inicial). Um addon ou koffi já têm o processo Node rodando; não pagam esse custo de novo.
+  **Round 4 finding 2 (major):** a v3 deste ADR citava um ponto fixo aqui (~530ms) que já não
+  batia com o `results.json` daquela mesma revisão (584,8ms) nem foi reprodutível por um
+  reviewer independente (426–579ms em 5 rodadas dele). Em vez de mais um ponto fixo fadado a
+  ficar obsoleto na próxima re-execução, o argumento agora cita a FAIXA observada em
+  `bench-repeat-results.json` através de duas rodadas independentes deste benchmark: 533,8ms
+  (round 3, execução única) e 554,9–1386,0ms (round 4, 5 execuções — ver "Resultados medidos").
+  A ordem de grandeza — centenas de ms, não dezenas — é o que sustenta a rejeição, não o ponto
+  exato, e essa ordem de grandeza se manteve estável nas duas rodadas.
+- O throughput agregado do pool vem de **paralelismo de 4 processos**, algo que addon/koffi não
+  tiveram chance de exibir aqui — não foram testados sob paralelismo equivalente (ex.:
+  `worker_threads`, múltiplos `utilityProcess`). Isso não foi medido; não reivindico que
+  addon/koffi paralelos seriam mais rápidos ou mais lentos, só que a comparação atual não isola
+  concorrência de eficiência de ponte, e por isso não decide a escolha. **Round 4 finding 2:**
+  pela mesma razão do bullet acima, o número exato (6,98 ms/ícone no round 3, 6,45–8,31 ms/ícone
+  nas 5 execuções do round 4) não é o que importa — o que importa é que é um throughput
+  agregado de um dígito, produzido por concorrência, não uma latência por chamada síncrona
+  comparável linha a linha com addon/koffi (ver "Resultados medidos" sobre essa distinção).
 - Superfície de falha adicional: gerenciar N processos PowerShell externos (crash de worker,
   saída inesperada, zumbis) é trabalho que SHELL-02 já precisa fazer para o servidor Node
   embutido — duplicá-lo para um pool de extração de ícone é escopo e risco extras sem ganho de
@@ -486,7 +570,8 @@ Electron com addons nativos.
   desta investigação comentados inline nos pontos exatos onde apareceriam de novo.
 - O pool PowerShell não é descartado como ideia em geral — pode voltar a fazer sentido para um
   cenário totalmente diferente (ex.: extração em lote muito grande, > milhares de ícones, onde
-  o custo fixo de ~530 ms amortiza) — mas não é a ponte de PLAT-03.
+  o custo fixo de centenas de ms de startup amortiza — ver "Por que o pool PowerShell não vence"
+  para a faixa medida em duas rodadas) — mas não é a ponte de PLAT-03.
 - `PLAT-09` (cache de ícone persistente) reduz a relevância de todas essas medições de "custo
   por scan": com cache em disco quente, PLAT-03 paga o custo medido aqui só uma vez por
   app/tema, não a cada abertura do DeckTech.
@@ -507,12 +592,12 @@ node scripts/list-apps.mjs                          # gera data/apps.json a part
 cd addon-icon && ../node_modules/.bin/node-gyp clean && ../node_modules/.bin/node-gyp configure build && cd ..
 node scripts/probe-addon.mjs                         # prova de 1 ícone via addon
 node scripts/probe-koffi.mjs                         # prova de 1 ícone via koffi
-node scripts/bench-repeat.mjs --runs 5 -- --passes 2 --pool 4   # 5 invocações independentes, grava bench-repeat-results.json (a última grava results.json também)
+node scripts/bench-repeat.mjs --runs 5 -- --passes 2 --pool 4   # 5 invocações independentes, grava bench-repeat-results.json — round 4 finding 3: agora também agrega startupMs e aggregateThroughputMsPerIcon por rodada, não só medianMs (a última rodada grava results.json também)
 node scripts/verify.mjs                              # verificação independente pós-benchmark, grava verify-results.json
-node scripts/verify-path-contract.mjs                # todas as 8 formas do contrato de path (round 3 finding 6), addon E koffi
+node scripts/verify-path-contract.mjs                # as 8 formas do contrato de path (round 3 finding 6, %VAR% par discriminador do round 4 finding 1), addon E koffi
 node scripts/verify-lnk-encoding.mjs                 # regressão: .lnk com caractere não-ASCII + espaço resolve certo (round 3 finding 2)
-node scripts/verify-pwsh-failure-modes.mjs            # os 4 cenários de falha do pool pwsh do round 2, comitados (round 3 finding 6)
-node scripts/verify-com-apartment-clash.mjs           # cenário de apartment COM clash do Electron main-process (round 3 finding 6)
+node scripts/verify-pwsh-failure-modes.mjs            # cenários de falha do pool pwsh do round 2, comitados (round 3 finding 6); alvo notepad.exe derivado de lib/probe-target.mjs (round 4 finding 4)
+node scripts/verify-com-apartment-clash.mjs           # cenário de apartment COM clash do Electron main-process (round 3 finding 6); alvo notepad.exe derivado de lib/probe-target.mjs (round 4 finding 4)
 ```
 
 `node-gyp clean` antes de `configure build`: nesta máquina, um `node-gyp build` incremental
@@ -806,3 +891,82 @@ próprias 5 execuções.
 Todos os seis têm evidência colada nesta revisão (comando executado + saída real, incluindo os
 casos ANTES/DEPOIS onde fazia sentido provar que o teste de fato detecta o bug). Nenhum achado
 foi contestado.
+
+## Revisão round 4
+
+Um quarto reviewer rigoroso rejeitou a v3 deste ADR com 5 achados (2 major, 3 minor). Todos os
+cinco foram corrigidos nesta máquina, com comando executado e saída colada. Nenhum achado foi
+contestado — todos procediam, confirmados rodando os próprios comandos/scripts que o reviewer
+citou como evidência.
+
+1. **[major] A linha `%VAR%` de `verify-path-contract.mjs` passava pelo motivo errado — não
+   discriminava expansão de variável de ambiente.** Causa raiz: a linha prefixava
+   `%ProgramFiles%\` (ou `%SystemRoot%` quando o path canônico caía sob `%SystemRoot%`) no path
+   ABSOLUTO do app selecionado por `list-apps.mjs`. Nesta máquina esse app é Adobe Acrobat sob
+   `C:\Program Files` (a regra 5 do script prefere deliberadamente um app com espaço no path),
+   então o ramo `%SystemRoot%` nunca disparava e o fallback construía
+   `%ProgramFiles%\C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe` — malformado com ou sem
+   expansão, falhando com o MESMO `hr=0x80070002` nos dois casos. O ADR citava esse resultado
+   não-discriminante como prova de que `%VAR%` não é expandido. Corrigido substituindo a linha
+   por um par discriminador STANDALONE (ignora o app selecionado, sempre testa um alvo fixo):
+   `%SystemRoot%\System32\notepad.exe` (deve falhar) e o mesmo alvo expandido à mão,
+   `C:\Windows\System32\notepad.exe` (deve suceder — controle pareado exigido pelo finding).
+   **Reproduzido nesta revisão:**
+   ```
+   [verify-path-contract]   %SystemRoot% (env var, must fail — not expanded): "%SystemRoot%\\System32\\notepad.exe"
+   [verify-path-contract]   %SystemRoot% control (hand-expanded, must succeed): "C:\\Windows\\System32\\notepad.exe"
+   [verify-path-contract] addon / %SystemRoot% (env var, must fail — not expanded): correctly REJECTED — SHCreateItemFromParsingName failed hr=0x80070002
+   [verify-path-contract] addon / %SystemRoot% control (hand-expanded, must succeed): extraction OK (standalone target, not compared to canonical), 262144 bytes
+   ```
+   Agora a linha falha SE E SOMENTE SE a variável não for expandida — o par ao lado prova que o
+   alvo em si (`notepad.exe`) é alcançável, isolando a variável como a única diferença entre as
+   duas linhas. Ver "Método" seção "Contrato de path" para a tabela e o bloco de saída completos
+   (addon E koffi, sem paráfrase).
+2. **[major] A seção "Decisão" citava números de startup/throughput do pool PowerShell que já
+   não batiam com o `results.json` comitado na MESMA revisão (v3), e nenhum dos dois era
+   reproduzível.** Provei a divergência: `git show 7daf52b:measure/windows/icon-bench/results.json`
+   dá `startupMs: 533.8, aggregateThroughputMsPerIcon: 6.98` (a rodada do round 2 que o texto da
+   Decisão citava), enquanto o `results.json` comitado pela v3 (a mesma revisão que continha o
+   texto "~530ms"/"6,98") já tinha `startupMs: 584.8, aggregateThroughputMsPerIcon: 6.52` — dois
+   valores medidos diferentes para a mesma grandeza, no mesmo documento, nenhum deles citado
+   corretamente. Corrigido de duas formas: (a) a seção "Decisão" agora argumenta pela ORDEM DE
+   GRANDEZA (centenas de ms de startup; throughput agregado de um dígito de ms/ícone) em vez de
+   um ponto fixo, citando a faixa observada nas rodadas comitadas (533,8ms no round 3;
+   554,9–1386,0ms nas 5 execuções desta rodada — ver "Por que o pool PowerShell não vence"); (b)
+   "Resultados medidos" foi re-executado nesta máquina (`bench-repeat.mjs --runs 5 -- --passes 2
+   --pool 4`, mesmo comando documentado) e todo número derivado de `results.json`/
+   `bench-repeat-results.json` no documento foi requotado a partir da execução NOVA, não deixado
+   misturado com números de rodadas anteriores.
+3. **[minor] `bench-repeat-results.json` só agregava `medianMs`, então um range de startup
+   citado na prosa do ADR (423–702ms) não tinha artefato comitado pra verificar.** Corrigido em
+   [`scripts/bench-repeat.mjs`](../../measure/windows/icon-bench/scripts/bench-repeat.mjs): a
+   coleta por rodada agora também agrega `startupMs` e `aggregateThroughputMsPerIcon` de
+   `candidates.pwsh` (os dois campos existentes em `results.json` que o texto do ADR cita), com
+   mediana-das-medianas, min, max e spread iguais ao que já existia pra `medianMs` — gravado em
+   `bench-repeat-results.json` sob `aggregate.pwsh.extra`. **Reproduzido nesta revisão** (ver
+   "Resultados medidos" para a tabela completa): `pwsh.extra.startupMs.perRun` =
+   `[1386, 613.1, 554.9, 747.7, 961.3]`, range 554,9–1386,0ms — este é o range agora citado no
+   ADR, substituindo o "423–702ms" que nenhum artefato comitado sustentava.
+4. **[minor] Dois scripts recém-comitados (`verify-pwsh-failure-modes.mjs`,
+   `verify-com-apartment-clash.mjs`) hardcodavam `C:\Windows\System32\notepad.exe`, enquanto
+   `verify-path-contract.mjs`, comitado no MESMO commit, já derivava de
+   `process.env.SystemRoot`.** Corrigido extraindo a derivação pra um módulo compartilhado,
+   [`lib/probe-target.mjs`](../../measure/windows/icon-bench/lib/probe-target.mjs) — puro
+   `node:path`, zero outros imports, zero efeito colateral (`verify-com-apartment-clash.mjs`
+   depende de controlar a PRIMEIRA chamada `CoInitializeEx` deste processo; um import
+   transitivo de koffi/addon nesse módulo invalidaria o cenário que o script existe pra
+   reproduzir). Os quatro scripts que citam um alvo `.exe` fixo importam do mesmo lugar agora:
+   `verify-path-contract.mjs`, `verify-pwsh-failure-modes.mjs` e
+   `verify-com-apartment-clash.mjs`. **Reproduzido**: os três scripts continuam passando depois
+   da troca (saída completa nas seções "Método"/"Reprodutibilidade" acima), confirmando que a
+   substituição de string literal por `probeTargetPath` não mudou o comportamento observado.
+5. **[minor] Um bloco do ADR rotulado "Saída real desta execução" continha uma linha resumida à
+   mão que o script nunca imprime, e elidia saída real com "for ...".** Corrigido: o bloco na
+   seção "Método"/"Contrato de path" agora cola as linhas reais de
+   `=== addon vs koffi outcome per form ===` uma por uma (8 linhas, uma por forma — não uma
+   linha resumida), e as três linhas do koffi que antes terminavam em "for ..." agora carregam
+   o path completo que `SHCreateItemFromParsingName` reportou no erro, exatamente como impresso
+   nesta execução.
+
+Todos os cinco têm evidência colada nesta revisão (comando executado + saída real). Nenhum
+achado foi contestado.

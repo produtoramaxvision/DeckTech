@@ -53,6 +53,16 @@ console.log(`[bench-repeat] running "node scripts/bench.mjs ${forwardedArgs.join
 const resultsPath = path.join(rootDir, "results.json");
 const perRunMedians = {}; // candidate -> [medianMs, ...]
 const perRunFull = [];
+// Round-4 review fix (finding 3, minor): the aggregate this script writes
+// used to collect ONLY medianMs. The ADR quoted a pool-startup range
+// (startupMs) and an aggregate-throughput figure (aggregateThroughputMsPerIcon)
+// that lived nowhere in the committed output — a reader had no artifact to
+// verify those two numbers against, and per-run snapshots that DID have
+// them (.tmp/results-run{1..N}.json) are gitignored, not committed. These
+// two extra fields (present on the pwsh candidate) are now collected and
+// aggregated the same way medianMs already is.
+const EXTRA_FIELDS = ["startupMs", "aggregateThroughputMsPerIcon"];
+const perRunExtra = {}; // candidate -> field -> [value, ...]
 
 for (let run = 1; run <= RUNS; run++) {
   console.log(`\n[bench-repeat] === run ${run}/${RUNS} ===`);
@@ -78,6 +88,12 @@ for (let run = 1; run <= RUNS; run++) {
   perRunFull.push(report);
   for (const [name, c] of Object.entries(report.candidates)) {
     (perRunMedians[name] ||= []).push(c.medianMs);
+    for (const field of EXTRA_FIELDS) {
+      if (typeof c[field] === "number") {
+        perRunExtra[name] ||= {};
+        (perRunExtra[name][field] ||= []).push(c[field]);
+      }
+    }
   }
   // Snapshot this run's results.json so every individual run's raw output is
   // preserved, not just the aggregate below.
@@ -102,6 +118,24 @@ for (const [name, medians] of Object.entries(perRunMedians)) {
   console.log(
     `${name.padEnd(15)} ${medians.map((m) => m.toFixed(2)).join(", ").padEnd(40)} ${mom.toFixed(2).padEnd(18)} ${lo.toFixed(2)}–${hi.toFixed(2)} (${(hi - lo).toFixed(2)})`
   );
+  if (perRunExtra[name]) {
+    aggregate[name].extra = {};
+    for (const [field, values] of Object.entries(perRunExtra[name])) {
+      const eLo = Math.min(...values);
+      const eHi = Math.max(...values);
+      const eMom = median(values);
+      aggregate[name].extra[field] = {
+        perRun: values,
+        medianOfMedians: Number(eMom.toFixed(2)),
+        min: eLo,
+        max: eHi,
+        spread: Number((eHi - eLo).toFixed(2)),
+      };
+      console.log(
+        `  ${name}.${field.padEnd(28)} ${values.map((v) => v.toFixed(2)).join(", ").padEnd(40)} ${eMom.toFixed(2).padEnd(18)} ${eLo.toFixed(2)}–${eHi.toFixed(2)} (${(eHi - eLo).toFixed(2)})`
+      );
+    }
+  }
 }
 
 // The finding this closes: is the addon-vs-koffi gap bigger or smaller than

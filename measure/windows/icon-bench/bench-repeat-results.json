@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T02:22:09.968Z",
+  "generatedAt": "2026-09-18T03:17:16.617Z",
   "runs": 5,
   "benchArgs": [
     "--passes",
@@ -10,55 +10,128 @@
   "aggregate": {
     "control": {
       "perRunMedians": [
-        1.94,
-        1.67,
-        1.71,
-        1.45,
-        1.49
+        1.87,
+        1.73,
+        2.13,
+        1.49,
+        1.82
       ],
-      "medianOfMedians": 1.67,
-      "min": 1.45,
-      "max": 1.94,
-      "spread": 0.49
+      "medianOfMedians": 1.82,
+      "min": 1.49,
+      "max": 2.13,
+      "spread": 0.64,
+      "extra": {
+        "startupMs": {
+          "perRun": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "medianOfMedians": 0,
+          "min": 0,
+          "max": 0,
+          "spread": 0
+        }
+      }
     },
     "addon": {
       "perRunMedians": [
-        11.55,
-        13.99,
-        10.52,
-        13.25,
-        12.51
+        11.3,
+        14.28,
+        12.48,
+        10.92,
+        11.44
       ],
-      "medianOfMedians": 12.51,
-      "min": 10.52,
-      "max": 13.99,
-      "spread": 3.47
+      "medianOfMedians": 11.44,
+      "min": 10.92,
+      "max": 14.28,
+      "spread": 3.36,
+      "extra": {
+        "startupMs": {
+          "perRun": [
+            1.7,
+            1.6,
+            2,
+            1.2,
+            1.7
+          ],
+          "medianOfMedians": 1.7,
+          "min": 1.2,
+          "max": 2,
+          "spread": 0.8
+        }
+      }
     },
     "koffi": {
       "perRunMedians": [
-        11.04,
-        17.11,
-        14.45,
-        14.95,
-        13.9
+        15.01,
+        14.56,
+        11.64,
+        12.64,
+        12.13
       ],
-      "medianOfMedians": 14.45,
-      "min": 11.04,
-      "max": 17.11,
-      "spread": 6.07
+      "medianOfMedians": 12.64,
+      "min": 11.64,
+      "max": 15.01,
+      "spread": 3.37,
+      "extra": {
+        "startupMs": {
+          "perRun": [
+            7,
+            16,
+            11.5,
+            15.3,
+            7
+          ],
+          "medianOfMedians": 11.5,
+          "min": 7,
+          "max": 16,
+          "spread": 9
+        }
+      }
     },
     "pwsh": {
       "perRunMedians": [
-        27.24,
-        24.61,
-        27.1,
-        27.12,
-        24.2
+        29.84,
+        30.68,
+        26.24,
+        24.82,
+        25.07
       ],
-      "medianOfMedians": 27.1,
-      "min": 24.2,
-      "max": 27.24,
-      "spread": 3.04
+      "medianOfMedians": 26.24,
+      "min": 24.82,
+      "max": 30.68,
+      "spread": 5.86,
+      "extra": {
+        "startupMs": {
+          "perRun": [
+            1386,
+            613.1,
+            554.9,
+            747.7,
+            961.3
+          ],
+          "medianOfMedians": 747.7,
+          "min": 554.9,
+          "max": 1386,
+          "spread": 831.1
+        },
+        "aggregateThroughputMsPerIcon": {
+          "perRun": [
+            7.88,
+            8.31,
+            6.86,
+            6.45,
+            6.64
+          ],
+          "medianOfMedians": 6.86,
+          "min": 6.45,
+          "max": 8.31,
+          "spread": 1.86
+        }
+      }
     }
   }
 }

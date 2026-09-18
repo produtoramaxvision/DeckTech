@@ -16,6 +16,7 @@ import koffi from "koffi";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { probeTargetPath } from "../lib/probe-target.mjs";
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -40,7 +41,7 @@ const addon = require(path.join(rootDir, "addon-icon", "build", "Release", "icon
 
 let failures = 0;
 try {
-  addon.extractIconBgra("C:\\Windows\\System32\\notepad.exe", 256);
+  addon.extractIconBgra(probeTargetPath, 256);
   console.error("[verify-com-apartment-clash] FAIL: addon call unexpectedly SUCCEEDED despite the forced apartment clash");
   failures++;
 } catch (err) {

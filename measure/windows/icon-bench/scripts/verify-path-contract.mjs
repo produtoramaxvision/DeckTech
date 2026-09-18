@@ -10,9 +10,18 @@
 // path-contract table documents (forward-slash, relative) as a committed
 // case, with the other 5 (trailing space, trailing dot, %VAR%, quotes,
 // ,<index> suffix) backed only by an ad hoc script under the gitignored
-// .tmp/ — unreproducible by anyone who clones the repo. All 8 rows are
+// .tmp/ — unreproducible by anyone who clones the repo. All rows are
 // committed here now, run against BOTH in-process bridges (not addon only)
 // so any divergence between them is caught, not just assumed absent.
+//
+// Round-4 fix (finding 1, major): the %VAR% row used to build a literal
+// %VAR% prefix onto whichever real app was selected below, which on this
+// machine (Adobe Acrobat, path under "C:\Program Files") failed identically
+// whether or not the variable was expanded — non-discriminating. It is now
+// two STANDALONE rows (ignore the selected app, always probe a fixed
+// %SystemRoot%\System32\notepad.exe target): one asserting the literal
+// %SystemRoot% form fails, and its required paired control asserting the
+// hand-expanded form succeeds. See lib/probe-target.mjs.
 //
 // For each MUST-SUCCEED form: asserts extraction does not throw AND the
 // extracted BGRA pixels are byte-identical to the canonical
@@ -27,6 +36,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { extractIconBgra as koffiExtract, comUninitialize } from "../lib/koffi-icon.mjs";
+import { probeTargetPath } from "../lib/probe-target.mjs";
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -61,20 +71,36 @@ const forms = [
   { name: "trailing space", mustSucceed: true, build: (c) => c + " " },
   { name: "trailing dot", mustSucceed: true, build: (c) => c + "." },
   {
-    name: "%VAR% (env var, must fail — not expanded)",
+    // Round-4 review fix (finding 1, major): this row used to prefix a
+    // literal %VAR% onto whichever real app list-apps.mjs's rule-5 pick
+    // above produced. On this machine that app is Adobe Acrobat under
+    // "C:\Program Files" (rule 5 deliberately prefers an app whose path
+    // contains a space), so the fallback branch fired and the form built
+    // was "%ProgramFiles%\C:\Program Files\Adobe\Acrobat DC\Acrobat\
+    // Acrobat.exe" — malformed either way you read it, and it fails with
+    // the SAME hr=0x80070002 whether or not %VAR% expansion happens. That
+    // made the row non-discriminating: it "passed" regardless of the
+    // addon's real behavior on environment variables.
+    //
+    // A discriminating row needs a path that resolves to a real file IF
+    // AND ONLY IF the variable is expanded. %SystemRoot% is a fixed,
+    // always-present target (System32\notepad.exe) independent of which
+    // real app was picked above — standalone: true means `build` ignores
+    // the canonical app path entirely and always probes this fixed target.
+    name: "%SystemRoot% (env var, must fail — not expanded)",
     mustSucceed: false,
-    build: (c) => {
-      // Build a %SystemRoot%-relative form for a path under C:\Windows if
-      // possible, else fall back to a synthetic %VAR% prefix on the real
-      // canonical path (still exercises "literal %...% text is not
-      // expanded", the actual contract point) so this row runs regardless
-      // of which real app was picked above.
-      const winDir = process.env.SystemRoot || "C:\\Windows";
-      if (c.toUpperCase().startsWith(winDir.toUpperCase())) {
-        return "%SystemRoot%" + c.slice(winDir.length);
-      }
-      return "%ProgramFiles%\\" + c;
-    },
+    standalone: true,
+    build: () => "%SystemRoot%\\System32\\notepad.exe",
+  },
+  {
+    // Required pair for the row above: the SAME target, hand-expanded,
+    // MUST succeed — this is what makes the row above discriminating. If
+    // this control also failed, the row above would prove nothing (it
+    // could be failing for an unrelated reason, e.g. notepad.exe missing).
+    name: "%SystemRoot% control (hand-expanded, must succeed)",
+    mustSucceed: true,
+    standalone: true,
+    build: () => probeTargetPath,
   },
   { name: "surrounding quotes (must fail — not stripped)", mustSucceed: false, build: (c) => `"${c}"` },
   { name: ",0 icon-index suffix (must fail — not stripped)", mustSucceed: false, build: (c) => c + ",0" },
@@ -105,12 +131,21 @@ function testBridge(bridgeName, extractFn) {
     try {
       const bgra = extractFn(formPath);
       if (f.mustSucceed) {
-        const matches = bufEqual(canonicalBgra, bgra);
-        console.log(`[verify-path-contract] ${bridgeName} / ${key}: extraction OK, pixel-identical to canonical: ${matches}`);
-        rowResults.forms[key][bridgeName] = { outcome: "succeeded", pixelIdenticalToCanonical: matches };
-        if (!matches) {
-          console.error(`[verify-path-contract] ${bridgeName} / ${key}: FAIL — succeeded but pixels differ from canonical (resolved to a different file?)`);
-          failures++;
+        if (f.standalone) {
+          // standalone rows probe a fixed target (notepad.exe), not the
+          // canonical app (Adobe Acrobat here) — pixel identity to
+          // canonicalBgra is meaningless for them (different file). "no
+          // throw" is the whole assertion.
+          console.log(`[verify-path-contract] ${bridgeName} / ${key}: extraction OK (standalone target, not compared to canonical), ${bgra.length} bytes`);
+          rowResults.forms[key][bridgeName] = { outcome: "succeeded", standalone: true };
+        } else {
+          const matches = bufEqual(canonicalBgra, bgra);
+          console.log(`[verify-path-contract] ${bridgeName} / ${key}: extraction OK, pixel-identical to canonical: ${matches}`);
+          rowResults.forms[key][bridgeName] = { outcome: "succeeded", pixelIdenticalToCanonical: matches };
+          if (!matches) {
+            console.error(`[verify-path-contract] ${bridgeName} / ${key}: FAIL — succeeded but pixels differ from canonical (resolved to a different file?)`);
+            failures++;
+          }
         }
       } else {
         // This form was expected to FAIL (deliberately unsupported input)
@@ -157,4 +192,4 @@ if (failures > 0) {
   console.error(`\n[verify-path-contract] FATAL: ${failures} case(s) failed`);
   process.exit(1);
 }
-console.log(`\n[verify-path-contract] PASS: both bridges accept forward-slash/relative/trailing-space/trailing-dot forms of the same real app (pixel-identical to canonical), and correctly reject %VAR%/quoted/,<index> forms as unsupported input.`);
+console.log(`\n[verify-path-contract] PASS: both bridges accept forward-slash/relative/trailing-space/trailing-dot forms of the same real app (pixel-identical to canonical), correctly reject the literal %SystemRoot%/quoted/,<index> forms as unsupported input, and correctly accept the hand-expanded %SystemRoot% control.`);

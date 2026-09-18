@@ -21,6 +21,7 @@ import { mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PwshPool, PwshTimeoutError, PwshWorkerDiedError } from "../lib/pwsh-pool.mjs";
+import { probeTargetPath } from "../lib/probe-target.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, "..");
@@ -69,7 +70,7 @@ async function scenarioKillMidRequest() {
   const pid = pool.worker(0).pid;
   console.log(`[verify-pwsh-failure-modes]   pool ready, pid=${pid}`);
   const out = path.join(scratchDir, "kill-test-out.png");
-  const reqPromise = pool.worker(0).request("C:\\Windows\\System32\\notepad.exe", out, 256, 8000);
+  const reqPromise = pool.worker(0).request(probeTargetPath, out, 256, 8000);
   const t0 = performance.now();
   setTimeout(() => {
     console.log(`[verify-pwsh-failure-modes]   killing worker pid=${pid} mid-request`);
@@ -97,7 +98,7 @@ async function scenarioRequestTimeout() {
   const out = path.join(scratchDir, "timeout-test-out.png");
   const t0 = performance.now();
   try {
-    await pool.worker(0).request("C:\\Windows\\System32\\notepad.exe", out, 256, 1000);
+    await pool.worker(0).request(probeTargetPath, out, 256, 1000);
     assert(false, "request() rejects with PwshTimeoutError when the worker never responds", "request() unexpectedly RESOLVED");
   } catch (err) {
     const elapsed = performance.now() - t0;
@@ -141,7 +142,7 @@ async function scenarioMalformedRequest() {
   assert(diagnostics.length > 0, "malformed stdin line is surfaced via onDiagnostic, not silently dropped");
   const out = path.join(scratchDir, "malformed-test-out.png");
   try {
-    const resp = await pool.worker(0).request("C:\\Windows\\System32\\notepad.exe", out, 256, 8000);
+    const resp = await pool.worker(0).request(probeTargetPath, out, 256, 8000);
     assert(resp.ok === true, "worker is still alive and serves a REAL request after the malformed one", JSON.stringify(resp));
   } catch (err) {
     assert(false, "worker is still alive and serves a REAL request after the malformed one", `request() threw: ${err.message}`);
