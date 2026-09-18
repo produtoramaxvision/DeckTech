@@ -11,6 +11,11 @@
         ],
         "createdAt": "2026-09-18T09:03:59.774Z",
         "reason": "gallery swatches render --dt-glass-bloom/--dt-elev-* verbatim (transcribed dark values + their documented HSL-invert light counterparts); DESIGN-LANGUAGE.md section 1 names the ember bloom as a deliberate, load-bearing brand characteristic, not decorative AI-glow. Suppressing per-file, not per-rule, since this is specific to a token-demonstration surface."
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-09-18T09:20:18.381Z"
       }
     ]
   }
