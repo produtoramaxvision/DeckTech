@@ -391,8 +391,12 @@
 > two committed batteries above (`round9fixverifn1`, `round9review-n5`)
 > were then **re-run against this fully-fixed code with `--force`**, so the
 > committed evidence's own `meta` now reflects the final script rather than
-> an intermediate one — both show `"forced": true, "overwroteExistingFile":
-> true"` (this round's own re-run legitimately overwrote this round's own
+> an intermediate one — both now carry, in the committed JSON (abbreviated
+> here to the two new keys; the full object also has
+> `concurrentProcessCountAtStart`/`idleReps`/`crashReps`/`outTag`/
+> `startedAt`/`lastPhaseCompleted`/`savedAt` in that order):
+> `{..., "forced": true, "overwroteExistingFile": true, ...}`
+> (this round's own re-run legitimately overwrote this round's own
 > prior smoke-test file, never round-8's evidence).
 >
 > **None of this touches §4/§5's own headline numbers:** round-8's
@@ -1990,8 +1994,8 @@ node measure/windows/proof-08/run.mjs --reps 5 --crash-reps 1 --out-tag round9re
 # Round-9 additions (advisor follow-up, closing 4 self-review gaps in this same round's own fix):
 node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag --force   # --out-tag's next arg is itself flag-shaped ("--force") — previously accepted as the literal tag "--force"; now exits 1, `FATAL: invalid --out-tag value: "--force" — ... and not starting with "-" ...`
 node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1   # bare invocation, no --out-tag at all — the timestamp-default path itself, verified for real for the first time this round: prints a checkpoint at raw-results-run-<ISO timestamp>.json, a filename confirmed (not assumed) to satisfy SAFE_TAG_RE; artifact deleted after verification (git status --short clean), not committed
-node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round9forcetest        # first run at a fresh tag — meta.forced=false, meta.overwroteExistingFile=false
-node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round9forcetest --force  # second run, same tag, --force — meta.forced=true, meta.overwroteExistingFile=true; both throwaway files deleted after verification, not committed
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round9forcetest        # first run at a fresh tag — meta.forced=false, meta.overwroteExistingFile=false. NOT COMMITTED: this exact file was deleted after verification (disclosed in the Round-9 revision note above); re-run this line to reproduce it yourself.
+node measure/windows/proof-08/run.mjs --reps 1 --crash-reps 1 --out-tag round9forcetest --force  # second run, same tag, --force — meta.forced=true, meta.overwroteExistingFile=true. NOT COMMITTED, same as above; re-run both lines in order to reproduce.
 ```
 
 `crash-timeline.mjs`'s per-iteration cadence is now printed inline (`iter
