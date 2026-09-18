@@ -244,9 +244,10 @@ test("GET / inclui PWA manifest link, apple-mobile-web-app e service worker", as
 
 test("toque no app não revela um segundo glass durante a animação", async () => {
   // O dock só renderiza um tile de app quando a peça fixada resolve contra a lista
-  // de apps instalados. Sem injetar o provider, este teste depende do host ser macOS:
-  // no Windows listInstalledApps ainda não existe (PLAT-02), todo tile sai .empty, e
-  // .atile.first() seria um slot vazio — que não tem a animação appPress sob teste.
+  // de apps instalados. Injeta o provider explicitamente para não depender do
+  // catálogo real de nenhum host (Windows via PLAT-01+02 e macOS via apps.js
+  // já resolvem "Probe" de verdades diferentes) — sem isto, .atile.first()
+  // poderia ser um slot vazio, que não tem a animação appPress sob teste.
   const { port, close } = await startServer({
     port: 0,
     obs: null,
