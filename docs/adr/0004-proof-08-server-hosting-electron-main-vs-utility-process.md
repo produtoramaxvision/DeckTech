@@ -443,8 +443,8 @@
 > per-line "PRE-round-10 script" / "same `| tee` caveat" annotations in
 > the Appendix itself). **This fix is scoped to `run.mjs`; it does not
 > reach `crash-timeline.mjs`.** `crash-timeline.mjs` writes its own
-> heartbeat/log file into a per-run `mkdtemp` scratch directory (deleted
-> with the temp dir, never a committed path), so there was never a
+> heartbeat/log file into a per-run `mkdtemp` scratch directory (never a
+> committed path), so there was never a
 > self-write race on `crash-timeline-inprocess-run1.txt`/`run4.txt` for
 > the round-10 `checkNoClobber` mechanism to apply to — but that is a
 > narrower claim than "safe," not a substitute for it. The Appendix's
