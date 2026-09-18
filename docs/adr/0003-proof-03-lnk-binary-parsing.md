@@ -1,14 +1,895 @@
 # ADR-0003: Binary `.lnk` parsing in Node vs COM (`WScript.Shell`)
 
-- Status: Accepted (revised after round-2, round-3, round-4 AND round-5
-  review — see "Round-5 revision" below, then "Round-4 revision", then
-  "Round-3 revision", then "Round-2 revision")
+- Status: Accepted (revised through round 6 — see "Revision history" below)
 - Date: 2026-09-17
 - Requirement: PROOF-03 (`.maxvision/REQUIREMENTS.md` Fase 0), gates PLAT-10
 - Supersedes: nothing. First measurement of unvalidated assumption U5
   (`.maxvision/research/SUMMARY.md:646`).
 
-## Round-5 revision (this document)
+## Context
+
+`.maxvision/research/WINDOWS-STACK.md` measured resolving 149 `.lnk` shortcuts
+to their target `.exe` via COM (`WScript.Shell.CreateShortcut(path).TargetPath`)
+at 2395 ms total, ~16 ms/shortcut, and flagged reading the `.lnk` binary
+format directly in Node as a plausible but explicitly unvalidated
+optimization (U5): "Vale ler `.lnk` binário direto em Node (sem COM) para
+matar os 16 ms/atalho. Não validei essa otimização."
+
+A binary reader is only worth shipping if it produces the **same** target
+list as COM. A parser that is faster and silently wrong on even a few
+shortcuts is a regression, not an optimization — a user whose shortcut
+resolves to the wrong `.exe`, or to nothing, notices immediately.
+
+## What was built
+
+- `measure/windows/lnk-parser.mjs` — a pure-Node, zero-dependency reader of
+  the [MS-SHLLINK] binary format (ShellLinkHeader, LinkFlags, LinkInfo,
+  CommonNetworkRelativeLink, StringData, and the EnvironmentVariableDataBlock
+  extra-data block), built directly from the Microsoft Open Specifications
+  pages (fetched 2026-09-17, protocol revision 10.0, not from memory/recall).
+  Every read past the fixed header is now bounds-checked (round-2 fix 4).
+- `measure/windows/lnk-com-resolve.ps1` — the COM baseline resolver, using
+  the same `WScript.Shell` mechanism as the original measurement, with one
+  COM object reused across the loop and an internal `Stopwatch` around the
+  resolution loop only. **This is a claim about MECHANISM, not about the
+  RESULT**: the same code path (`WScript.Shell.CreateShortcut(path).
+  TargetPath`, timed by an internal `Stopwatch` around the loop only) is
+  used, which is what makes a per-item comparison methodologically
+  meaningful at all — it does NOT mean this script's own measured
+  per-item rate matches the original baseline's. It does not: round-4
+  blocker finding 1 found the two disagree by roughly an order of
+  magnitude (see "The COM baseline: two separate open questions" below).
+  Round-3's version of this sentence asserted the comparison was
+  "comparable, per-item, to the 2395 ms/149 baseline" without qualifying
+  which sense of "comparable" it meant, and the document never actually
+  performed that per-item comparison anywhere else in 699 lines — this
+  revision performs it (see "Measured result") and states the result
+  plainly instead of leaving the claim to imply agreement it does not
+  demonstrate.
+- `measure/windows/proof-03-lnk-benchmark.mjs` — orchestrates both, runs a
+  cold pass plus 5 warm timed passes, does a tiered (exact →
+  case-insensitive → `fs.realpathSync.native` filesystem identity)
+  item-by-item comparison against the parser's PRIMARY output, and
+  prints/records the result.
+
+## Measured result (this machine, 2026-09-17, re-run after all round-4 fixes)
+
+Scope: every `.lnk` under `%ProgramData%\Microsoft\Windows\Start Menu\Programs`
+and `%APPDATA%\Microsoft\Windows\Start Menu\Programs` (machine + user),
+**182 files**. Directory enumeration: `dirErrors: []` — zero permission,
+reparse-point, or other non-`ENOENT` errors this run, all subtrees read
+cleanly (this is now ALSO the reparse-point-aware enumeration —
+round-4 major finding 3 — live-verified in both states with a real NTFS
+junction; see "Round-4 revision" item 3 in the "Revision history"
+appendix below for the verbatim
+with-junction output, which is deliberately not this section's canonical
+run).
+
+Command run: `node measure/windows/proof-03-lnk-benchmark.mjs`. Verbatim
+timing block from the run this section's numbers are drawn from (exit code
+0):
+
+```
+--- Timing: iteration 0 (n=1, first pass; NOT a fair cold-vs-warm comparison -- see note below) ---
+Baseline (research, prior run, different file count AND -- see below -- a total that does not reproduce via the same COM mechanism on this machine; see docs/adr/0003 round-4 finding 1): 149 shortcuts, 2395 ms total, 16.07 ms/shortcut
+COM loop-only (iteration 0): 182 shortcuts, 346.5 ms total, 1.90 ms/shortcut
+COM wall incl. PowerShell startup + COM instantiation (iteration 0): 827.0 ms total
+Node binary parser (iteration 0): 182 shortcuts, 35.05 ms total, 0.1926 ms/shortcut
+NOTE: no speedup ratio is printed for iteration 0. [...] See docs/adr/0003, round-3 fix 1.
+
+--- Timing: warm (n=5, after 1 discarded warmup iteration -- warmup changes the profile, do not compare a cold number against a warm one) ---
+Node parser: median 42.63 ms, min 37.72, max 43.94, stddev 2.26 -- raw: [37.72, 42.63, 43.94, 43.07, 40.26]
+COM loop-only: median 499.0 ms, min 339.4, max 567.1, stddev 81.9 -- raw: [339.4, 550.8, 451.4, 499.0, 567.1]
+Speedup (median of per-iteration COM/Node ratios): median 11.6x, min 9.0x, max 14.1x
+Node parser warm median, per-shortcut: 0.2343 ms/shortcut
+COM warm median, per-shortcut: 2.7416 ms/shortcut
+NOTE (round-4 blocker finding 1): the research baseline's per-item rate is 16.07 ms/shortcut (2395 ms / 149 shortcuts). This run's COM warm median is 2.74 ms/shortcut over 182 shortcuts, the SAME WScript.Shell mechanism -- a 5.9x difference NOT explained by the file-count difference (a larger denominator here would raise COM's TOTAL time, not cut its PER-ITEM rate). The baseline total does not reproduce on this machine; see docs/adr/0003 round-4 finding 1 for the absolute-magnitude implication for PLAT-10.
+```
+
+(The iteration-0 `NOTE` line is elided above — its full text is unchanged
+from round 3 and is quoted in full in the "Revision history" appendix
+below; the JSON at
+`thisRun.iteration0.note` carries it verbatim. This is the run whose
+`proof-03-results.json` is the one committed alongside this document —
+the census-derivation hardening applied after the first draft of this
+round-4 revision, described in "Round-4 revision" item 4's note on
+`extraDataTruncated`, required one more re-run to keep the committed JSON
+and this document's quoted numbers in sync; the agreement table, category
+census, and every non-timing figure are unchanged from every other run
+this round — see the table below.)
+
+Reading this honestly, in the order this round's findings apply:
+
+**The research baseline does not reproduce on this machine — stated
+plainly, not filed under a denominator question (round-4 blocker finding
+1).** The original measurement (`.maxvision/research/WINDOWS-STACK.md`)
+recorded 2395 ms total for 149 shortcuts via `WScript.Shell`, 16.07
+ms/shortcut. This document's own benchmark, using the literal SAME
+mechanism (one `WScript.Shell` COM object, reused across the loop, timed
+by an internal `Stopwatch` around the resolution loop only — see "What was
+built" above), measures COM's warm-median per-item rate at **2.74
+ms/shortcut** this canonical run — roughly **5.9x lower** than the
+baseline claims, over MORE files (182, not fewer) — and every OTHER run
+executed this round measured an even larger gap (see the table below,
+5.9x–11.1x across all five). A larger file count would raise COM's
+TOTAL time; it cannot explain a lower PER-ITEM rate, so this is not a
+denominator artifact — the numerator itself does not reproduce. This is
+not a one-off: all FIVE warm n=5 runs executed this round (the canonical
+one quoted above plus four corroborating runs, one of them executed
+before a small post-review hardening of the census-derivation code
+described in "Round-4 revision" item 4, none of them changing the
+agreement/category numbers — only timing) show the same
+order-of-magnitude gap:
+
+| Run | COM warm median (182 shortcuts) | COM ms/shortcut | Baseline ms/shortcut ÷ this run's | Node warm median | Speedup (median of ratios) |
+|---|---|---|---|---|---|
+| Canonical (this section's verbatim quote, matches committed JSON) | 499.0 ms | 2.74 | 5.9x | 42.63 ms | 11.6x (9.0x–14.1x) |
+| Corroborating run A | 282.4 ms | 1.55 | 10.4x | 28.95 ms | 9.7x (8.8x–11.1x) |
+| Corroborating run B | 263.5 ms | 1.45 | 11.1x | 29.32 ms | 8.8x (7.7x–10.3x) |
+| Corroborating run C | 266.9 ms | 1.47 | 11.0x | 28.86 ms | 9.2x (8.5x–16.0x) |
+| Corroborating run D | 324.1 ms | 1.78 | 9.0x | 36.72 ms | 9.3x (7.0x–12.1x) |
+| Round-6 reviewer verification, run 1 (second-hand — the round-6 reviewer's own re-run, reported verbatim in the finding that rejected round 5; COM/Node medians individually not reported, only the per-iteration ratios and the median) | not reported | not reported | not reported | not reported | 9.306x (7.7x–10.7x) |
+| Round-6 reviewer verification, run 2 (second-hand, same source; COM/Node medians reported verbatim as "258.3" / "30.73" in the finding) | 258.3 ms | 1.42 | 11.3x | 30.73 ms | 8.3x (7.0x–10.0x) |
+| Round-6 worker verification, run 1 (first-party — this document's own re-run on this machine, fixing the round-5 rejection; `node measure/windows/proof-03-lnk-benchmark.mjs`, verbatim stdout quoted below) | 313.8 ms | 1.72 | 9.3x | 36.46 ms | 8.6x (6.7x–11.0x) |
+| Round-6 worker verification, run 2 (first-party, same source, run immediately after run 1) | 269.8 ms | 1.48 | 10.8x | 35.73 ms | 8.6x (6.2x–10.8x) |
+
+**Round-6 worker verification — verbatim, both runs (round-6 major finding
+1):** neither run was committed as its own artifact — both were run to
+produce this table, then `measure/windows/proof-03-results.json` was
+restored to the canonical `6932c45` state with `git checkout --` so the
+committed artifact stays the one the "Reproducing this measurement"
+section documents; the correctness numbers below (identical in both runs)
+confirm nothing about the parser's OUTPUT changed between them, only
+timing.
+
+Run 1:
+```
+--- Timing: warm (n=5, after 1 discarded warmup iteration) ---
+Node parser: median 36.46 ms, min 29.16, max 41.54, stddev 3.95 -- raw: [35.71, 36.50, 29.16, 36.46, 41.54]
+COM loop-only: median 313.8 ms, min 271.4, max 332.1, stddev 23.9 -- raw: [332.1, 313.8, 321.3, 271.4, 279.3]
+Speedup (median of per-iteration COM/Node ratios): median 8.6x, min 6.7x, max 11.0x
+Node parser warm median, per-shortcut: 0.2003 ms/shortcut
+COM warm median, per-shortcut: 1.7240 ms/shortcut
+```
+Agreement: 170 exact / 0 case-insensitive / 0 realpath / 0 secondary-only /
+0 mismatch / 8 no-usable-target-path-source gap — bit-identical to the
+canonical `6932c45` run and to round-4/5's four corroborating runs.
+
+Run 2 (immediately after run 1, same process invocation pattern):
+```
+--- Timing: warm (n=5, after 1 discarded warmup iteration) ---
+Node parser: median 35.73 ms, min 28.18, max 40.57, stddev 4.91 -- raw: [40.57, 28.18, 30.13, 39.38, 35.73]
+COM loop-only: median 269.8 ms, min 253.1, max 338.4, stddev 34.9 -- raw: [253.1, 263.0, 325.3, 338.4, 269.8]
+Speedup (median of per-iteration COM/Node ratios): median 8.6x, min 6.2x, max 10.8x
+Node parser warm median, per-shortcut: 0.1963 ms/shortcut
+COM warm median, per-shortcut: 1.4824 ms/shortcut
+```
+Agreement: identical to run 1 — 170/0/0/0/0/8, 42 env-var, 12 IDList-only,
+1 MSI-advertised, 0 UNC, 0 UWP-marker hits.
+
+**Corrected in round 5 (round-5 blocker finding 1):** only the Canonical
+row above is committed to this repository — `git show
+6932c45:measure/windows/proof-03-results.json` reproduces it exactly.
+The four "Corroborating run A–D" rows are real, first-party
+measurements from this same session but were never committed as their
+own artifacts (the committed `proof-03-results.json` holds one run per
+commit, and each corroborating run was superseded by the next before
+any of them was committed — see "Round-5 revision" finding 1 in the
+"Revision history" appendix below);
+they are this-session, not second-hand, but also not independently
+reproducible by a third party from this repository the way the
+Canonical row is. No re-measurement of the original 149-shortcut run is
+attempted or possible: as established in round 2/3, that script "was
+not preserved in the repo" (see "The COM baseline: two separate open
+questions" below, which replaces the old "149-vs-182 denominator"
+section and keeps that finding, unreconciled, as its OWN, separate
+question from this one).
+
+**The warm speedup claim (corrected in round 5 — round-5 blocker
+finding 1):** the warm-median speedup observed across the FOUR
+independent n=5 runs that are actually committed to this repository and
+independently reproducible right now by anyone via `git show
+<sha>:measure/windows/proof-03-results.json` spans **11.6x–16.4x**:
+`6932c45` (this round's canonical run, median 11.586x, n=5 range
+9.0x–14.1x), `7819df6` (round 2's first committed run, median 13.191x,
+n=5 range 12.4x–15.4x — cited in the provenance audit above but not
+previously quoted in this section, round-5 major finding 2), `1fa06ae`
+(round 2's second, final committed run, median 13.770x, n=5 range
+12.1x–18.5x), and `14a44ac` (round 3's committed run, median 16.428x,
+n=5 range 11.6x–18.3x). The factor between this four-run set's own
+extremes is **1.42x** (16.428 ÷ 11.586) — close to round 3's retracted
+"~1.4" claim, arrived at independently here from the correctly-scoped
+repo-verifiable set, not by re-asserting that claim. At the iteration
+level (not medians), these four runs' 20 warm iterations span
+**9.0x–18.5x** (min from `6932c45`, max from `1fa06ae`).
+
+Separately — and explicitly NOT part of the headline, because neither
+cluster is independently reproducible from this repository — two more
+clusters of real measurements exist: (1) this round's own four
+"Corroborating run A–D" (table above; medians 9.7x, 8.8x, 9.2x, 9.3x;
+iteration-level span 7.0x–16.0x, the 7.0x from run D's own min and the
+16.0x from run C's single high outlier, `raw: [248.1, 266.9, 278.0,
+259.8, 412.7]` ms for COM, driven by one slow 412.7 ms iteration — the
+ratio is real but not typical for that run, see its own median 9.2x) —
+first-party, this-session, but never committed as their own artifact,
+so a third party cannot reproduce them from this repository; and (2)
+the round-3 reviewer's own two re-runs (medians 17.0x and 12.3x) —
+second-hand, reported in that round's review findings, run on the
+reviewer's own machine/session, likewise not reproducible from anything
+committed here. Combining all three clusters gives an overall observed
+range of **8.8x–17.0x across ten n=5 samples** (four repo-verifiable,
+four uncommitted first-party, two second-hand) — consistent with round
+3's retracted "12.3x–17.0x" bound at its upper end, but this document
+does not restate round 3's "~1.4" factor as a property of that combined
+ten-sample set: the factor across all ten known medians is 1.93x (17.0
+÷ 8.8), or 1.87x restricted to the eight first-party (committed +
+uncommitted) medians (16.428 ÷ 8.8) — both wider than the 1.42x above,
+because both include clusters that figure deliberately excludes. In
+both cases the 8.8x/17.0x table/reviewer figures carry only the
+one-decimal precision they were originally reported at (the uncommitted
+cluster's own raw JSON no longer exists to re-derive a finer figure
+from), so 1.93x/1.87x should be read at that same precision, not as
+five-decimal-accurate as the 1.42x computed from two committed runs'
+full-precision medians.
+**What is unchanged from round 3: no cold/first-touch speedup is
+claimed at all** — the previously deleted 9.5x–10.2x cold range stays
+deleted, for the same reason (round-3 blocker 1, unaffected by anything
+in round 4 or 5).
+
+**Corrected in round 6 (round-6 major finding 1): the four-run committed
+span is not a predictive interval, and PLAT-10 was wrongly told to plan
+against it as one.** Round 5 narrowed the headline floor to 11.6x by
+selecting on whether a run happened to be committed — a provenance label,
+not a measurement-validity criterion — and round 5's Decision then told
+PLAT-10 to plan against that narrowed 11.6x–16.4x span specifically
+**instead of** the wider, already-disclosed 8.8x–17.0x combined range.
+Two independently-executed rounds of fresh measurement now falsify that as
+planning guidance: the round-6 reviewer re-ran the committed benchmark
+twice and landed at medians of 9.306x and 8.3x — neither reaching the
+11.6x floor; this round's own worker re-ran it twice more (the "Round-6
+worker verification" rows above) and landed at medians of 8.6x and 8.6x —
+also below 11.6x, independently. Four of the last four fresh n=5 runs
+(none of them the reviewer's or worker's first attempt) have now landed
+below the range round 5 told PLAT-10 to plan against.
+
+The fix is not to relabel these four runs as another disclosed-but-
+disregarded aside — that is what round 5 already did to the corroborating
+and second-hand clusters, and the reviewer rejected the pattern, not just
+the specific number. The fix is to compute PLAT-10's planning floor from
+the full first-party-and-second-hand distribution, all fourteen n=5 warm
+runs measured for this ADR across rounds 2 through 6 (four committed +
+four uncommitted first-party, round 5; two second-hand, round 3's
+reviewer; two second-hand, round 6's reviewer; two first-party, round 6's
+worker — the table above lists all fourteen with their provenance):
+
+- **Warm-median speedup, full distribution: 8.3x–17.0x** (floor: round-6
+  reviewer run 2; ceiling: round-3 reviewer's higher re-run — unchanged
+  from round 5's combined figure at the top end, moved down at the bottom
+  end by 0.5x from round 5's 8.8x).
+- **Individual warm-iteration speedup, full distribution: 6.2x–18.5x**
+  (floor: this round's own worker run 2, min 6.2x — the lowest single
+  data point recorded across every run of this benchmark to date, in any
+  round; ceiling: `1fa06ae`'s committed max, unchanged from round 5).
+- The four committed runs' 11.6x–16.4x span remains true, remains the
+  only span independently reproducible right now by a stranger via `git
+  show <sha>:measure/windows/proof-03-results.json` with no session-
+  specific state required, and remains worth stating for that reason. It
+  is **not**, and is no longer presented as, a bound a fresh run is
+  expected to land inside.
+
+**PLAT-10 should plan for a speedup no lower than roughly 6x at the
+single-scan level and roughly 8x at the run-median level**, treating
+11.6x–16.4x (the committed cluster) and anything above 8x/6x as upside,
+not a guarantee. See "Decision" below, where this replaces round 5's
+"motivated by... 11.6x–16.4x, not by... 8.8x–17.0x" instruction.
+
+**Absolute magnitude, not just the ratio (round-4 blocker finding 1;
+re-scoped to the repo-verifiable set in round 5):** across the same
+FOUR repo-verifiable committed runs the ratio above uses, the binary
+reader saves COM-median minus Node-median per full 182-shortcut scan:
+226.5 ms (`7819df6`), 254.1 ms (`1fa06ae`), 289.5 ms (`14a44ac`), 456.3
+ms (`6932c45`, canonical) — **roughly a quarter to half a second per
+full scan on this machine (0.23–0.46 s across four committed runs)**,
+not the ~2.4 s the 16 ms/shortcut premise would suggest for a
+similarly-sized shortcut set. This is arithmetic on each committed
+run's own `warm.nodeParserMs.median` and `warm.comLoopOnlyMs.median`
+fields, already present in the committed JSON, not a new measurement.
+Even at this range's own high end, it is still 5x smaller than the
+naive 2.4 s extrapolation. (This round's four uncommitted
+"Corroborating run A–D" figures — 253.5 ms, 234.2 ms, 238.0 ms, 287.4
+ms — fall inside this same 0.23–0.46 s band and are not needed to
+establish it; they are not cited here, for the reason given above.)
+
+**Round 6 adds four more absolute-saving samples, none of which move
+this band (round-6 major finding 1):** round-6 reviewer run 1 saved
+278.6 ms (reported directly in the finding); round-6 reviewer run 2
+saved 227.6 ms (258.3 − 30.73, also reported directly in the finding —
+the reviewer flagged this as "grazing" a rounded 0.23 s floor, but it is
+227.6 ms against an exact floor of 226.5 ms from the committed
+`7819df6` run, so it lands inside the band, not below it); round-6
+worker run 1 saved 277.34 ms (313.8 − 36.46, this section's own table
+above); round-6 worker run 2 saved 234.07 ms (269.8 − 35.73). All four
+fall inside 226.5–456.3 ms — the absolute-saving band is confirmed by
+eight samples now (four committed, four round-6), not narrowed or
+widened by round 6, unlike the ratio band above. See "Decision" below
+for why this matters for PLAT-10's motivation.
+
+COM's own loop-only time varies substantially both run to run and within a
+single warm run. Within-run: this round's canonical run's 5 warm
+iterations spanned 339.4–567.1 ms, a 67.1% swing; corroborating run C
+spanned 248.1–412.7 ms, a 66.3% swing — both measured BY THIS DOCUMENT,
+consistent with round 2's own committed run (230.5–325.6 ms, 41.3% swing)
+and round 3's own committed run (281.1–395.8 ms, 40.8% swing), NOT
+attributed to the reviewer, who did not report per-iteration warm min/max
+in their findings (round-4 major finding 2 fixes the one remaining
+sentence in this document that had misattributed this class of
+measurement — see "Round-4 revision" item 2 in the "Revision history"
+appendix below). Run to run: the
+round-3 reviewer's own two re-runs measured COM warm MEDIANS of 441.8 ms
+and 321.8 ms — second-hand, not reproducible from this repo — a ~120 ms
+difference between two back-to-back re-runs on the same machine, on top of
+whatever intra-run variance each of those runs also had; this round's own
+five runs (one committed — the canonical `6932c45` run — plus four
+uncommitted first-party corroborating runs, round-5 blocker finding 1)
+add FIVE more data points to that same picture (COM
+warm medians 499.0 ms, 282.4 ms, 263.5 ms, 266.9 ms, 324.1 ms — a ~235 ms
+spread of their own, wider than either reviewer pair or either prior
+round's single committed run). Other software was running concurrently on
+this machine across all of this round's runs (Blender, Adobe Creative
+Cloud apps, etc. — see the process list implied by
+`.maxvision/research/WINDOWS-STACK.md`). **This document still does NOT
+assert whether warming makes COM faster, slower, or has no effect** —
+round-3 blocker 3's finding (the two-point comparison's direction flips
+between re-runs) is unchanged by anything in round 4. What the data DOES
+support, stated without a directional claim: COM's variance is large
+enough, and unstable enough in sign and magnitude across runs — now
+including a 5.9x–11.3x gap against a THIRD-PARTY prior measurement (the
+research baseline — widened from 5.9x–11.1x in round 6, once the round-6
+reviewer's second run's 11.3x per-item gap is included), not just
+run-to-run variance within this document's
+own history — that this benchmark cannot isolate its cause (file-cache
+state, PowerShell/COM instantiation jitter, background system load,
+machine
+differences between the original 2026 research measurement and this
+round's runs, or some combination) — and no figure in this document
+depends on having isolated it.
+
+Full per-shortcut data, all raw timing iterations, the full flags object
+per row, and the new `baseline` comparison fields
+(`comWarmMsPerItemMedianThisRun`,
+`baselineMsPerItemDividedByThisRunComWarmMsPerItem`,
+`baselineTotalReproducedOnThisMachine: false`):
+`measure/windows/proof-03-results.json` (regenerated by re-running the
+benchmark script; the committed file reflects the canonical run quoted
+above).
+
+### The COM baseline: two separate open questions (round-4 major finding 1 retitles this section)
+
+Round 3 filed the entire baseline discrepancy under a single heading, "The
+149-vs-182 denominator," which can only ever explain a FILE-COUNT
+question. It cannot explain the 5.9x–11.3x per-item rate gap established
+above, which is a NUMERATOR question — COM's own measured cost per
+shortcut, independent of how many shortcuts are in the set. This document
+now separates the two explicitly:
+
+**(A) The file-count (denominator) question — still unreconciled, unchanged
+by round 4.** `.maxvision/research/WINDOWS-STACK.md:51` reads "**149
+resolvidos** em 2395 ms"; `:235-236` repeats "2395 ms para 149". Taken
+literally, "149 resolvidos" (149 *resolved*) reads at least as naturally as
+"149 of some larger enumerated set succeeded" as it does "a pre-filtered
+input set of 149". This document enumerates 182 `.lnk` files and gets a
+non-empty `TargetPath` from COM for 178 of them — neither 149 nor obviously
+"182 minus a stated filter."
+
+This ADR does not attempt to reconstruct which reading is correct. A
+sibling investigation already tried and explicitly failed to close this gap
+under the same conditions: `docs/adr/PROOF-04-uninstaller-exclusion-rule.md`
+§6 measured 178-of-182 resolved on this same machine, on the same day, via
+a *different* script (`measure/windows/scan-apps.mjs`), and states plainly
+that the original 149-producing script "was not preserved in the repo... a
+session-scoped scratchpad path this session cannot read," so "the exact
+cause cannot be confirmed by re-running it side by side." That conclusion
+holds here too, for the same reason: there is nothing in this repository to
+re-run against 2395/149 to settle whether it is a filtered subset or a
+different success count on a differently-scoped or differently-measured
+pass. Round-4 does not attempt this reconstruction either — the reviewer's
+required fix for round-4 blocker 1 explicitly said not to demand a
+re-measurement of the 149 run, since the script simply is not here to
+re-run.
+
+**(B) The per-item rate (numerator) question — NEW this round, and this is
+the one round 3 mislabeled as (A).** Independent of which file-count
+reading is correct, `16.07 ms/shortcut` (`2395 ms ÷ 149`) does not match
+what the SAME `WScript.Shell` mechanism measures on this machine today:
+this round's five runs (one committed, four uncommitted first-party —
+round-5 blocker finding 1) measured COM warm-median per-item rates
+of 2.74, 1.55, 1.45, 1.47, and 1.78 ms/shortcut — all roughly an order of
+magnitude below the baseline's rate, over a LARGER file count, which is
+the opposite of what a denominator effect could produce (see "Measured
+result" above for the full comparison table and the reasoning). This
+document treats (A) and (B) as genuinely separate open questions: (A)
+could theoretically still explain part of the picture (perhaps the
+original 149 run measured a differently-composed or smaller set), but (A)
+cannot explain (B) by itself, because (B) is a rate disagreement, not a
+count disagreement.
+
+**Every figure in this document that divides by 149 is therefore explicitly
+flagged as resting on an unreconciled denominator, not a validated one —
+and, separately and additionally, as comparing against a total that this
+round establishes does not reproduce on this machine via the same
+mechanism (B, above):** `16.07 ms/shortcut` (`2395/149`) is the research
+doc's own number, restated here for context, not re-derived or extended
+into a speedup claim. This ADR's speedup claim (an 11.6x–16.4x span of
+warm medians across the FOUR independently repo-verifiable committed
+n=5 runs — `6932c45`, `7819df6`, `1fa06ae`, `14a44ac`, round-5 blocker
+finding 1 — widening to 8.8x–17.0x across ten total n=5 samples if this
+round's four uncommitted first-party runs and the round-3 reviewer's two
+second-hand medians are also included; this round's own canonical run
+median is 11.6x; no cold/iteration-0 ratio is claimed at all — round-3
+blocker 1) is computed
+against each run's OWN
+COM measurement (182 shortcuts, both paths, same process, same machine,
+same moment) — not against the 149 baseline — specifically to avoid
+building a claim on top of either the unreconciled denominator (A) or the
+non-reproducing numerator (B). If a reader wants the baseline-relative
+number anyway: the benchmark itself now prints and persists
+(`thisRun.warm.nodeParserMsPerItemMedian`,
+`baseline.comWarmMsPerItemMedianThisRun`,
+`baseline.baselineMsPerItemDividedByThisRunComWarmMsPerItem`) the warm
+per-shortcut figures directly, instead of requiring hand arithmetic in
+this document (round 1 was rejected in part for an ADR-only figure,
+"174", that no script printed; this document does not repeat that mistake
+with a different number). This round's canonical run: Node warm median
+0.2343 ms/shortcut, COM warm median 2.7416 ms/shortcut. Dividing the
+original 16.07 ms/shortcut baseline by the Node figure gives ~68.6x
+(round 3's equivalent calculation, against a faster Node run that round,
+gave ~141.4x) — but this ratio inherits every ambiguity in the 149
+denominator (A) above AND the now-established non-reproduction of the
+149-run's total (B), and is not asserted as a validated speedup; it is
+printed only because a reader might otherwise reconstruct it by hand
+against an unreconciled number, which is the exact mistake round 1 made.
+
+### Agreement (against the parser's PRIMARY output — what it actually resolves to)
+
+| Tier | Count |
+|---|---|
+| Exact string match (primary candidate) | **170** |
+| Case-insensitive match (primary) | 0 |
+| Same file on disk (`realpath`) match (primary) | 0 |
+| **Matched only via a secondary/diagnostic candidate** | **0** |
+| **Mismatch (no candidate matches at all)** | **0** |
+| COM returned empty string | 4 |
+| COM returned no result | 0 |
+| Parser produced no candidate, COM had a non-empty one | 8 |
+
+**Verifying the fix (round-2 blocker 1's specific defect):** the reviewer's
+evidence was `matchedVia = {linkinfo-local: 135, env-expanded: 35}` derived
+from the round-1 JSON where the 170 "exact" rows did not all have
+`parserResolvedTargetPath === comTargetPath`. This run's `matchedVia`
+breakdown of the 170 `exact` rows, computed directly from
+`proof-03-results.json`:
+
+```
+{ 'linkinfo-local': 135, 'env-expanded': 35 }
+```
+
+135 + 35 = 170 exactly, and `matched-only-via-secondary-candidate` is 0.
+That is the discriminating check: if the priority-order fix in
+`lnk-parser.mjs` (env-expanded before env-raw) and the comparator fix in
+`proof-03-lnk-benchmark.mjs` (check the primary candidate, demote the rest)
+were only cosmetic, this number would not come out to exactly the
+reviewer's own `135 + 35` decomposition with zero secondary-only matches.
+It does.
+
+**The mutation test the reviewer specified, actually run:** `sed` was used
+to replace `measure/windows/lnk-parser.mjs`'s `resolvedTargetPath`
+assignment with `null` (deleting the resolution feature, matching the
+reviewer's `lnk-parser.mjs:384` mutation exactly), and
+`test/windows-lnk-parser.test.mjs` was re-run:
+
+```
+✖ resolvedTargetPath for an env-var shortcut is the EXPANDED form, not the raw %VAR% string (2.7946ms)
+  AssertionError [ERR_ASSERTION]: resolvedTargetPath must be the EXPANDED path (round-2 blocker 1) ...
+  actual: null
+  expected: 'C:\\Fake\\Expanded\\Dir\\sub\\app.exe'
+ℹ tests 7
+ℹ pass 6
+ℹ fail 1
+```
+
+The guard fails exactly as required. The mutation was then reverted and the
+full suite re-confirmed green (7/7) before this ADR was written.
+
+**Verifying the round-3 ANSI fix (finding 4):** `lnk-parser.mjs`'s ANSI
+branch (the `push()` calls at what were then lines 486–487) was untested by
+every existing test, which all populate `targetUnicode` and so never reach
+that branch. A new test builds a full-size `EnvironmentVariableDataBlock`
+with an all-`NUL` Unicode field (forcing the ANSI branch) and asserts
+`candidates[0].source === 'env-expanded-ansi'`. The two `push()` calls were
+then swapped (`env-raw-ansi` first, matching the exact defect shape
+blocker 1 fixed in the Unicode branch) and the suite re-run:
+
+```
+✖ resolvedTargetPath for an env-var shortcut falls back to the ANSI form when the Unicode field is empty (all-NUL) -- round-3 minor finding 4 (2.5355ms)
+  AssertionError [ERR_ASSERTION]: the ANSI branch (lnk-parser.mjs:486-487) must produce the PRIMARY candidate when TargetUnicode is empty -- if this reads "env-raw-ansi", the two push() calls were swapped back
+  + actual - expected
+  + 'env-raw-ansi'
+  - 'env-expanded-ansi'
+ℹ tests 9
+ℹ pass 8
+ℹ fail 1
+```
+
+Exactly the one new test fails, exactly as required. The swap was reverted
+and the full suite re-confirmed green (9/9) before this ADR was written.
+
+**Zero mismatches, zero secondary-only matches, not full coverage.** 170 of
+the 178 shortcuts where COM produced a non-empty `TargetPath` were matched
+at the `exact` tier by the parser's actual (primary) output — no
+case-insensitive, realpath, or secondary-candidate fallback was ever
+needed on this machine's shortcut set. The other 8 of those 178 are not
+mismatches (the parser never produced a *wrong* answer): they are the
+no-usable-target-path-source gap documented in the next section, where the
+parser correctly returns no candidate instead of guessing. "Zero
+mismatches" and "resolves
+the same 170-of-178 shortcuts COM resolves, with an honest gap on the
+remaining 8" are both true, measured claims; "identical coverage" is not.
+
+### The 8 shortcuts the parser does not resolve (of 12 with no usable target-path source)
+
+12 shortcuts on this machine are IDList-only (`HasLinkTargetIDList` set,
+`HasLinkInfo` not set — no environment-variable block either). Resolving
+them requires shell namespace lookup (`SHGetPathFromIDList`/`IShellFolder`),
+which COM has access to and a pure binary reader does not, by construction
+(documented as limitation 1 in `lnk-parser.mjs`'s module header). 8 of the
+12 have a non-empty COM `TargetPath` — the honest coverage gap
+(`idListOnlyGapCount: 8`, derived from `comparisonTier === 'parser-empty'
+&& category.noUsablePathSource`, not merely from an empty candidate list —
+round-2 minor finding 8, reclassified onto `noUsablePathSource` instead of
+`idListOnly` by round-3 minor finding 7 — see the "Round-3 revision"
+section in the "Revision history" appendix below for why the two fields
+can disagree and why classification
+now uses the drift-proof one; on THIS machine's data
+`categoryCensus.noUsablePathSource === categoryCensus.idListOnly === 12`,
+so the fix changes nothing about the numbers below, only how they would be
+computed on a machine where a `ForceNoLinkInfo`-with-no-env-block shortcut
+exists):
+
+- `HandBrake\Uninstall.lnk` → COM: `C:\Program Files\HandBrake\uninst.exe`
+- `MobaXterm\MobaDiff.lnk`, `MobaXterm\MobaTextEditor.lnk` → COM:
+  `C:\Program Files (x86)\Mobatek\MobaXterm\MobaRTE.exe`
+- `Riot Games\League of Legends.lnk`, `Riot Games\Riot Client.lnk` → COM:
+  `D:\Riot Games\Riot Client\RiotClientServices.exe`
+- `Topaz Video AI\Topaz Video AI.lnk` → COM:
+  `C:\Windows\Installer\{CCF2E3E7-821A-45F5-80FC-9E7243753D39}\mainapp.exe`
+  (this is also the one MSI-advertised shortcut found — it is IDList-only
+  *and* Darwin-tagged)
+- `Windows Kits\...\Windows Software Development Kit.lnk` → COM:
+  `C:\Windows\explorer.exe`
+- `Google Cloud SDK\Google Cloud SDK Shell.lnk` → COM:
+  `C:\Windows\system32\cmd.exe`
+
+The other 4 IDList-only shortcuts (`MobaXterm\Visit MobaXterm Website.lnk`,
+`File Explorer.lnk`, `Control Panel.lnk`, `Run.lnk`) got an **empty**
+`TargetPath` from COM too — virtual-shell-item shortcuts with no real
+filesystem target either way, so there is nothing for either method to
+disagree about. `unexpectedParserEmptyGapCount: 0` this run — every
+`parser-empty` row is accounted for by `noUsablePathSource`; none of the
+8/12 above are silently mislabeled or hiding a different root cause. This
+condition also now gates the script's exit code directly (round-3 minor
+finding 5): a future run where it is nonzero exits 1, not 0.
+
+None of these 12 is a mismatch: the parser correctly reports "no candidate"
+rather than fabricating a wrong path.
+
+## Category coverage (task requirement: test what exists, report zeros honestly)
+
+| Category | Found on this machine | Parser handles it |
+|---|---|---|
+| Environment-variable targets (`HasExpString`) | **42** | Yes — all 42 matched COM exactly on the parser's PRIMARY output: 35 via `env-expanded` (LinkInfo absent or `ForceNoLinkInfo`-forced-off) and 7 via `linkinfo-local` (LinkInfo present and usable, so it outranked the env block per spec priority) — 42/42, 0 mismatches, 0 secondary-only matches |
+| UNC path targets (`CommonNetworkRelativeLink`) | **0** | Implemented (`CommonNetworkRelativeLink` parsing, `\\server\share` reconstruction) but **not exercised** — no UNC-targeted shortcut exists in this Start Menu. Not claimed as validated. |
+| MSI-advertised shortcuts (`HasDarwinID`/`DarwinDataBlock`) | **1** (Topaz Video AI) | Detected (`category.msiAdvertised: true`) but **not resolved** — by design (documented limitation 2). Resolving it needs the Windows Installer API (`MsiGetShortcutTarget`), not a binary read. This is also one of the 8 IDList-only gaps above. |
+| UWP/Store app shortcuts | **0** `.lnk` files carry a UWP/Store marker | Real, reproducible finding — see next section, not the correct-by-assumption prose round 1 asserted with no committed artifact behind it. |
+| Truncated/corrupt `ExtraData` block (round-4 minor finding 4) | **0** | Detected (`extraDataTruncated` on the parse result, `categoryCensus.extraDataTruncated` in the report) and, if it occurred, unconditionally routed into `unexpectedParserEmptyGapCount` (gates the exit code) — **not exercised on this machine**: none of the 182 real `.lnk` files here have a corrupt `ExtraData` block. Covered instead by a synthetic unit test (a hand-built buffer whose block claims 0x314 bytes with only 20 present) and a mutation-test that confirms the guard actually fails when the fix is reverted — see "Round-4 revision" item 4 in the "Revision history" appendix below. |
+
+The env-var category is the one this task named as needing the most care
+(raw vs. expanded). All 42 instances matched COM's `TargetPath` exactly on
+the parser's PRIMARY output. **`ForceNoLinkInfo` was checked and honored —
+and it was NOT a zero-count edge case on this machine, contrary to the
+round-1 ADR's claim.** Measured this run: `forceNoLinkInfoCount: 38` (of
+which 35 are the env-var shortcuts whose LinkInfo, though present, MUST be
+ignored per spec — exactly why their primary candidate correctly falls
+through to `env-expanded` rather than `linkinfo-local`). Round 1's precise
+claim, scoped to the env-var category, was "in every one of the 42 [env-var]
+cases... none tripped `ForceNoLinkInfo`" — and 35 of those same 42 rows do
+trip it. Round 1's env-var-scoped claim was therefore not merely
+unverifiable (the reviewer's finding) but measurably false on this
+machine's own data, once the field existed to check it against (round-2
+minor finding 9). This document does not extend that correction beyond its
+original scope: it is the 42-env-var-shortcut claim that was wrong, not a
+claim about the other 140 shortcuts, which round 1 never made a
+ForceNoLinkInfo assertion about.
+
+### UWP/Store shell-item marker scan (real, reproducible — round-2 minor finding 7)
+
+`measure/windows/proof-03-lnk-benchmark.mjs`'s `scanForUwpMarkers()` reads
+every `.lnk`'s raw bytes and searches both the UTF-16LE and Latin-1
+decodings for the `AppsFolder` and `!App` (AUMID suffix) byte patterns a
+UWP/Store shell-item `.lnk` would carry in its `LinkTargetIDList`. Every
+read failure is now recorded (`unreadable`/`unreadableRows`), and the
+denominator printed is the count actually read (`scanned`), not
+`files.length` — round-3 major finding 2: the round-2 version's bare
+`catch { continue; }` meant an unreadable file would vanish from both the
+numerator and the denominator, so a shrunken scan could print a clean
+`0/182` with nothing in the artifact to reveal it. This run:
+
+```
+"AppsFolder" byte-pattern found in: 0/182 .lnk files actually read (0 unreadable, 182 enumerated)
+"!App" (AUMID suffix) byte-pattern found in: 0/182 .lnk files actually read (0 unreadable, 182 enumerated)
+```
+
+Zero unreadable files this run — the denominator is genuinely 182, not
+merely assumed to be. Zero hits, consistent with the known fact that real
+Start Menu tiles for
+UWP/Store apps (Calculator, Photos, Terminal, etc.) are not `.lnk` files at
+all — they resolve through `shell:AppsFolder`, PROOF-02's scope, not
+PROOF-03's. This is now backed by `uwpMarkerScan` in
+`proof-03-results.json`, regenerated on every re-run, not an assertion in
+prose with nothing behind it.
+
+This is a genuinely separate claim from the IDList-only census (12
+shortcuts, not zero): IDList-only shortcuts on this machine are ordinary
+desktop-app shortcuts whose author happened to store target info only in
+the shell namespace ID list (HandBrake's uninstaller, MobaXterm's
+sub-tools, Riot Games launchers, the Windows SDK's Explorer-relaunch
+shortcut, Google Cloud SDK's shell launcher, and 4 virtual System items) —
+none of them are UWP/Store apps, and none of the 182 files carry a UWP
+marker. Round 1 conflated "the UWP marker scan found zero" (true) with "the
+IDList-only census should be zero" (false) by printing them next to each
+other with a single unconditional sentence; this revision states each as
+its own, correctly-labeled finding.
+
+## Decision
+
+**Ship the binary reader as the primary mechanism for PLAT-10.** The
+re-measured evidence, all of it now backed by a comparator that checks the
+parser's PRIMARY (actually-returned) output, not merely something the
+parser produced somewhere in a candidate list:
+
+1. Zero mismatches and zero secondary-only matches across 182 real
+   shortcuts on this machine, at the strictest (exact string) comparison
+   tier, checked against the parser's actual returned value — verified by
+   the discriminating `135 + 35 = 170` decomposition and a real mutation
+   test (see "Verifying the fix" above).
+2. A warm-state speedup over COM, measured with warmup and repetition
+   across FOUR independent, repo-verifiable COMMITTED n=5 runs
+   (round-5 blocker finding 1 — corrected from round 4's inaccurate
+   "seven"), claimed as the span of their medians, not any single run's
+   min/max: **11.6x–16.4x** (`6932c45`, this round's own canonical run,
+   11.6x; `7819df6`, round 2's first committed run, 13.2x — `git show
+   7819df6:measure/windows/proof-03-results.json`; `1fa06ae`, round 2's
+   final committed run, 13.8x — `git show
+   1fa06ae:measure/windows/proof-03-results.json`; `14a44ac`, round 3's
+   committed run, 16.4x — `git show
+   14a44ac:measure/windows/proof-03-results.json`). The factor between
+   these four medians' own extremes is **1.42x** (16.428 ÷ 11.586).
+   Separately, and explicitly NOT folded into this headline because
+   neither cluster is independently reproducible from this repository:
+   this round's own four uncommitted, first-party "Corroborating run
+   A–D" measurements (9.7x, 8.8x, 9.2x, 9.3x) and the round-3 reviewer's
+   two second-hand medians (17.0x, 12.3x). Combining all three clusters
+   (four repo-verifiable + four uncommitted first-party + two
+   second-hand) gives an overall observed range of **8.8x–17.0x across
+   ten n=5 samples** — round-4 major finding 2 required the two-way
+   repo-verifiable/second-hand split; round-5 blocker finding 1 extends
+   it to this three-way split, now that the uncommitted-but-first-party
+   cluster is correctly distinguished from both the other two. Individual iterations across the four
+   repo-verifiable runs' 20 total warm data points span 9.0x–18.5x;
+   widening to all ten runs' 50 total warm data points, the observed
+   spread is 7.0x–18.5x (the 7.0x is one of the uncommitted
+   corroborating runs' own min; the 18.5x is `1fa06ae`'s own committed
+   max) — an OBSERVED spread of data points, not a claimed bound.
+   **Round 3 claimed this span was "consistent to within a factor of
+   ~1.4" (12.3x–17.0x); this document retracts that claim as a
+   description of the combined ten-sample set, but the four
+   repo-verifiable medians alone DO span a 1.42x factor** — round 5
+   states both numbers, correctly scoped, rather than picking one: 1.42x
+   across the four committed runs, 1.93x across all ten known medians
+   (17.0x ÷ 8.8x), or 1.87x across the eight first-party (committed +
+   uncommitted) medians (16.428x ÷ 8.8x) if the second-hand pair is
+   excluded but the uncommitted cluster is kept — 1.93x and 1.87x both
+   carry only the one-decimal precision the 8.8x/17.0x figures were
+   originally reported at, not the five-decimal precision of 1.42x.
+   **No cold/first-touch speedup is claimed at all** — round-3 blocker 1
+   found the previously-claimed 9.5x–10.2x cold range does not reproduce
+   on a genuinely first-touch run (measured 2.2x and 12.5x across two
+   attempts, moving in opposite directions for Node vs COM — second-hand,
+   reviewer-reported, not reproducible from this repo), so that number
+   stays deleted from this decision, not restated with different bounds.
+   **Round 6 correction (round-6 major finding 1): the 11.6x–16.4x
+   committed-only span above is not a predictive interval, and this
+   Decision no longer tells PLAT-10 to plan against it specifically.**
+   Two fresh n=5 re-runs of the exact committed benchmark during round
+   6 — one by the reviewer (medians 9.306x, 8.3x), one by this round's
+   worker (medians 8.6x, 8.6x) — all four landed below 11.6x. The correct
+   planning number is the full distribution across all FOURTEEN n=5 warm
+   runs measured for this ADR to date (four committed, four uncommitted
+   first-party, two second-hand round-3, two second-hand round-6, two
+   first-party round-6): warm-median speedup **8.3x–17.0x**, individual
+   warm-iteration speedup **6.2x–18.5x** (both floors set by round-6 data;
+   see "Measured result" → "Corrected in round 6" for the full table and
+   arithmetic). The committed cluster's 11.6x–16.4x remains true and
+   remains the only span a stranger can reproduce with zero session state
+   via `git show <sha>`, so it stays in this document — but as a
+   reproducibility anchor, not a floor.
+3. **The ABSOLUTE saving, not only the ratio (round-4 blocker finding 1;
+   re-scoped to the repo-verifiable set in round 5):**
+   the binary reader saves roughly a QUARTER TO HALF A SECOND (0.23–0.46 s
+   across the same four repo-verifiable committed runs the ratio above
+   uses) per full 182-shortcut Start Menu scan
+   on this machine — not the ~2.4 s the research baseline's 16
+   ms/shortcut premise would imply for a similarly-sized set. That premise
+   does not reproduce on this machine at all (COM's own measured per-item
+   rate across every run of this benchmark, rounds 4 through 6, is
+   5.9x–11.3x lower than the baseline claims, over a LARGER file count
+   than the baseline used — see "The COM baseline: two separate open
+   questions" above). **Round 6 correction (round-6 major finding 1):
+   PLAT-10 should be motivated by the measured 0.23–0.46 s/scan saving
+   (confirmed, not moved, by round 6's four additional samples — see
+   "Measured result") and by the FULL first-party-and-second-hand ratio
+   distribution, 8.3x–17.0x at the run-median level and 6.2x–18.5x at the
+   single-iteration level — not by an extrapolation from the 2395 ms
+   baseline that this document establishes does not hold on this machine,
+   and not by the narrower 11.6x–16.4x committed-only span, which round 5
+   told PLAT-10 to plan against instead of the wider range and which two
+   independent round-6 re-runs (reviewer and worker, four n=5 samples
+   total) then fell entirely below.** This does not change
+   the DIRECTION of the decision (the binary reader is still
+   substantially faster, by every one of fourteen independent
+   measurements across six review rounds) — it changes the MAGNITUDE
+   PLAT-10 should plan for, downward: treat 6x/8x as the floor to design
+   around, 11.6x–16.4x as upside from the reproducible commits, and
+   anything above that as further upside, not the other way around.
+4. A well-defined, honestly-scoped gap (shortcuts with no usable
+   target-path source and a non-empty COM target, 8/182 ≈ 4.4% of this
+   machine's set) with an unambiguous signal when it occurs
+   (`resolvedTargetPath: null`, `category.noUsablePathSource: true`)
+   rather than a silently wrong answer — now ALSO covering the
+   truncated-`ExtraData` case (round-4 minor finding 4): a corrupt file is
+   no longer indistinguishable from an honest coverage gap, even though
+   this machine's real data does not exercise that path.
+5. A reparse-point-aware directory walk (round-4 major finding 3),
+   live-verified with a real NTFS junction in both states on this machine:
+   a redirected-profile Start Menu subtree is now reported as a visible
+   `WARNING`/`dirErrors` entry and gates the exit code, instead of
+   silently shrinking the scanned set with no signal.
+
+**PLAT-10 must keep a COM (or `IShellLinkW`) fallback for the IDList-only
+case**, not replace COM outright. When `lnk-parser.mjs` returns no
+candidate, PLAT-02/PLAT-10's app enumerator should fall back to COM
+resolution for that one shortcut (an 8/182 ≈ 4.4% fallback rate on this
+machine). This ADR does not itself implement that fallback — it is a
+decision record for PROOF-03, consumed by PLAT-10 (Fase 3).
+
+**Not validated, flagged for PLAT-10 to re-check if it matters there:**
+UNC-targeted shortcuts and MSI-advertised shortcut *resolution* (detection
+works; resolution does not and is not attempted). Both are present in the
+codebase as documented, deliberate gaps, not silent ones. The file-count
+(149-vs-182) denominator question above is also still unresolved and
+should not be treated as closed by this document — nor should the
+SEPARATE finding that the baseline's own total does not reproduce on this
+machine (round-4 blocker finding 1) be read as resolving the denominator
+question; they are independent open items, per "The COM baseline: two
+separate open questions" above.
+
+## Reproducing this measurement
+
+```
+node measure/windows/proof-03-lnk-benchmark.mjs
+node --test test/windows-lnk-parser.test.mjs
+```
+
+Requires Windows (COM `WScript.Shell` is Windows-only) and PowerShell on
+`PATH`. The benchmark regenerates `measure/windows/proof-03-results.json`,
+including raw per-iteration timing, the full per-row `parserFlags` object,
+and the UWP-marker scan. It runs 1 discarded warmup iteration plus 5 timed
+iterations (both Node parser and COM), so a re-run takes roughly 6x the
+single-pass time reported in round 1 (a handful of seconds on this
+machine, dominated by the 6 PowerShell process spawns). `node --test`
+should report 11 tests, 11 pass, 0 fail (round 2 added 7, round 3 added 2
+more — the ANSI-branch and `noUsablePathSource` guards — round 4 added 2
+more — the `extraDataTruncated` guard and the stale-`expandEnvVars`-cache
+regression guard).
+
+**Exit code is a real pass/fail signal, not merely mismatches/secondary-
+only matches (round-3 minor finding 5).** The benchmark exits 1 if ANY of:
+a mismatch, a secondary-only match, a non-empty `dirErrors` (the scanned
+Start Menu set was under-counted by a permission, reparse-point-skip —
+round-4 major finding 3 added `SKIPPED_REPARSE_POINT` as a `dirErrors`
+code, live-verified with a real junction, see "Round-4 revision" item 3
+in the "Revision history" appendix below — or other non-`ENOENT` readdir error), or
+`unexpectedParserEmptyGapCount > 0` (a parser-empty row not accounted for
+by the accepted `noUsablePathSource` gap, OR a row whose `ExtraData` block
+was truncated/corrupt regardless of its `noUsablePathSource` value —
+round-4 minor finding 4). It exits 0 only when none of those hold —
+`idListOnlyGapCount`/`noUsablePathSource` being nonzero (the accepted
+8/182 gap) does NOT fail the run; gating on it would make exit 1 the
+permanent normal state here. This run: exit code 0. (A separate, real
+junction created and removed while preparing this revision produced exit
+1 while present and exit 0 once removed — see "Round-4 revision" item 3
+in the "Revision history" appendix below for the verbatim output of both
+states; that verification run is
+deliberately NOT the canonical run this section's numbers are drawn from.)
+
+## Revision history
+
+### Round-6 revision
+
+A rigorous reviewer rejected the round-5 version of this ADR on three
+findings.
+
+1. **[major, fixed]** Round 5 narrowed the headline speedup floor to
+   11.6x by selecting the four committed runs out of ten known samples —
+   a provenance criterion (did the JSON get committed), not a measurement-
+   validity one — and then told PLAT-10 in "Decision" to plan against that
+   narrowed 11.6x–16.4x span specifically instead of the wider,
+   already-disclosed 8.8x–17.0x range. The reviewer ran the committed
+   benchmark twice on their own machine and landed at warm-median
+   speedups of 9.306202555722711x and 8.3x — neither reaching the 11.6x
+   floor — and reported the same effect on the derived per-item figure
+   (their run 2 printed an 11.3x gap, outside the document's then-stated
+   5.9x–11.1x band) and on absolute savings (their run 2 saved 227.6 ms,
+   which the reviewer read as grazing the document's rounded "0.23 s"
+   statement of the floor). Fixed: this round's own worker independently
+   re-ran the same committed benchmark twice more (not transcribing the
+   reviewer's numbers — see "Measured result" → the "Round-6 worker
+   verification" table rows and verbatim stdout) and got warm medians of
+   8.6x and 8.6x, also below 11.6x. With two more independently-executed
+   n=5 clusters now on record, "Measured result" adds a "Corrected in
+   round 6" analysis: the full first-party-and-second-hand distribution
+   across all FOURTEEN n=5 warm runs measured for this ADR (four
+   committed, four uncommitted first-party round 5, two second-hand round
+   3, two second-hand round 6, two first-party round 6) spans **8.3x–17.0x**
+   at the median level (down from round 5's 8.8x floor) and **6.2x–18.5x**
+   at the individual-iteration level (down from round 5's 7.0x floor —
+   the new floor is this round's own worker run 2, min 6.2x). "Decision"
+   is rewritten to tell PLAT-10 to plan against this full-distribution
+   floor (roughly 6x single-scan, roughly 8x run-median), with the
+   committed cluster's 11.6x–16.4x kept in the document as a
+   reproducibility anchor, not restated as a planning bound. The per-item
+   gap sentences are widened from 5.9x–11.1x to 5.9x–11.3x to include the
+   reviewer's run-2 figure. The absolute-saving band is NOT widened —
+   the reviewer's 227.6 ms and this round's worker's 227.6–278.6 ms range
+   of four new samples all land inside the existing 226.5–456.3 ms
+   (0.23–0.46 s) band once compared against the exact millisecond floor
+   rather than its one-decimal rounding; "Measured result" now says so
+   explicitly instead of leaving the "grazing" characterization
+   unaddressed.
+2. **[major, fixed]** Both round-5 commits (`b0371c7`, `f85bfb5`) carried
+   the trailer `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`
+   instead of the task's required `Co-Authored-By: Claude Opus 5 (1M
+   context) <noreply@anthropic.com>`. Fixed by resetting to the parent
+   commit (`349a3fd`, untouched — it belongs to a different PROOF and is
+   out of this task's scope) and recommitting the same content with the
+   correct trailer; verified with `git log -2 --format='%h|%(trailers:
+   key=Co-Authored-By,valueonly)'` before this round's own commits were
+   made. See this round's commit history for the corrected SHAs.
+3. **[major, fixed]** 532 of 1227 lines (43%) sat above `## Context`,
+   forcing a PLAT-10 implementer to read four rounds of reviewer-rejection
+   narrative before reaching what the document is for, and the Status
+   line actively routed readers there first. Fixed: this document is
+   reordered to Context → What was built → Measured result → Category
+   coverage → Decision → Reproducing this measurement → this "Revision
+   history" section (rounds 2 through 6, newest first, every word
+   preserved). Every in-document cross-reference that said "below" when
+   pointing into what is now this appendix, or "above" when pointing out
+   of it toward the operative sections, was corrected for the new
+   ordering; no other wording in the round-2 through round-5 narratives
+   was changed. The Status line now reads "Accepted (revised through
+   round 6 — see Revision history)" and nothing more.
+
+
+### Round-5 revision (this document)
 
 A rigorous reviewer rejected the round-4 version of this ADR on two
 findings, both about mislabeling commits already in this repository —
@@ -80,7 +961,7 @@ no re-measurement was needed or performed for either fix:
    inspects all six commits does not land on two unexplained numbers
    below every range this document states.
 
-## Round-4 revision
+### Round-4 revision
 
 A rigorous reviewer rejected the round-3 version of this ADR and the
 benchmark behind it. One blocker, two major, two minor. All five are
@@ -274,7 +1155,7 @@ regression guard). Both new tests were confirmed to fail under their
 respective mutation before being confirmed green after revert, the same
 mutation-testing standard round 2's and round 3's fixes were held to.
 
-## Round-3 revision
+### Round-3 revision
 
 A rigorous reviewer rejected the round-2 version of this ADR and the
 benchmark behind it. Eight findings, one blocker, two major. All eight are
@@ -437,7 +1318,7 @@ carried over from round 2. What changed, in order of severity:
    shared index), since concurrent sessions are known to be writing to this
    working tree.
 
-## Round-2 revision
+### Round-2 revision
 
 A rigorous reviewer rejected the round-1 version of this ADR and the
 benchmark behind it. Ten findings, two of them blockers. All ten are fixed;
@@ -540,688 +1421,3 @@ over from round 1. What changed, in order of severity:
     `extraDataBlockSignatures` and persisted per row instead of being dead
     code.
 
-## Context
-
-`.maxvision/research/WINDOWS-STACK.md` measured resolving 149 `.lnk` shortcuts
-to their target `.exe` via COM (`WScript.Shell.CreateShortcut(path).TargetPath`)
-at 2395 ms total, ~16 ms/shortcut, and flagged reading the `.lnk` binary
-format directly in Node as a plausible but explicitly unvalidated
-optimization (U5): "Vale ler `.lnk` binário direto em Node (sem COM) para
-matar os 16 ms/atalho. Não validei essa otimização."
-
-A binary reader is only worth shipping if it produces the **same** target
-list as COM. A parser that is faster and silently wrong on even a few
-shortcuts is a regression, not an optimization — a user whose shortcut
-resolves to the wrong `.exe`, or to nothing, notices immediately.
-
-## What was built
-
-- `measure/windows/lnk-parser.mjs` — a pure-Node, zero-dependency reader of
-  the [MS-SHLLINK] binary format (ShellLinkHeader, LinkFlags, LinkInfo,
-  CommonNetworkRelativeLink, StringData, and the EnvironmentVariableDataBlock
-  extra-data block), built directly from the Microsoft Open Specifications
-  pages (fetched 2026-09-17, protocol revision 10.0, not from memory/recall).
-  Every read past the fixed header is now bounds-checked (round-2 fix 4).
-- `measure/windows/lnk-com-resolve.ps1` — the COM baseline resolver, using
-  the same `WScript.Shell` mechanism as the original measurement, with one
-  COM object reused across the loop and an internal `Stopwatch` around the
-  resolution loop only. **This is a claim about MECHANISM, not about the
-  RESULT**: the same code path (`WScript.Shell.CreateShortcut(path).
-  TargetPath`, timed by an internal `Stopwatch` around the loop only) is
-  used, which is what makes a per-item comparison methodologically
-  meaningful at all — it does NOT mean this script's own measured
-  per-item rate matches the original baseline's. It does not: round-4
-  blocker finding 1 found the two disagree by roughly an order of
-  magnitude (see "The COM baseline: two separate open questions" below).
-  Round-3's version of this sentence asserted the comparison was
-  "comparable, per-item, to the 2395 ms/149 baseline" without qualifying
-  which sense of "comparable" it meant, and the document never actually
-  performed that per-item comparison anywhere else in 699 lines — this
-  revision performs it (see "Measured result") and states the result
-  plainly instead of leaving the claim to imply agreement it does not
-  demonstrate.
-- `measure/windows/proof-03-lnk-benchmark.mjs` — orchestrates both, runs a
-  cold pass plus 5 warm timed passes, does a tiered (exact →
-  case-insensitive → `fs.realpathSync.native` filesystem identity)
-  item-by-item comparison against the parser's PRIMARY output, and
-  prints/records the result.
-
-## Measured result (this machine, 2026-09-17, re-run after all round-4 fixes)
-
-Scope: every `.lnk` under `%ProgramData%\Microsoft\Windows\Start Menu\Programs`
-and `%APPDATA%\Microsoft\Windows\Start Menu\Programs` (machine + user),
-**182 files**. Directory enumeration: `dirErrors: []` — zero permission,
-reparse-point, or other non-`ENOENT` errors this run, all subtrees read
-cleanly (this is now ALSO the reparse-point-aware enumeration —
-round-4 major finding 3 — live-verified in both states with a real NTFS
-junction; see "Round-4 revision" item 3 above for the verbatim
-with-junction output, which is deliberately not this section's canonical
-run).
-
-Command run: `node measure/windows/proof-03-lnk-benchmark.mjs`. Verbatim
-timing block from the run this section's numbers are drawn from (exit code
-0):
-
-```
---- Timing: iteration 0 (n=1, first pass; NOT a fair cold-vs-warm comparison -- see note below) ---
-Baseline (research, prior run, different file count AND -- see below -- a total that does not reproduce via the same COM mechanism on this machine; see docs/adr/0003 round-4 finding 1): 149 shortcuts, 2395 ms total, 16.07 ms/shortcut
-COM loop-only (iteration 0): 182 shortcuts, 346.5 ms total, 1.90 ms/shortcut
-COM wall incl. PowerShell startup + COM instantiation (iteration 0): 827.0 ms total
-Node binary parser (iteration 0): 182 shortcuts, 35.05 ms total, 0.1926 ms/shortcut
-NOTE: no speedup ratio is printed for iteration 0. [...] See docs/adr/0003, round-3 fix 1.
-
---- Timing: warm (n=5, after 1 discarded warmup iteration -- warmup changes the profile, do not compare a cold number against a warm one) ---
-Node parser: median 42.63 ms, min 37.72, max 43.94, stddev 2.26 -- raw: [37.72, 42.63, 43.94, 43.07, 40.26]
-COM loop-only: median 499.0 ms, min 339.4, max 567.1, stddev 81.9 -- raw: [339.4, 550.8, 451.4, 499.0, 567.1]
-Speedup (median of per-iteration COM/Node ratios): median 11.6x, min 9.0x, max 14.1x
-Node parser warm median, per-shortcut: 0.2343 ms/shortcut
-COM warm median, per-shortcut: 2.7416 ms/shortcut
-NOTE (round-4 blocker finding 1): the research baseline's per-item rate is 16.07 ms/shortcut (2395 ms / 149 shortcuts). This run's COM warm median is 2.74 ms/shortcut over 182 shortcuts, the SAME WScript.Shell mechanism -- a 5.9x difference NOT explained by the file-count difference (a larger denominator here would raise COM's TOTAL time, not cut its PER-ITEM rate). The baseline total does not reproduce on this machine; see docs/adr/0003 round-4 finding 1 for the absolute-magnitude implication for PLAT-10.
-```
-
-(The iteration-0 `NOTE` line is elided above — its full text is unchanged
-from round 3 and is quoted in full earlier in this document; the JSON at
-`thisRun.iteration0.note` carries it verbatim. This is the run whose
-`proof-03-results.json` is the one committed alongside this document —
-the census-derivation hardening applied after the first draft of this
-round-4 revision, described in "Round-4 revision" item 4's note on
-`extraDataTruncated`, required one more re-run to keep the committed JSON
-and this document's quoted numbers in sync; the agreement table, category
-census, and every non-timing figure are unchanged from every other run
-this round — see the table below.)
-
-Reading this honestly, in the order this round's findings apply:
-
-**The research baseline does not reproduce on this machine — stated
-plainly, not filed under a denominator question (round-4 blocker finding
-1).** The original measurement (`.maxvision/research/WINDOWS-STACK.md`)
-recorded 2395 ms total for 149 shortcuts via `WScript.Shell`, 16.07
-ms/shortcut. This document's own benchmark, using the literal SAME
-mechanism (one `WScript.Shell` COM object, reused across the loop, timed
-by an internal `Stopwatch` around the resolution loop only — see "What was
-built" above), measures COM's warm-median per-item rate at **2.74
-ms/shortcut** this canonical run — roughly **5.9x lower** than the
-baseline claims, over MORE files (182, not fewer) — and every OTHER run
-executed this round measured an even larger gap (see the table below,
-5.9x–11.1x across all five). A larger file count would raise COM's
-TOTAL time; it cannot explain a lower PER-ITEM rate, so this is not a
-denominator artifact — the numerator itself does not reproduce. This is
-not a one-off: all FIVE warm n=5 runs executed this round (the canonical
-one quoted above plus four corroborating runs, one of them executed
-before a small post-review hardening of the census-derivation code
-described in "Round-4 revision" item 4, none of them changing the
-agreement/category numbers — only timing) show the same
-order-of-magnitude gap:
-
-| Run | COM warm median (182 shortcuts) | COM ms/shortcut | Baseline ms/shortcut ÷ this run's | Node warm median | Speedup (median of ratios) |
-|---|---|---|---|---|---|
-| Canonical (this section's verbatim quote, matches committed JSON) | 499.0 ms | 2.74 | 5.9x | 42.63 ms | 11.6x (9.0x–14.1x) |
-| Corroborating run A | 282.4 ms | 1.55 | 10.4x | 28.95 ms | 9.7x (8.8x–11.1x) |
-| Corroborating run B | 263.5 ms | 1.45 | 11.1x | 29.32 ms | 8.8x (7.7x–10.3x) |
-| Corroborating run C | 266.9 ms | 1.47 | 11.0x | 28.86 ms | 9.2x (8.5x–16.0x) |
-| Corroborating run D | 324.1 ms | 1.78 | 9.0x | 36.72 ms | 9.3x (7.0x–12.1x) |
-
-**Corrected in round 5 (round-5 blocker finding 1):** only the Canonical
-row above is committed to this repository — `git show
-6932c45:measure/windows/proof-03-results.json` reproduces it exactly.
-The four "Corroborating run A–D" rows are real, first-party
-measurements from this same session but were never committed as their
-own artifacts (the committed `proof-03-results.json` holds one run per
-commit, and each corroborating run was superseded by the next before
-any of them was committed — see "Round-5 revision" finding 1 above);
-they are this-session, not second-hand, but also not independently
-reproducible by a third party from this repository the way the
-Canonical row is. No re-measurement of the original 149-shortcut run is
-attempted or possible: as established in round 2/3, that script "was
-not preserved in the repo" (see "The COM baseline: two separate open
-questions" below, which replaces the old "149-vs-182 denominator"
-section and keeps that finding, unreconciled, as its OWN, separate
-question from this one).
-
-**The warm speedup claim (corrected in round 5 — round-5 blocker
-finding 1):** the warm-median speedup observed across the FOUR
-independent n=5 runs that are actually committed to this repository and
-independently reproducible right now by anyone via `git show
-<sha>:measure/windows/proof-03-results.json` spans **11.6x–16.4x**:
-`6932c45` (this round's canonical run, median 11.586x, n=5 range
-9.0x–14.1x), `7819df6` (round 2's first committed run, median 13.191x,
-n=5 range 12.4x–15.4x — cited in the provenance audit above but not
-previously quoted in this section, round-5 major finding 2), `1fa06ae`
-(round 2's second, final committed run, median 13.770x, n=5 range
-12.1x–18.5x), and `14a44ac` (round 3's committed run, median 16.428x,
-n=5 range 11.6x–18.3x). The factor between this four-run set's own
-extremes is **1.42x** (16.428 ÷ 11.586) — close to round 3's retracted
-"~1.4" claim, arrived at independently here from the correctly-scoped
-repo-verifiable set, not by re-asserting that claim. At the iteration
-level (not medians), these four runs' 20 warm iterations span
-**9.0x–18.5x** (min from `6932c45`, max from `1fa06ae`).
-
-Separately — and explicitly NOT part of the headline, because neither
-cluster is independently reproducible from this repository — two more
-clusters of real measurements exist: (1) this round's own four
-"Corroborating run A–D" (table above; medians 9.7x, 8.8x, 9.2x, 9.3x;
-iteration-level span 7.0x–16.0x, the 7.0x from run D's own min and the
-16.0x from run C's single high outlier, `raw: [248.1, 266.9, 278.0,
-259.8, 412.7]` ms for COM, driven by one slow 412.7 ms iteration — the
-ratio is real but not typical for that run, see its own median 9.2x) —
-first-party, this-session, but never committed as their own artifact,
-so a third party cannot reproduce them from this repository; and (2)
-the round-3 reviewer's own two re-runs (medians 17.0x and 12.3x) —
-second-hand, reported in that round's review findings, run on the
-reviewer's own machine/session, likewise not reproducible from anything
-committed here. Combining all three clusters gives an overall observed
-range of **8.8x–17.0x across ten n=5 samples** (four repo-verifiable,
-four uncommitted first-party, two second-hand) — consistent with round
-3's retracted "12.3x–17.0x" bound at its upper end, but this document
-does not restate round 3's "~1.4" factor as a property of that combined
-ten-sample set: the factor across all ten known medians is 1.93x (17.0
-÷ 8.8), or 1.87x restricted to the eight first-party (committed +
-uncommitted) medians (16.428 ÷ 8.8) — both wider than the 1.42x above,
-because both include clusters that figure deliberately excludes. In
-both cases the 8.8x/17.0x table/reviewer figures carry only the
-one-decimal precision they were originally reported at (the uncommitted
-cluster's own raw JSON no longer exists to re-derive a finer figure
-from), so 1.93x/1.87x should be read at that same precision, not as
-five-decimal-accurate as the 1.42x computed from two committed runs'
-full-precision medians.
-**What is unchanged from round 3: no cold/first-touch speedup is
-claimed at all** — the previously deleted 9.5x–10.2x cold range stays
-deleted, for the same reason (round-3 blocker 1, unaffected by anything
-in round 4 or 5).
-
-**Absolute magnitude, not just the ratio (round-4 blocker finding 1;
-re-scoped to the repo-verifiable set in round 5):** across the same
-FOUR repo-verifiable committed runs the ratio above uses, the binary
-reader saves COM-median minus Node-median per full 182-shortcut scan:
-226.5 ms (`7819df6`), 254.1 ms (`1fa06ae`), 289.5 ms (`14a44ac`), 456.3
-ms (`6932c45`, canonical) — **roughly a quarter to half a second per
-full scan on this machine (0.23–0.46 s across four committed runs)**,
-not the ~2.4 s the 16 ms/shortcut premise would suggest for a
-similarly-sized shortcut set. This is arithmetic on each committed
-run's own `warm.nodeParserMs.median` and `warm.comLoopOnlyMs.median`
-fields, already present in the committed JSON, not a new measurement.
-Even at this range's own high end, it is still 5x smaller than the
-naive 2.4 s extrapolation. (This round's four uncommitted
-"Corroborating run A–D" figures — 253.5 ms, 234.2 ms, 238.0 ms, 287.4
-ms — fall inside this same 0.23–0.46 s band and are not needed to
-establish it; they are not cited here, for the reason given above.) See
-"Decision" below for why this matters for PLAT-10's motivation.
-
-COM's own loop-only time varies substantially both run to run and within a
-single warm run. Within-run: this round's canonical run's 5 warm
-iterations spanned 339.4–567.1 ms, a 67.1% swing; corroborating run C
-spanned 248.1–412.7 ms, a 66.3% swing — both measured BY THIS DOCUMENT,
-consistent with round 2's own committed run (230.5–325.6 ms, 41.3% swing)
-and round 3's own committed run (281.1–395.8 ms, 40.8% swing), NOT
-attributed to the reviewer, who did not report per-iteration warm min/max
-in their findings (round-4 major finding 2 fixes the one remaining
-sentence in this document that had misattributed this class of
-measurement — see "Round-4 revision" item 2 above). Run to run: the
-round-3 reviewer's own two re-runs measured COM warm MEDIANS of 441.8 ms
-and 321.8 ms — second-hand, not reproducible from this repo — a ~120 ms
-difference between two back-to-back re-runs on the same machine, on top of
-whatever intra-run variance each of those runs also had; this round's own
-five runs (one committed — the canonical `6932c45` run — plus four
-uncommitted first-party corroborating runs, round-5 blocker finding 1)
-add FIVE more data points to that same picture (COM
-warm medians 499.0 ms, 282.4 ms, 263.5 ms, 266.9 ms, 324.1 ms — a ~235 ms
-spread of their own, wider than either reviewer pair or either prior
-round's single committed run). Other software was running concurrently on
-this machine across all of this round's runs (Blender, Adobe Creative
-Cloud apps, etc. — see the process list implied by
-`.maxvision/research/WINDOWS-STACK.md`). **This document still does NOT
-assert whether warming makes COM faster, slower, or has no effect** —
-round-3 blocker 3's finding (the two-point comparison's direction flips
-between re-runs) is unchanged by anything in round 4. What the data DOES
-support, stated without a directional claim: COM's variance is large
-enough, and unstable enough in sign and magnitude across runs — now
-including a 5.9x–11.1x gap against a THIRD-PARTY prior measurement (the
-research baseline), not just run-to-run variance within this document's
-own history — that this benchmark cannot isolate its cause (file-cache
-state, PowerShell/COM instantiation jitter, background system load,
-machine
-differences between the original 2026 research measurement and this
-round's runs, or some combination) — and no figure in this document
-depends on having isolated it.
-
-Full per-shortcut data, all raw timing iterations, the full flags object
-per row, and the new `baseline` comparison fields
-(`comWarmMsPerItemMedianThisRun`,
-`baselineMsPerItemDividedByThisRunComWarmMsPerItem`,
-`baselineTotalReproducedOnThisMachine: false`):
-`measure/windows/proof-03-results.json` (regenerated by re-running the
-benchmark script; the committed file reflects the canonical run quoted
-above).
-
-### The COM baseline: two separate open questions (round-4 major finding 1 retitles this section)
-
-Round 3 filed the entire baseline discrepancy under a single heading, "The
-149-vs-182 denominator," which can only ever explain a FILE-COUNT
-question. It cannot explain the 5.9x–11.1x per-item rate gap established
-above, which is a NUMERATOR question — COM's own measured cost per
-shortcut, independent of how many shortcuts are in the set. This document
-now separates the two explicitly:
-
-**(A) The file-count (denominator) question — still unreconciled, unchanged
-by round 4.** `.maxvision/research/WINDOWS-STACK.md:51` reads "**149
-resolvidos** em 2395 ms"; `:235-236` repeats "2395 ms para 149". Taken
-literally, "149 resolvidos" (149 *resolved*) reads at least as naturally as
-"149 of some larger enumerated set succeeded" as it does "a pre-filtered
-input set of 149". This document enumerates 182 `.lnk` files and gets a
-non-empty `TargetPath` from COM for 178 of them — neither 149 nor obviously
-"182 minus a stated filter."
-
-This ADR does not attempt to reconstruct which reading is correct. A
-sibling investigation already tried and explicitly failed to close this gap
-under the same conditions: `docs/adr/PROOF-04-uninstaller-exclusion-rule.md`
-§6 measured 178-of-182 resolved on this same machine, on the same day, via
-a *different* script (`measure/windows/scan-apps.mjs`), and states plainly
-that the original 149-producing script "was not preserved in the repo... a
-session-scoped scratchpad path this session cannot read," so "the exact
-cause cannot be confirmed by re-running it side by side." That conclusion
-holds here too, for the same reason: there is nothing in this repository to
-re-run against 2395/149 to settle whether it is a filtered subset or a
-different success count on a differently-scoped or differently-measured
-pass. Round-4 does not attempt this reconstruction either — the reviewer's
-required fix for round-4 blocker 1 explicitly said not to demand a
-re-measurement of the 149 run, since the script simply is not here to
-re-run.
-
-**(B) The per-item rate (numerator) question — NEW this round, and this is
-the one round 3 mislabeled as (A).** Independent of which file-count
-reading is correct, `16.07 ms/shortcut` (`2395 ms ÷ 149`) does not match
-what the SAME `WScript.Shell` mechanism measures on this machine today:
-this round's five runs (one committed, four uncommitted first-party —
-round-5 blocker finding 1) measured COM warm-median per-item rates
-of 2.74, 1.55, 1.45, 1.47, and 1.78 ms/shortcut — all roughly an order of
-magnitude below the baseline's rate, over a LARGER file count, which is
-the opposite of what a denominator effect could produce (see "Measured
-result" above for the full comparison table and the reasoning). This
-document treats (A) and (B) as genuinely separate open questions: (A)
-could theoretically still explain part of the picture (perhaps the
-original 149 run measured a differently-composed or smaller set), but (A)
-cannot explain (B) by itself, because (B) is a rate disagreement, not a
-count disagreement.
-
-**Every figure in this document that divides by 149 is therefore explicitly
-flagged as resting on an unreconciled denominator, not a validated one —
-and, separately and additionally, as comparing against a total that this
-round establishes does not reproduce on this machine via the same
-mechanism (B, above):** `16.07 ms/shortcut` (`2395/149`) is the research
-doc's own number, restated here for context, not re-derived or extended
-into a speedup claim. This ADR's speedup claim (an 11.6x–16.4x span of
-warm medians across the FOUR independently repo-verifiable committed
-n=5 runs — `6932c45`, `7819df6`, `1fa06ae`, `14a44ac`, round-5 blocker
-finding 1 — widening to 8.8x–17.0x across ten total n=5 samples if this
-round's four uncommitted first-party runs and the round-3 reviewer's two
-second-hand medians are also included; this round's own canonical run
-median is 11.6x; no cold/iteration-0 ratio is claimed at all — round-3
-blocker 1) is computed
-against each run's OWN
-COM measurement (182 shortcuts, both paths, same process, same machine,
-same moment) — not against the 149 baseline — specifically to avoid
-building a claim on top of either the unreconciled denominator (A) or the
-non-reproducing numerator (B). If a reader wants the baseline-relative
-number anyway: the benchmark itself now prints and persists
-(`thisRun.warm.nodeParserMsPerItemMedian`,
-`baseline.comWarmMsPerItemMedianThisRun`,
-`baseline.baselineMsPerItemDividedByThisRunComWarmMsPerItem`) the warm
-per-shortcut figures directly, instead of requiring hand arithmetic in
-this document (round 1 was rejected in part for an ADR-only figure,
-"174", that no script printed; this document does not repeat that mistake
-with a different number). This round's canonical run: Node warm median
-0.2343 ms/shortcut, COM warm median 2.7416 ms/shortcut. Dividing the
-original 16.07 ms/shortcut baseline by the Node figure gives ~68.6x
-(round 3's equivalent calculation, against a faster Node run that round,
-gave ~141.4x) — but this ratio inherits every ambiguity in the 149
-denominator (A) above AND the now-established non-reproduction of the
-149-run's total (B), and is not asserted as a validated speedup; it is
-printed only because a reader might otherwise reconstruct it by hand
-against an unreconciled number, which is the exact mistake round 1 made.
-
-### Agreement (against the parser's PRIMARY output — what it actually resolves to)
-
-| Tier | Count |
-|---|---|
-| Exact string match (primary candidate) | **170** |
-| Case-insensitive match (primary) | 0 |
-| Same file on disk (`realpath`) match (primary) | 0 |
-| **Matched only via a secondary/diagnostic candidate** | **0** |
-| **Mismatch (no candidate matches at all)** | **0** |
-| COM returned empty string | 4 |
-| COM returned no result | 0 |
-| Parser produced no candidate, COM had a non-empty one | 8 |
-
-**Verifying the fix (round-2 blocker 1's specific defect):** the reviewer's
-evidence was `matchedVia = {linkinfo-local: 135, env-expanded: 35}` derived
-from the round-1 JSON where the 170 "exact" rows did not all have
-`parserResolvedTargetPath === comTargetPath`. This run's `matchedVia`
-breakdown of the 170 `exact` rows, computed directly from
-`proof-03-results.json`:
-
-```
-{ 'linkinfo-local': 135, 'env-expanded': 35 }
-```
-
-135 + 35 = 170 exactly, and `matched-only-via-secondary-candidate` is 0.
-That is the discriminating check: if the priority-order fix in
-`lnk-parser.mjs` (env-expanded before env-raw) and the comparator fix in
-`proof-03-lnk-benchmark.mjs` (check the primary candidate, demote the rest)
-were only cosmetic, this number would not come out to exactly the
-reviewer's own `135 + 35` decomposition with zero secondary-only matches.
-It does.
-
-**The mutation test the reviewer specified, actually run:** `sed` was used
-to replace `measure/windows/lnk-parser.mjs`'s `resolvedTargetPath`
-assignment with `null` (deleting the resolution feature, matching the
-reviewer's `lnk-parser.mjs:384` mutation exactly), and
-`test/windows-lnk-parser.test.mjs` was re-run:
-
-```
-✖ resolvedTargetPath for an env-var shortcut is the EXPANDED form, not the raw %VAR% string (2.7946ms)
-  AssertionError [ERR_ASSERTION]: resolvedTargetPath must be the EXPANDED path (round-2 blocker 1) ...
-  actual: null
-  expected: 'C:\\Fake\\Expanded\\Dir\\sub\\app.exe'
-ℹ tests 7
-ℹ pass 6
-ℹ fail 1
-```
-
-The guard fails exactly as required. The mutation was then reverted and the
-full suite re-confirmed green (7/7) before this ADR was written.
-
-**Verifying the round-3 ANSI fix (finding 4):** `lnk-parser.mjs`'s ANSI
-branch (the `push()` calls at what were then lines 486–487) was untested by
-every existing test, which all populate `targetUnicode` and so never reach
-that branch. A new test builds a full-size `EnvironmentVariableDataBlock`
-with an all-`NUL` Unicode field (forcing the ANSI branch) and asserts
-`candidates[0].source === 'env-expanded-ansi'`. The two `push()` calls were
-then swapped (`env-raw-ansi` first, matching the exact defect shape
-blocker 1 fixed in the Unicode branch) and the suite re-run:
-
-```
-✖ resolvedTargetPath for an env-var shortcut falls back to the ANSI form when the Unicode field is empty (all-NUL) -- round-3 minor finding 4 (2.5355ms)
-  AssertionError [ERR_ASSERTION]: the ANSI branch (lnk-parser.mjs:486-487) must produce the PRIMARY candidate when TargetUnicode is empty -- if this reads "env-raw-ansi", the two push() calls were swapped back
-  + actual - expected
-  + 'env-raw-ansi'
-  - 'env-expanded-ansi'
-ℹ tests 9
-ℹ pass 8
-ℹ fail 1
-```
-
-Exactly the one new test fails, exactly as required. The swap was reverted
-and the full suite re-confirmed green (9/9) before this ADR was written.
-
-**Zero mismatches, zero secondary-only matches, not full coverage.** 170 of
-the 178 shortcuts where COM produced a non-empty `TargetPath` were matched
-at the `exact` tier by the parser's actual (primary) output — no
-case-insensitive, realpath, or secondary-candidate fallback was ever
-needed on this machine's shortcut set. The other 8 of those 178 are not
-mismatches (the parser never produced a *wrong* answer): they are the
-no-usable-target-path-source gap documented in the next section, where the
-parser correctly returns no candidate instead of guessing. "Zero
-mismatches" and "resolves
-the same 170-of-178 shortcuts COM resolves, with an honest gap on the
-remaining 8" are both true, measured claims; "identical coverage" is not.
-
-### The 8 shortcuts the parser does not resolve (of 12 with no usable target-path source)
-
-12 shortcuts on this machine are IDList-only (`HasLinkTargetIDList` set,
-`HasLinkInfo` not set — no environment-variable block either). Resolving
-them requires shell namespace lookup (`SHGetPathFromIDList`/`IShellFolder`),
-which COM has access to and a pure binary reader does not, by construction
-(documented as limitation 1 in `lnk-parser.mjs`'s module header). 8 of the
-12 have a non-empty COM `TargetPath` — the honest coverage gap
-(`idListOnlyGapCount: 8`, derived from `comparisonTier === 'parser-empty'
-&& category.noUsablePathSource`, not merely from an empty candidate list —
-round-2 minor finding 8, reclassified onto `noUsablePathSource` instead of
-`idListOnly` by round-3 minor finding 7 — see the "Round-3 revision"
-section above for why the two fields can disagree and why classification
-now uses the drift-proof one; on THIS machine's data
-`categoryCensus.noUsablePathSource === categoryCensus.idListOnly === 12`,
-so the fix changes nothing about the numbers below, only how they would be
-computed on a machine where a `ForceNoLinkInfo`-with-no-env-block shortcut
-exists):
-
-- `HandBrake\Uninstall.lnk` → COM: `C:\Program Files\HandBrake\uninst.exe`
-- `MobaXterm\MobaDiff.lnk`, `MobaXterm\MobaTextEditor.lnk` → COM:
-  `C:\Program Files (x86)\Mobatek\MobaXterm\MobaRTE.exe`
-- `Riot Games\League of Legends.lnk`, `Riot Games\Riot Client.lnk` → COM:
-  `D:\Riot Games\Riot Client\RiotClientServices.exe`
-- `Topaz Video AI\Topaz Video AI.lnk` → COM:
-  `C:\Windows\Installer\{CCF2E3E7-821A-45F5-80FC-9E7243753D39}\mainapp.exe`
-  (this is also the one MSI-advertised shortcut found — it is IDList-only
-  *and* Darwin-tagged)
-- `Windows Kits\...\Windows Software Development Kit.lnk` → COM:
-  `C:\Windows\explorer.exe`
-- `Google Cloud SDK\Google Cloud SDK Shell.lnk` → COM:
-  `C:\Windows\system32\cmd.exe`
-
-The other 4 IDList-only shortcuts (`MobaXterm\Visit MobaXterm Website.lnk`,
-`File Explorer.lnk`, `Control Panel.lnk`, `Run.lnk`) got an **empty**
-`TargetPath` from COM too — virtual-shell-item shortcuts with no real
-filesystem target either way, so there is nothing for either method to
-disagree about. `unexpectedParserEmptyGapCount: 0` this run — every
-`parser-empty` row is accounted for by `noUsablePathSource`; none of the
-8/12 above are silently mislabeled or hiding a different root cause. This
-condition also now gates the script's exit code directly (round-3 minor
-finding 5): a future run where it is nonzero exits 1, not 0.
-
-None of these 12 is a mismatch: the parser correctly reports "no candidate"
-rather than fabricating a wrong path.
-
-## Category coverage (task requirement: test what exists, report zeros honestly)
-
-| Category | Found on this machine | Parser handles it |
-|---|---|---|
-| Environment-variable targets (`HasExpString`) | **42** | Yes — all 42 matched COM exactly on the parser's PRIMARY output: 35 via `env-expanded` (LinkInfo absent or `ForceNoLinkInfo`-forced-off) and 7 via `linkinfo-local` (LinkInfo present and usable, so it outranked the env block per spec priority) — 42/42, 0 mismatches, 0 secondary-only matches |
-| UNC path targets (`CommonNetworkRelativeLink`) | **0** | Implemented (`CommonNetworkRelativeLink` parsing, `\\server\share` reconstruction) but **not exercised** — no UNC-targeted shortcut exists in this Start Menu. Not claimed as validated. |
-| MSI-advertised shortcuts (`HasDarwinID`/`DarwinDataBlock`) | **1** (Topaz Video AI) | Detected (`category.msiAdvertised: true`) but **not resolved** — by design (documented limitation 2). Resolving it needs the Windows Installer API (`MsiGetShortcutTarget`), not a binary read. This is also one of the 8 IDList-only gaps above. |
-| UWP/Store app shortcuts | **0** `.lnk` files carry a UWP/Store marker | Real, reproducible finding — see next section, not the correct-by-assumption prose round 1 asserted with no committed artifact behind it. |
-| Truncated/corrupt `ExtraData` block (round-4 minor finding 4) | **0** | Detected (`extraDataTruncated` on the parse result, `categoryCensus.extraDataTruncated` in the report) and, if it occurred, unconditionally routed into `unexpectedParserEmptyGapCount` (gates the exit code) — **not exercised on this machine**: none of the 182 real `.lnk` files here have a corrupt `ExtraData` block. Covered instead by a synthetic unit test (a hand-built buffer whose block claims 0x314 bytes with only 20 present) and a mutation-test that confirms the guard actually fails when the fix is reverted — see "Round-4 revision" item 4 above. |
-
-The env-var category is the one this task named as needing the most care
-(raw vs. expanded). All 42 instances matched COM's `TargetPath` exactly on
-the parser's PRIMARY output. **`ForceNoLinkInfo` was checked and honored —
-and it was NOT a zero-count edge case on this machine, contrary to the
-round-1 ADR's claim.** Measured this run: `forceNoLinkInfoCount: 38` (of
-which 35 are the env-var shortcuts whose LinkInfo, though present, MUST be
-ignored per spec — exactly why their primary candidate correctly falls
-through to `env-expanded` rather than `linkinfo-local`). Round 1's precise
-claim, scoped to the env-var category, was "in every one of the 42 [env-var]
-cases... none tripped `ForceNoLinkInfo`" — and 35 of those same 42 rows do
-trip it. Round 1's env-var-scoped claim was therefore not merely
-unverifiable (the reviewer's finding) but measurably false on this
-machine's own data, once the field existed to check it against (round-2
-minor finding 9). This document does not extend that correction beyond its
-original scope: it is the 42-env-var-shortcut claim that was wrong, not a
-claim about the other 140 shortcuts, which round 1 never made a
-ForceNoLinkInfo assertion about.
-
-### UWP/Store shell-item marker scan (real, reproducible — round-2 minor finding 7)
-
-`measure/windows/proof-03-lnk-benchmark.mjs`'s `scanForUwpMarkers()` reads
-every `.lnk`'s raw bytes and searches both the UTF-16LE and Latin-1
-decodings for the `AppsFolder` and `!App` (AUMID suffix) byte patterns a
-UWP/Store shell-item `.lnk` would carry in its `LinkTargetIDList`. Every
-read failure is now recorded (`unreadable`/`unreadableRows`), and the
-denominator printed is the count actually read (`scanned`), not
-`files.length` — round-3 major finding 2: the round-2 version's bare
-`catch { continue; }` meant an unreadable file would vanish from both the
-numerator and the denominator, so a shrunken scan could print a clean
-`0/182` with nothing in the artifact to reveal it. This run:
-
-```
-"AppsFolder" byte-pattern found in: 0/182 .lnk files actually read (0 unreadable, 182 enumerated)
-"!App" (AUMID suffix) byte-pattern found in: 0/182 .lnk files actually read (0 unreadable, 182 enumerated)
-```
-
-Zero unreadable files this run — the denominator is genuinely 182, not
-merely assumed to be. Zero hits, consistent with the known fact that real
-Start Menu tiles for
-UWP/Store apps (Calculator, Photos, Terminal, etc.) are not `.lnk` files at
-all — they resolve through `shell:AppsFolder`, PROOF-02's scope, not
-PROOF-03's. This is now backed by `uwpMarkerScan` in
-`proof-03-results.json`, regenerated on every re-run, not an assertion in
-prose with nothing behind it.
-
-This is a genuinely separate claim from the IDList-only census (12
-shortcuts, not zero): IDList-only shortcuts on this machine are ordinary
-desktop-app shortcuts whose author happened to store target info only in
-the shell namespace ID list (HandBrake's uninstaller, MobaXterm's
-sub-tools, Riot Games launchers, the Windows SDK's Explorer-relaunch
-shortcut, Google Cloud SDK's shell launcher, and 4 virtual System items) —
-none of them are UWP/Store apps, and none of the 182 files carry a UWP
-marker. Round 1 conflated "the UWP marker scan found zero" (true) with "the
-IDList-only census should be zero" (false) by printing them next to each
-other with a single unconditional sentence; this revision states each as
-its own, correctly-labeled finding.
-
-## Decision
-
-**Ship the binary reader as the primary mechanism for PLAT-10.** The
-re-measured evidence, all of it now backed by a comparator that checks the
-parser's PRIMARY (actually-returned) output, not merely something the
-parser produced somewhere in a candidate list:
-
-1. Zero mismatches and zero secondary-only matches across 182 real
-   shortcuts on this machine, at the strictest (exact string) comparison
-   tier, checked against the parser's actual returned value — verified by
-   the discriminating `135 + 35 = 170` decomposition and a real mutation
-   test (see "Verifying the fix" above).
-2. A warm-state speedup over COM, measured with warmup and repetition
-   across FOUR independent, repo-verifiable COMMITTED n=5 runs
-   (round-5 blocker finding 1 — corrected from round 4's inaccurate
-   "seven"), claimed as the span of their medians, not any single run's
-   min/max: **11.6x–16.4x** (`6932c45`, this round's own canonical run,
-   11.6x; `7819df6`, round 2's first committed run, 13.2x — `git show
-   7819df6:measure/windows/proof-03-results.json`; `1fa06ae`, round 2's
-   final committed run, 13.8x — `git show
-   1fa06ae:measure/windows/proof-03-results.json`; `14a44ac`, round 3's
-   committed run, 16.4x — `git show
-   14a44ac:measure/windows/proof-03-results.json`). The factor between
-   these four medians' own extremes is **1.42x** (16.428 ÷ 11.586).
-   Separately, and explicitly NOT folded into this headline because
-   neither cluster is independently reproducible from this repository:
-   this round's own four uncommitted, first-party "Corroborating run
-   A–D" measurements (9.7x, 8.8x, 9.2x, 9.3x) and the round-3 reviewer's
-   two second-hand medians (17.0x, 12.3x). Combining all three clusters
-   (four repo-verifiable + four uncommitted first-party + two
-   second-hand) gives an overall observed range of **8.8x–17.0x across
-   ten n=5 samples** — round-4 major finding 2 required the two-way
-   repo-verifiable/second-hand split; round-5 blocker finding 1 extends
-   it to this three-way split, now that the uncommitted-but-first-party
-   cluster is correctly distinguished from both the other two. Individual iterations across the four
-   repo-verifiable runs' 20 total warm data points span 9.0x–18.5x;
-   widening to all ten runs' 50 total warm data points, the observed
-   spread is 7.0x–18.5x (the 7.0x is one of the uncommitted
-   corroborating runs' own min; the 18.5x is `1fa06ae`'s own committed
-   max) — an OBSERVED spread of data points, not a claimed bound.
-   **Round 3 claimed this span was "consistent to within a factor of
-   ~1.4" (12.3x–17.0x); this document retracts that claim as a
-   description of the combined ten-sample set, but the four
-   repo-verifiable medians alone DO span a 1.42x factor** — round 5
-   states both numbers, correctly scoped, rather than picking one: 1.42x
-   across the four committed runs, 1.93x across all ten known medians
-   (17.0x ÷ 8.8x), or 1.87x across the eight first-party (committed +
-   uncommitted) medians (16.428x ÷ 8.8x) if the second-hand pair is
-   excluded but the uncommitted cluster is kept — 1.93x and 1.87x both
-   carry only the one-decimal precision the 8.8x/17.0x figures were
-   originally reported at, not the five-decimal precision of 1.42x.
-   **No cold/first-touch speedup is claimed at all** — round-3 blocker 1
-   found the previously-claimed 9.5x–10.2x cold range does not reproduce
-   on a genuinely first-touch run (measured 2.2x and 12.5x across two
-   attempts, moving in opposite directions for Node vs COM — second-hand,
-   reviewer-reported, not reproducible from this repo), so that number
-   stays deleted from this decision, not restated with different bounds.
-3. **The ABSOLUTE saving, not only the ratio (round-4 blocker finding 1;
-   re-scoped to the repo-verifiable set in round 5):**
-   the binary reader saves roughly a QUARTER TO HALF A SECOND (0.23–0.46 s
-   across the same four repo-verifiable committed runs the ratio above
-   uses) per full 182-shortcut Start Menu scan
-   on this machine — not the ~2.4 s the research baseline's 16
-   ms/shortcut premise would imply for a similarly-sized set. That premise
-   does not reproduce on this machine at all (COM's own measured per-item
-   rate this round is 5.9x–11.1x lower than the baseline claims, over a
-   LARGER file count than the baseline used — see "The COM baseline: two
-   separate open questions" above). **PLAT-10 should be motivated by the
-   measured 0.23–0.46 s/scan saving and the 11.6x–16.4x ratio, not by an
-   extrapolation from the 2395 ms baseline that this document now
-   establishes does not hold on this machine, and not by the wider,
-   partly-uncommitted 8.8x–17.0x range that includes samples a third
-   party cannot reproduce from this repository.** This does not change
-   the DIRECTION of the decision (the binary reader is still
-   substantially faster, by every one of ten independent measurements
-   across five review rounds) — it changes the MAGNITUDE PLAT-10 should
-   expect, downward, by roughly an order of magnitude from what the
-   original research doc's 16 ms/shortcut figure would have implied.
-4. A well-defined, honestly-scoped gap (shortcuts with no usable
-   target-path source and a non-empty COM target, 8/182 ≈ 4.4% of this
-   machine's set) with an unambiguous signal when it occurs
-   (`resolvedTargetPath: null`, `category.noUsablePathSource: true`)
-   rather than a silently wrong answer — now ALSO covering the
-   truncated-`ExtraData` case (round-4 minor finding 4): a corrupt file is
-   no longer indistinguishable from an honest coverage gap, even though
-   this machine's real data does not exercise that path.
-5. A reparse-point-aware directory walk (round-4 major finding 3),
-   live-verified with a real NTFS junction in both states on this machine:
-   a redirected-profile Start Menu subtree is now reported as a visible
-   `WARNING`/`dirErrors` entry and gates the exit code, instead of
-   silently shrinking the scanned set with no signal.
-
-**PLAT-10 must keep a COM (or `IShellLinkW`) fallback for the IDList-only
-case**, not replace COM outright. When `lnk-parser.mjs` returns no
-candidate, PLAT-02/PLAT-10's app enumerator should fall back to COM
-resolution for that one shortcut (an 8/182 ≈ 4.4% fallback rate on this
-machine). This ADR does not itself implement that fallback — it is a
-decision record for PROOF-03, consumed by PLAT-10 (Fase 3).
-
-**Not validated, flagged for PLAT-10 to re-check if it matters there:**
-UNC-targeted shortcuts and MSI-advertised shortcut *resolution* (detection
-works; resolution does not and is not attempted). Both are present in the
-codebase as documented, deliberate gaps, not silent ones. The file-count
-(149-vs-182) denominator question above is also still unresolved and
-should not be treated as closed by this document — nor should the
-SEPARATE finding that the baseline's own total does not reproduce on this
-machine (round-4 blocker finding 1) be read as resolving the denominator
-question; they are independent open items, per "The COM baseline: two
-separate open questions" above.
-
-## Reproducing this measurement
-
-```
-node measure/windows/proof-03-lnk-benchmark.mjs
-node --test test/windows-lnk-parser.test.mjs
-```
-
-Requires Windows (COM `WScript.Shell` is Windows-only) and PowerShell on
-`PATH`. The benchmark regenerates `measure/windows/proof-03-results.json`,
-including raw per-iteration timing, the full per-row `parserFlags` object,
-and the UWP-marker scan. It runs 1 discarded warmup iteration plus 5 timed
-iterations (both Node parser and COM), so a re-run takes roughly 6x the
-single-pass time reported in round 1 (a handful of seconds on this
-machine, dominated by the 6 PowerShell process spawns). `node --test`
-should report 11 tests, 11 pass, 0 fail (round 2 added 7, round 3 added 2
-more — the ANSI-branch and `noUsablePathSource` guards — round 4 added 2
-more — the `extraDataTruncated` guard and the stale-`expandEnvVars`-cache
-regression guard).
-
-**Exit code is a real pass/fail signal, not merely mismatches/secondary-
-only matches (round-3 minor finding 5).** The benchmark exits 1 if ANY of:
-a mismatch, a secondary-only match, a non-empty `dirErrors` (the scanned
-Start Menu set was under-counted by a permission, reparse-point-skip —
-round-4 major finding 3 added `SKIPPED_REPARSE_POINT` as a `dirErrors`
-code, live-verified with a real junction, see "Round-4 revision" item 3
-above — or other non-`ENOENT` readdir error), or
-`unexpectedParserEmptyGapCount > 0` (a parser-empty row not accounted for
-by the accepted `noUsablePathSource` gap, OR a row whose `ExtraData` block
-was truncated/corrupt regardless of its `noUsablePathSource` value —
-round-4 minor finding 4). It exits 0 only when none of those hold —
-`idListOnlyGapCount`/`noUsablePathSource` being nonzero (the accepted
-8/182 gap) does NOT fail the run; gating on it would make exit 1 the
-permanent normal state here. This run: exit code 0. (A separate, real
-junction created and removed while preparing this revision produced exit
-1 while present and exit 0 once removed — see "Round-4 revision" item 3
-for the verbatim output of both states; that verification run is
-deliberately NOT the canonical run this section's numbers are drawn from.)
