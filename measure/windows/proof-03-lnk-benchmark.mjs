@@ -18,12 +18,18 @@
 // reported a match found ANYWHERE as 'exact', which made the headline
 // number identical whether or not resolution actually worked.
 //
-// Timing: iteration 0 runs cold (Node parser first, exactly as originally
-// designed, so COM cannot have already warmed the OS file cache before the
-// parser's timing is taken) and is reported separately, not averaged in.
-// Iterations 1..N are additional warm passes (the OS file cache and
-// PowerShell/COM JIT are already warm from iteration 0); their median/
-// min/max/stddev is the headline "warm" number. Round-2 major finding 2.
+// Timing: iteration 0 runs the Node parser first (the original ordering)
+// and is reported separately as "iteration 0", NOT averaged into the warm
+// stats -- but it is NOT a fair cold-vs-warm comparison and no speedup
+// ratio is derived from it: Node absorbs every file's first-touch disk
+// read in this ordering, so COM then reads a cache Node just warmed. A
+// genuinely first-touch run (nothing had touched these files beforehand)
+// produced speedups ranging 2.2x-12.5x across two attempts on this
+// machine -- round-3 blocker 1. Iterations 1..N are additional warm passes
+// (the OS file cache and PowerShell/COM JIT are already warm); their
+// median/min/max/stddev is the headline "warm" number, the only speedup
+// figure this script derives a ratio from. Round-2 major finding 2,
+// round-3 blocker 1.
 //
 // Usage: node measure/windows/proof-03-lnk-benchmark.mjs
 // Writes: measure/windows/proof-03-results.json (full per-shortcut report)
@@ -88,12 +94,24 @@ function readJsonStrippingBom(path) {
   return JSON.parse(text);
 }
 
+/** Resolves `p` via fs.realpathSync.native, distinguishing "does not
+ * exist" (ENOENT/ENOTDIR -- expected, silently null, e.g. a shortcut
+ * whose target was uninstalled) from every other failure (EACCES/EPERM/
+ * etc.), which is recorded as `errorCode` instead of being collapsed
+ * into the same null a missing path produces. Without this, a target
+ * behind a permission boundary would silently downgrade a resolvable
+ * comparison to "mismatch" with no signal as to why. Round-3 minor
+ * finding 6. Has no live impact on this machine (0 rows hit this tier in
+ * either committed run), but is exercised the moment a comparison
+ * reaches the realpath tier on a machine where that's not true. */
 function realpathOrNull(p) {
-  if (!p) return null;
+  if (!p) return { value: null, errorCode: null };
   try {
-    return realpathSync.native(p).toLowerCase();
-  } catch {
-    return null;
+    return { value: realpathSync.native(p).toLowerCase(), errorCode: null };
+  } catch (err) {
+    const code = err && err.code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { value: null, errorCode: null };
+    return { value: null, errorCode: code ?? 'UNKNOWN' };
   }
 }
 
@@ -127,42 +145,52 @@ function stats(arr) {
  * duplicating this logic.
  */
 export function compareTiered(comValue, candidates) {
+  // Any non-ENOENT/ENOTDIR realpath failure encountered while comparing is
+  // accumulated here and returned to the caller (round-3 minor finding 6)
+  // instead of being silently swallowed as an ordinary "no match" null.
+  const realpathErrors = [];
+  const trackRealpath = (p) => {
+    const r = realpathOrNull(p);
+    if (r.errorCode) realpathErrors.push({ path: p, errorCode: r.errorCode });
+    return r.value;
+  };
+
   if (comValue == null || comValue === '') {
-    return { tier: comValue === '' ? 'com-empty' : 'com-null', matchedVia: null, secondaryMatchTier: null };
+    return { tier: comValue === '' ? 'com-empty' : 'com-null', matchedVia: null, secondaryMatchTier: null, realpathErrors };
   }
   if (candidates.length === 0) {
-    return { tier: 'parser-empty', matchedVia: null, secondaryMatchTier: null };
+    return { tier: 'parser-empty', matchedVia: null, secondaryMatchTier: null, realpathErrors };
   }
 
   const primary = candidates[0];
   const secondary = candidates.slice(1);
 
-  if (primary.value === comValue) return { tier: 'exact', matchedVia: primary.source, secondaryMatchTier: null };
+  if (primary.value === comValue) return { tier: 'exact', matchedVia: primary.source, secondaryMatchTier: null, realpathErrors };
   if (primary.value.toLowerCase() === comValue.toLowerCase()) {
-    return { tier: 'case-insensitive', matchedVia: primary.source, secondaryMatchTier: null };
+    return { tier: 'case-insensitive', matchedVia: primary.source, secondaryMatchTier: null, realpathErrors };
   }
-  const comReal = realpathOrNull(comValue);
+  const comReal = trackRealpath(comValue);
   if (comReal) {
-    const primaryReal = realpathOrNull(primary.value);
-    if (primaryReal && primaryReal === comReal) return { tier: 'realpath', matchedVia: primary.source, secondaryMatchTier: null };
+    const primaryReal = trackRealpath(primary.value);
+    if (primaryReal && primaryReal === comReal) return { tier: 'realpath', matchedVia: primary.source, secondaryMatchTier: null, realpathErrors };
   }
 
   for (const c of secondary) {
-    if (c.value === comValue) return { tier: 'matched-only-via-secondary-candidate', matchedVia: c.source, secondaryMatchTier: 'exact' };
+    if (c.value === comValue) return { tier: 'matched-only-via-secondary-candidate', matchedVia: c.source, secondaryMatchTier: 'exact', realpathErrors };
   }
   for (const c of secondary) {
     if (c.value.toLowerCase() === comValue.toLowerCase()) {
-      return { tier: 'matched-only-via-secondary-candidate', matchedVia: c.source, secondaryMatchTier: 'case-insensitive' };
+      return { tier: 'matched-only-via-secondary-candidate', matchedVia: c.source, secondaryMatchTier: 'case-insensitive', realpathErrors };
     }
   }
   if (comReal) {
     for (const c of secondary) {
-      const cReal = realpathOrNull(c.value);
-      if (cReal && cReal === comReal) return { tier: 'matched-only-via-secondary-candidate', matchedVia: c.source, secondaryMatchTier: 'realpath' };
+      const cReal = trackRealpath(c.value);
+      if (cReal && cReal === comReal) return { tier: 'matched-only-via-secondary-candidate', matchedVia: c.source, secondaryMatchTier: 'realpath', realpathErrors };
     }
   }
 
-  return { tier: 'mismatch', matchedVia: null, secondaryMatchTier: null };
+  return { tier: 'mismatch', matchedVia: null, secondaryMatchTier: null, realpathErrors };
 }
 
 /** Reads every file in `files` and parses it, with I/O failures and parser
@@ -180,7 +208,7 @@ function runParserPass(files) {
       results.set(f, {
         valid: false, rejectReason: null, ioError: `read error: ${err.message}`,
         flags: {}, candidates: [], resolvedTargetPath: null,
-        category: { envVar: false, unc: false, msiAdvertised: false, idListOnly: false },
+        category: { envVar: false, unc: false, msiAdvertised: false, idListOnly: false, noUsablePathSource: false },
       });
       continue;
     }
@@ -192,7 +220,7 @@ function runParserPass(files) {
         valid: false, rejectReason: null,
         parserException: `parser threw unexpectedly (this is a parser bug, not a corrupt-file rejection): ${err.message}`,
         flags: {}, candidates: [], resolvedTargetPath: null,
-        category: { envVar: false, unc: false, msiAdvertised: false, idListOnly: false },
+        category: { envVar: false, unc: false, msiAdvertised: false, idListOnly: false, noUsablePathSource: false },
       };
     }
     results.set(f, parsed);
@@ -238,16 +266,27 @@ function runComPass(files) {
  * shell-item .lnk would carry in its IDList. This is a genuinely
  * reproducible probe backing the "zero UWP .lnk files on this machine"
  * finding -- round-2 minor finding 7 flagged that the ADR asserted this
- * scan's result without it existing anywhere in the committed script. */
+ * scan's result without it existing anywhere in the committed script.
+ *
+ * An unreadable file is recorded into `unreadable`/`unreadableRows`
+ * instead of being silently skipped -- round-3 major finding 2: the
+ * previous version's bare `catch { continue; }` meant an EACCES/EPERM
+ * file would vanish from both the numerator AND the printed denominator
+ * (files.length), so "0/182" could be printed even when N files were
+ * never actually scanned. `scanned` is the count this function actually
+ * read, and callers must report hits against THAT denominator, not
+ * files.length. */
 function scanForUwpMarkers(files) {
   let appsFolderHits = 0;
   let bangAppHits = 0;
   const rows = [];
+  const unreadableRows = [];
   for (const f of files) {
     let buf;
     try {
       buf = readFileSync(f);
-    } catch {
+    } catch (err) {
+      unreadableRows.push({ path: f, code: err.code ?? 'UNKNOWN', message: err.message });
       continue;
     }
     const latin1 = buf.toString('latin1');
@@ -258,7 +297,14 @@ function scanForUwpMarkers(files) {
     if (hasBangApp) bangAppHits += 1;
     if (hasAppsFolder || hasBangApp) rows.push({ path: f, hasAppsFolder, hasBangApp });
   }
-  return { appsFolderHits, bangAppHits, rows };
+  return {
+    appsFolderHits,
+    bangAppHits,
+    scanned: files.length - unreadableRows.length,
+    unreadable: unreadableRows.length,
+    unreadableRows,
+    rows,
+  };
 }
 
 async function main() {
@@ -313,14 +359,28 @@ async function main() {
   const comWarmStats = stats(comLoopWarmMs);
   const speedupRatiosPerIteration = nodeWarmMs.map((n, i) => comLoopWarmMs[i] / n);
   const speedupWarmStats = stats(speedupRatiosPerIteration);
-  const speedupCold = cold.comLoopOnlyMs / cold.nodeParserMs;
+  // No speedup ratio is derived from iteration 0. Round-3 blocker 1: a
+  // rigorous re-run split the "cold" pass into two genuinely-fresh runs
+  // (nothing had touched the files beforehand) and got a 2.2x speedup on
+  // the first and 12.5x on the second, with COM's own loop-only time
+  // moving in the OPPOSITE direction between the two runs (310.2ms then
+  // 420.4ms) while Node's moved sharply faster (140.72ms then 33.74ms).
+  // That is the OS file-cache warming up under repeated runs of the SAME
+  // 182 files, not measurement noise -- and it means any single-run
+  // "cold speedup" figure, including the 10.2x this script used to print
+  // and the previously-claimed 9.5x-10.2x range, was bracketed from
+  // outside on both sides by a genuinely-cold run. The mechanism: this
+  // iteration runs the Node parser FIRST, so Node absorbs every file's
+  // first-touch disk read, and COM then reads a cache Node just warmed --
+  // structurally biased in Node's favor, not a fair comparison. See
+  // docs/adr/0003, round-3 fix 1.
 
-  console.log('--- Timing: cold (n=1, first pass; Node parser ran BEFORE COM, so COM was not measured on a cold OS file cache in this harness) ---');
+  console.log('--- Timing: iteration 0 (n=1, first pass; NOT a fair cold-vs-warm comparison -- see note below) ---');
   console.log(`Baseline (research, prior run, different file count -- see docs/adr/0003 for the unreconciled 149-vs-${files.length} denominator): ${BASELINE_COUNT} shortcuts, ${BASELINE_MS} ms total, ${BASELINE_MS_PER_ITEM.toFixed(2)} ms/shortcut`);
-  console.log(`COM loop-only (cold): ${files.length} shortcuts, ${cold.comLoopOnlyMs.toFixed(1)} ms total, ${(cold.comLoopOnlyMs / files.length).toFixed(2)} ms/shortcut`);
-  console.log(`COM wall incl. PowerShell startup + COM instantiation (cold): ${cold.comWallMs.toFixed(1)} ms total`);
-  console.log(`Node binary parser (cold): ${files.length} shortcuts, ${cold.nodeParserMs.toFixed(2)} ms total, ${(cold.nodeParserMs / files.length).toFixed(4)} ms/shortcut`);
-  console.log(`Speedup (cold, COM loop-only / Node parser): ${speedupCold.toFixed(1)}x\n`);
+  console.log(`COM loop-only (iteration 0): ${files.length} shortcuts, ${cold.comLoopOnlyMs.toFixed(1)} ms total, ${(cold.comLoopOnlyMs / files.length).toFixed(2)} ms/shortcut`);
+  console.log(`COM wall incl. PowerShell startup + COM instantiation (iteration 0): ${cold.comWallMs.toFixed(1)} ms total`);
+  console.log(`Node binary parser (iteration 0): ${files.length} shortcuts, ${cold.nodeParserMs.toFixed(2)} ms total, ${(cold.nodeParserMs / files.length).toFixed(4)} ms/shortcut`);
+  console.log('NOTE: no speedup ratio is printed for iteration 0. The Node parser runs BEFORE COM in this iteration, so Node absorbs every file\'s first-touch disk read and COM then reads a cache Node just warmed -- structurally biased toward Node, not a like-for-like comparison. A genuinely first-touch run on this machine produced speedups ranging 2.2x-12.5x across two attempts, moving in opposite directions for Node vs COM between runs. Only the warm figures below (n=5, cache already stable) are used as a speedup claim. See docs/adr/0003, round-3 fix 1.\n');
 
   console.log(`--- Timing: warm (n=${TIMED_ITERATIONS}, after ${WARMUP_ITERATIONS} discarded warmup iteration -- warmup changes the profile, do not compare a cold number against a warm one) ---`);
   console.log(`Node parser: median ${nodeWarmStats.median.toFixed(2)} ms, min ${nodeWarmStats.min.toFixed(2)}, max ${nodeWarmStats.max.toFixed(2)}, stddev ${nodeWarmStats.stddev.toFixed(2)} -- raw: [${nodeWarmMs.map((x) => x.toFixed(2)).join(', ')}]`);
@@ -340,7 +400,8 @@ async function main() {
   };
   const mismatches = [];
   const secondaryOnlyMatches = [];
-  const categoryCensus = { envVar: 0, unc: 0, msiAdvertised: 0, idListOnly: 0, invalidFile: 0, ioError: 0, parserException: 0 };
+  const realpathErrors = [];
+  const categoryCensus = { envVar: 0, unc: 0, msiAdvertised: 0, idListOnly: 0, noUsablePathSource: 0, invalidFile: 0, ioError: 0, parserException: 0 };
   const rows = [];
   let forceNoLinkInfoCount = 0;
 
@@ -357,6 +418,7 @@ async function main() {
       if (bin.category.unc) categoryCensus.unc += 1;
       if (bin.category.msiAdvertised) categoryCensus.msiAdvertised += 1;
       if (bin.category.idListOnly) categoryCensus.idListOnly += 1;
+      if (bin.category.noUsablePathSource) categoryCensus.noUsablePathSource += 1;
       if (bin.flags && bin.flags.ForceNoLinkInfo) forceNoLinkInfoCount += 1;
     }
 
@@ -403,11 +465,21 @@ async function main() {
       comparisonTier: cmp.tier,
       matchedVia: cmp.matchedVia,
       secondaryMatchTier: cmp.secondaryMatchTier,
+      realpathErrors: cmp.realpathErrors.length > 0 ? cmp.realpathErrors : null,
     };
     rows.push(row);
 
     if (cmp.tier === 'mismatch') mismatches.push(row);
     if (cmp.tier === 'matched-only-via-secondary-candidate') secondaryOnlyMatches.push(row);
+    if (cmp.realpathErrors.length > 0) {
+      for (const e of cmp.realpathErrors) realpathErrors.push({ path: f, ...e });
+    }
+  }
+
+  if (realpathErrors.length > 0) {
+    console.log(`WARNING: ${realpathErrors.length} realpath lookup(s) failed with a non-ENOENT/ENOTDIR error during comparison -- a mismatch on these rows may be caused by an unreadable target, not a wrong path (round-3 minor finding 6):`);
+    for (const e of realpathErrors) console.log(`  ${e.path} -- ${e.errorCode}`);
+    console.log('');
   }
 
   console.log('--- Agreement (against the PARSER\'S PRIMARY output; a match found only via a secondary candidate is its own tier, not folded into exact) ---');
@@ -426,8 +498,18 @@ async function main() {
   // whose only guaranteed property is "candidates.length === 0" for ANY
   // reason (invalid file, I/O error, a future parse failure). Round-2
   // minor finding 8.
-  const idListOnlyGapRows = rows.filter((r) => r.comparisonTier === 'parser-empty' && r.category && r.category.idListOnly);
-  const unexpectedParserEmptyRows = rows.filter((r) => r.comparisonTier === 'parser-empty' && !(r.category && r.category.idListOnly));
+  //
+  // Classification uses category.noUsablePathSource, NOT category.idListOnly
+  // (round-3 minor finding 7): idListOnly is a narrower structural
+  // predicate (HasLinkTargetIDList && !HasLinkInfo) that disagrees with
+  // what the candidate builder actually does whenever LinkInfo is present
+  // but ForceNoLinkInfo'd with no env-var fallback -- that shape reads
+  // idListOnly: false while still producing zero candidates, which used to
+  // fall through into unexpectedParserEmptyGapCount as an unexplained gap.
+  // noUsablePathSource is derived from candidates.length itself, so it
+  // cannot drift from what the parser actually resolved.
+  const idListOnlyGapRows = rows.filter((r) => r.comparisonTier === 'parser-empty' && r.category && r.category.noUsablePathSource);
+  const unexpectedParserEmptyRows = rows.filter((r) => r.comparisonTier === 'parser-empty' && !(r.category && r.category.noUsablePathSource));
   const idListOnlyGapCount = idListOnlyGapRows.length;
   const unexpectedParserEmptyGapCount = unexpectedParserEmptyRows.length;
 
@@ -438,15 +520,19 @@ async function main() {
   console.log(`  HasExpString (environment-variable target):                ${categoryCensus.envVar}`);
   console.log(`  UNC target (CommonNetworkRelativeLink present):            ${categoryCensus.unc}`);
   console.log(`  HasDarwinID (MSI-advertised shortcut):                     ${categoryCensus.msiAdvertised}`);
-  console.log(`  IDList-only, no LinkInfo (UWP-shaped .lnk):                ${categoryCensus.idListOnly}`);
+  console.log(`  IDList-only, no LinkInfo AT ALL (UWP-shaped .lnk):         ${categoryCensus.idListOnly}`);
+  console.log(`  No usable target-path source (gap classification field):  ${categoryCensus.noUsablePathSource}`);
   console.log(`  ForceNoLinkInfo tripped (checked and honored):             ${forceNoLinkInfoCount}`);
   if (categoryCensus.idListOnly === 0) {
     console.log('  Zero IDList-only shortcuts is the expected finding for THIS file set (see UWP marker scan below), not a parser gap.');
   } else {
     console.log(`  ${categoryCensus.idListOnly} IDList-only shortcut(s) exist -- this IS the coverage gap documented in docs/adr/0003, not an "expected zero".`);
   }
+  if (categoryCensus.noUsablePathSource !== categoryCensus.idListOnly) {
+    console.log(`  NOTE: noUsablePathSource (${categoryCensus.noUsablePathSource}) != idListOnly (${categoryCensus.idListOnly}) -- at least one shortcut has LinkInfo present but unusable (ForceNoLinkInfo) with no env-var fallback (round-3 minor finding 7); see rows with category.noUsablePathSource=true, category.idListOnly=false in the JSON.`);
+  }
   if (unexpectedParserEmptyGapCount > 0) {
-    console.log(`  WARNING: ${unexpectedParserEmptyGapCount} shortcut(s) produced no candidate for a reason OTHER than IDList-only -- see unexpectedParserEmptyRows in the JSON.`);
+    console.log(`  WARNING: ${unexpectedParserEmptyGapCount} shortcut(s) produced no candidate for a reason OTHER than "no usable target-path source" -- see unexpectedParserEmptyRows in the JSON.`);
   }
   console.log('');
 
@@ -454,8 +540,12 @@ async function main() {
   // assertion in prose (round-2 minor finding 7). ---
   const uwpScan = scanForUwpMarkers(files);
   console.log('--- UWP/Store shell-item marker scan (raw bytes, both UTF-16LE and Latin-1 decodings) ---');
-  console.log(`  "AppsFolder" byte-pattern found in: ${uwpScan.appsFolderHits}/${files.length} .lnk files`);
-  console.log(`  "!App" (AUMID suffix) byte-pattern found in: ${uwpScan.bangAppHits}/${files.length} .lnk files`);
+  if (uwpScan.unreadable > 0) {
+    console.log(`WARNING: ${uwpScan.unreadable} .lnk file(s) could not be read for this scan -- the scanned set is UNDER-counted, denominator below is files ACTUALLY READ, not files enumerated:`);
+    for (const e of uwpScan.unreadableRows) console.log(`  ${e.path} -- ${e.code}: ${e.message}`);
+  }
+  console.log(`  "AppsFolder" byte-pattern found in: ${uwpScan.appsFolderHits}/${uwpScan.scanned} .lnk files actually read (${uwpScan.unreadable} unreadable, ${files.length} enumerated)`);
+  console.log(`  "!App" (AUMID suffix) byte-pattern found in: ${uwpScan.bangAppHits}/${uwpScan.scanned} .lnk files actually read (${uwpScan.unreadable} unreadable, ${files.length} enumerated)`);
   console.log(uwpScan.appsFolderHits === 0 && uwpScan.bangAppHits === 0
     ? '  Zero hits: consistent with real UWP/Store Start Menu tiles not being .lnk files at all (they resolve through shell:AppsFolder -- PROOF-02\'s scope). This is the expected finding, stated as its own claim, not conflated with the IDList-only census above.'
     : '  Non-zero hits: at least one .lnk on this machine carries a UWP/Store shell-item marker -- see uwpMarkerScan.rows in the JSON report.');
@@ -542,12 +632,11 @@ async function main() {
     dirErrors,
     thisRun: {
       count: files.length,
-      cold: {
-        note: 'n=1, first pass, Node parser BEFORE COM (original ordering) -- COM was NOT measured on a cold OS file cache in this harness',
+      iteration0: {
+        note: 'n=1, first pass. NOT a fair cold-vs-warm comparison: this iteration runs the Node parser BEFORE COM (original ordering, kept for continuity), so Node absorbs every first-touch disk read for these files and COM then reads a cache Node just warmed. No speedup ratio is derived from this iteration -- round-3 blocker 1 found the previously-printed 10.2x (and the previously-claimed 9.5x-10.2x range) does not reproduce on a genuinely first-touch run: two fresh attempts on this machine gave 2.2x and 12.5x, moving in opposite directions between runs for Node vs COM. See docs/adr/0003, round-3 fix 1.',
         comLoopOnlyMs: cold.comLoopOnlyMs,
         comWallMs: cold.comWallMs,
         nodeParserMs: cold.nodeParserMs,
-        speedupComLoopOverNode: speedupCold,
       },
       warm: {
         n: TIMED_ITERATIONS,
@@ -568,13 +657,14 @@ async function main() {
       unexpectedParserEmptyGapCount,
       note: `${tierCounts.exact} of ${comSuccess} COM-resolved shortcuts matched exactly on the parser's PRIMARY output. `
         + `${secondaryOnlyMatches.length} matched only via a non-primary candidate (a weaker, separately-counted finding). `
-        + `${idListOnlyGapCount} are the honest IDList-only coverage gap (parser correctly returns no candidate). `
+        + `${idListOnlyGapCount} are the honest "no usable target-path source" coverage gap (parser correctly returns no candidate; classified via category.noUsablePathSource, not category.idListOnly -- round-3 minor finding 7). `
         + (unexpectedParserEmptyGapCount > 0
-          ? `${unexpectedParserEmptyGapCount} produced no candidate for a reason OTHER than IDList-only -- investigate.`
-          : 'Zero parser-empty rows outside the IDList-only gap.'),
+          ? `${unexpectedParserEmptyGapCount} produced no candidate for a reason OTHER than that -- investigate.`
+          : 'Zero parser-empty rows outside that gap.'),
     },
     categoryCensus,
     forceNoLinkInfoCount,
+    realpathErrors,
     uwpMarkerScan: uwpScan,
     envSnapshot,
     rows,
@@ -587,16 +677,34 @@ async function main() {
 
   if (mismatches.length > 0) {
     console.log('\nRESULT: parser produced NO matching candidate at all for at least one shortcut -- see MISMATCHES above. This is a real regression.');
-    process.exitCode = 1;
   } else if (secondaryOnlyMatches.length > 0) {
     console.log(`\nRESULT: ${secondaryOnlyMatches.length} shortcut(s) only matched via a secondary candidate -- the parser's actual (primary) output disagrees with COM on those. See MATCHED-ONLY-VIA-SECONDARY-CANDIDATE above. This is a real finding, not a pass.`);
-    process.exitCode = 1;
   } else if (idListOnlyGapCount > 0 || unexpectedParserEmptyGapCount > 0) {
     console.log(`\nRESULT: zero mismatches, zero secondary-only matches. ${tierCounts.exact} of ${comSuccess} COM-resolved shortcuts matched exactly on the primary output. `
-      + `${idListOnlyGapCount} IDList-only shortcuts are an honest coverage gap (parser abstains, does not guess)`
-      + (unexpectedParserEmptyGapCount > 0 ? `; ${unexpectedParserEmptyGapCount} additional gap(s) are NOT IDList-only and need investigation.` : ' -- PLAT-10 needs a COM/IShellLinkW fallback for these, per docs/adr/0003.'));
+      + `${idListOnlyGapCount} shortcut(s) with no usable target-path source are an honest coverage gap (parser abstains, does not guess)`
+      + (unexpectedParserEmptyGapCount > 0 ? `; ${unexpectedParserEmptyGapCount} additional gap(s) are NOT accounted for by that classification and need investigation.` : ' -- PLAT-10 needs a COM/IShellLinkW fallback for these, per docs/adr/0003.'));
   } else {
     console.log('\nRESULT: parser\'s primary output matches COM output for every shortcut COM resolved, with full coverage.');
+  }
+
+  // Exit code is decided ONCE, independently of which RESULT branch printed
+  // above, from every condition this script treats as a gate failure.
+  // idListOnlyGapCount is deliberately NOT one of them: it is the accepted,
+  // honestly-scoped coverage gap (8/182 on this machine), and gating on it
+  // would make exit 1 the permanent normal state for a clean run instead of
+  // a signal something regressed. dirErrors and unexpectedParserEmptyGapCount
+  // WERE printed as WARNING/investigate above in round 2 but did not move
+  // the exit code -- a half-fix this round closes (round-3 minor finding 5):
+  // a permission-denied Start Menu subtree, or a parser-empty row with no
+  // IDList/no-usable-source explanation, must not be mistakable for a clean
+  // reproduction just because the script happened to exit 0.
+  if (
+    mismatches.length > 0
+    || secondaryOnlyMatches.length > 0
+    || dirErrors.length > 0
+    || unexpectedParserEmptyGapCount > 0
+  ) {
+    process.exitCode = 1;
   }
 }
 

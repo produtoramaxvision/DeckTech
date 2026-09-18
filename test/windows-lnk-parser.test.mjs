@@ -1,19 +1,28 @@
 // test/windows-lnk-parser.test.mjs
 //
-// Regression guards for PROOF-03 round-2 review findings. Platform-
-// independent by design: every .lnk buffer here is built synthetically in
-// this file (not read from a real Start Menu shortcut), so this suite runs
-// on any OS and needs no machine-specific fixture.
+// Regression guards for PROOF-03 round-2 and round-3 review findings.
+// Platform-independent by design: every .lnk buffer here is built
+// synthetically in this file (not read from a real Start Menu shortcut),
+// so this suite runs on any OS and needs no machine-specific fixture.
 //
 // Guarded defects (docs/adr/0003-proof-03-lnk-binary-parsing.md):
 //
-//   - Blocker 1: resolvedTargetPath for an environment-variable shortcut
-//     must be the EXPANDED form, not the raw '%VAR%' string, and
+//   - Round-2 blocker 1: resolvedTargetPath for an environment-variable
+//     shortcut must be the EXPANDED form, not the raw '%VAR%' string, and
 //     compareTiered() must not report 'exact' when the only match is
 //     found via a non-primary (secondary/diagnostic) candidate.
-//   - Major 4: a truncated or size-lying .lnk must return a structured
-//     {valid:false, rejectReason} naming the structure/offset involved,
-//     never throw a raw RangeError.
+//   - Round-2 major 4: a truncated or size-lying .lnk must return a
+//     structured {valid:false, rejectReason} naming the structure/offset
+//     involved, never throw a raw RangeError.
+//   - Round-3 minor 4: the ANSI half of the blocker-1 fix (env-expanded-ansi
+//     ranked ahead of env-raw-ansi) was untested -- every existing env-var
+//     test always populates targetUnicode, so the Unicode branch always won
+//     and lines 486-487 of lnk-parser.mjs never executed in this suite.
+//   - Round-3 minor 7: category.idListOnly did not account for
+//     ForceNoLinkInfo, so a shortcut with LinkInfo present-but-ignored and
+//     no env-var fallback produced zero candidates while still reading
+//     idListOnly: false -- silently landing in unexpectedParserEmptyGapCount
+//     instead of the accepted coverage-gap bucket.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -70,6 +79,45 @@ test('resolvedTargetPath for an env-var shortcut is the EXPANDED form, not the r
     assert.equal(parsed.candidates[0].source, 'env-expanded');
     assert.equal(parsed.candidates[0].value, 'C:\\Fake\\Expanded\\Dir\\sub\\app.exe');
     assert.equal(parsed.candidates[1].source, 'env-raw');
+    assert.equal(parsed.candidates[1].value, raw);
+  } finally {
+    delete process.env.DECKTECH_TEST_LNK_VAR;
+  }
+});
+
+test('resolvedTargetPath for an env-var shortcut falls back to the ANSI form when the Unicode field is empty (all-NUL) -- round-3 minor finding 4', () => {
+  // buildEnvBlock always populates BOTH the ANSI and Unicode fields, so it
+  // always exercises lnk-parser.mjs's `if (envBlock.targetUnicode)` branch
+  // (line 482) and never the `else if (envBlock.targetAnsi)` branch (lines
+  // 486-487) -- the exact defect class round-2 blocker 1 was about, left
+  // untested in its ANSI twin. This builds a full-size (0x314) block whose
+  // TargetUnicode field is left all-NUL (Buffer.alloc default), so
+  // readNulTerminatedUtf16 returns '' (falsy) and the ANSI branch must win.
+  process.env.DECKTECH_TEST_LNK_VAR = 'C:\\Fake\\Ansi\\Dir';
+  try {
+    const raw = '%DECKTECH_TEST_LNK_VAR%\\sub\\app.exe';
+    const BLOCK_SIZE = 0x314;
+    const envBlockBuf = Buffer.alloc(BLOCK_SIZE);
+    envBlockBuf.writeUInt32LE(BLOCK_SIZE, 0); // BlockSize
+    envBlockBuf.writeUInt32LE(0xa0000001, 4); // BlockSignature (EnvironmentVariableDataBlock)
+    Buffer.from(raw, 'latin1').copy(envBlockBuf, 8); // TargetAnsi only -- TargetUnicode (offset 268) stays all-NUL
+    const buf = Buffer.concat([buildHeader(HAS_EXP_STRING), envBlockBuf]);
+    const parsed = parseLnk(buf);
+
+    assert.equal(parsed.valid, true);
+    assert.equal(parsed.category.envVar, true);
+    assert.equal(
+      parsed.candidates[0].source,
+      'env-expanded-ansi',
+      'the ANSI branch (lnk-parser.mjs:486-487) must produce the PRIMARY candidate when TargetUnicode is empty -- if this reads "env-raw-ansi", the two push() calls were swapped back',
+    );
+    assert.equal(parsed.candidates[0].value, 'C:\\Fake\\Ansi\\Dir\\sub\\app.exe');
+    assert.equal(
+      parsed.resolvedTargetPath,
+      'C:\\Fake\\Ansi\\Dir\\sub\\app.exe',
+      'resolvedTargetPath must be the EXPANDED ansi form, not the raw %VAR% string',
+    );
+    assert.equal(parsed.candidates[1].source, 'env-raw-ansi');
     assert.equal(parsed.candidates[1].value, raw);
   } finally {
     delete process.env.DECKTECH_TEST_LNK_VAR;
@@ -140,6 +188,55 @@ test('a .lnk truncated right after the header (HasLinkInfo set, no LinkInfo byte
   });
   assert.equal(parsed.valid, false);
   assert.match(parsed.rejectReason, /LinkInfo/);
+});
+
+test('a shortcut with LinkInfo present but ForceNoLinkInfo set, no env block, has zero candidates and is classified noUsablePathSource, NOT idListOnly -- round-3 minor finding 7', () => {
+  const HAS_LINK_TARGET_IDLIST = 1 << 0;
+  const HAS_LINK_INFO = 1 << 1;
+  const FORCE_NO_LINK_INFO = 1 << 8;
+  const flags = HAS_LINK_TARGET_IDLIST | HAS_LINK_INFO | FORCE_NO_LINK_INFO;
+
+  // Empty LinkTargetIDList (IDListSize = 0) -- just needs to be
+  // structurally present so HasLinkTargetIDList is meaningfully true.
+  const idListSizeField = Buffer.alloc(2);
+  idListSizeField.writeUInt16LE(0, 0);
+
+  // Minimal 0x1c-byte LinkInfo header (LinkInfoHeaderSize < 0x24, so the
+  // Unicode offset fields are never read) with every offset zeroed --
+  // content is irrelevant here because ForceNoLinkInfo makes the candidate
+  // builder ignore this structure entirely regardless of what it contains.
+  const linkInfo = Buffer.alloc(0x1c);
+  linkInfo.writeUInt32LE(0x1c, 0); // LinkInfoSize
+  linkInfo.writeUInt32LE(0x1c, 4); // LinkInfoHeaderSize
+  linkInfo.writeUInt32LE(0, 8); // LinkInfoFlags: no VolumeIDAndLocalBasePath, no CNRL
+  linkInfo.writeUInt32LE(0, 12); // VolumeIDOffset
+  linkInfo.writeUInt32LE(0, 16); // LocalBasePathOffset
+  linkInfo.writeUInt32LE(0, 20); // CommonNetworkRelativeLinkOffset
+  linkInfo.writeUInt32LE(0, 24); // CommonPathSuffixOffset
+
+  const buf = Buffer.concat([buildHeader(flags), idListSizeField, linkInfo]);
+  const parsed = parseLnk(buf);
+
+  assert.equal(parsed.valid, true);
+  assert.equal(parsed.flags.HasLinkTargetIDList, true);
+  assert.equal(parsed.flags.HasLinkInfo, true);
+  assert.equal(parsed.flags.ForceNoLinkInfo, true);
+  assert.equal(
+    parsed.candidates.length,
+    0,
+    'ForceNoLinkInfo must make LinkInfo unusable, and there is no env block to fall back to -- zero candidates',
+  );
+  assert.equal(parsed.resolvedTargetPath, null);
+  assert.equal(
+    parsed.category.idListOnly,
+    false,
+    'HasLinkInfo is true, so the narrower structural idListOnly predicate (HasLinkTargetIDList && !HasLinkInfo) must stay false -- this is precisely the drift case round-3 finding 7 identified',
+  );
+  assert.equal(
+    parsed.category.noUsablePathSource,
+    true,
+    'candidates.length === 0 despite HasLinkInfo being true (ForceNoLinkInfo strips it) -- this row must be classified into the honest coverage-gap bucket, not fall through into unexpectedParserEmptyGapCount',
+  );
 });
 
 test('expandEnvVars is case-insensitive and leaves unknown %VAR% references untouched', () => {

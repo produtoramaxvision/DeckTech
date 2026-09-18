@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T01:03:51.123Z",
+  "generatedAt": "2026-09-18T01:32:11.679Z",
   "baseline": {
     "count": 149,
     "totalMs": 2395,
@@ -9,54 +9,53 @@
   "dirErrors": [],
   "thisRun": {
     "count": 182,
-    "cold": {
-      "note": "n=1, first pass, Node parser BEFORE COM (original ordering) -- COM was NOT measured on a cold OS file cache in this harness",
-      "comLoopOnlyMs": 260.5758,
-      "comWallMs": 666.1191,
-      "nodeParserMs": 25.6613,
-      "speedupComLoopOverNode": 10.154427094496382
+    "iteration0": {
+      "note": "n=1, first pass. NOT a fair cold-vs-warm comparison: this iteration runs the Node parser BEFORE COM (original ordering, kept for continuity), so Node absorbs every first-touch disk read for these files and COM then reads a cache Node just warmed. No speedup ratio is derived from this iteration -- round-3 blocker 1 found the previously-printed 10.2x (and the previously-claimed 9.5x-10.2x range) does not reproduce on a genuinely first-touch run: two fresh attempts on this machine gave 2.2x and 12.5x, moving in opposite directions between runs for Node vs COM. See docs/adr/0003, round-3 fix 1.",
+      "comLoopOnlyMs": 449.9112,
+      "comWallMs": 908.2342,
+      "nodeParserMs": 54.6086
     },
     "warm": {
       "n": 5,
       "warmupIterationsDiscarded": 1,
       "nodeParserMs": {
-        "median": 19.0151,
-        "min": 16.7822,
-        "max": 22.5839,
-        "stddev": 2.1514007256668854,
+        "median": 20.6862,
+        "min": 18.8791,
+        "max": 24.2483,
+        "stddev": 1.937241448658375,
         "raw": [
-          19.0151,
-          16.7822,
-          17.6037,
-          21.0668,
-          22.5839
+          21.5827,
+          24.2483,
+          18.8791,
+          20.6862,
+          19.1799
         ]
       },
-      "nodeParserMsPerItemMedian": 0.10447857142857143,
+      "nodeParserMsPerItemMedian": 0.11366043956043956,
       "comLoopOnlyMs": {
-        "median": 273.129,
-        "min": 230.5343,
-        "max": 325.6415,
-        "stddev": 41.2969151480834,
+        "median": 310.1538,
+        "min": 281.0656,
+        "max": 395.8396,
+        "stddev": 41.31930005053813,
         "raw": [
-          230.5343,
-          231.09380000000002,
-          325.6415,
-          273.129,
-          320.3969
+          395.8396,
+          281.0656,
+          310.1538,
+          285.6223,
+          316.0765
         ]
       },
       "speedupComLoopOverNode": {
-        "median": 13.770173159657258,
-        "min": 12.123749020515275,
-        "max": 18.49846907184285,
-        "stddev": 2.2108278955268266,
+        "median": 16.428420846332717,
+        "min": 11.591146595843833,
+        "max": 18.340596866935094,
+        "stddev": 2.3617415648117297,
         "raw": [
-          12.123749020515275,
-          13.770173159657258,
-          18.49846907184285,
-          12.964902120872653,
-          14.186960622390288
+          18.340596866935094,
+          11.591146595843833,
+          16.428420846332717,
+          13.807383666405624,
+          16.47956975792366
         ]
       }
     }
@@ -78,21 +77,26 @@
     "matchedOnlyViaSecondaryCandidateCount": 0,
     "idListOnlyGapCount": 8,
     "unexpectedParserEmptyGapCount": 0,
-    "note": "170 of 178 COM-resolved shortcuts matched exactly on the parser's PRIMARY output. 0 matched only via a non-primary candidate (a weaker, separately-counted finding). 8 are the honest IDList-only coverage gap (parser correctly returns no candidate). Zero parser-empty rows outside the IDList-only gap."
+    "note": "170 of 178 COM-resolved shortcuts matched exactly on the parser's PRIMARY output. 0 matched only via a non-primary candidate (a weaker, separately-counted finding). 8 are the honest \"no usable target-path source\" coverage gap (parser correctly returns no candidate; classified via category.noUsablePathSource, not category.idListOnly -- round-3 minor finding 7). Zero parser-empty rows outside that gap."
   },
   "categoryCensus": {
     "envVar": 42,
     "unc": 0,
     "msiAdvertised": 1,
     "idListOnly": 12,
+    "noUsablePathSource": 12,
     "invalidFile": 0,
     "ioError": 0,
     "parserException": 0
   },
   "forceNoLinkInfoCount": 38,
+  "realpathErrors": [],
   "uwpMarkerScan": {
     "appsFolderHits": 0,
     "bangAppHits": 0,
+    "scanned": 182,
+    "unreadable": 0,
+    "unreadableRows": [],
     "rows": []
   },
   "envSnapshot": {
@@ -157,11 +161,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Accessories\\Steps Recorder.lnk",
@@ -217,11 +223,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Accessories\\System Tools\\Character Map.lnk",
@@ -277,11 +285,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Component Services.lnk",
@@ -337,11 +347,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Computer Management.lnk",
@@ -397,11 +409,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Disk Cleanup.lnk",
@@ -457,11 +471,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Event Viewer.lnk",
@@ -517,11 +533,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Hyper-V Manager.lnk",
@@ -577,11 +595,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Memory Diagnostics Tool.lnk",
@@ -637,11 +657,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\ODBC Data Sources (32-bit).lnk",
@@ -697,11 +719,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\ODBC Data Sources (64-bit).lnk",
@@ -757,11 +781,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Performance Monitor.lnk",
@@ -817,11 +843,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Print Management.lnk",
@@ -877,11 +905,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\RecoveryDrive.lnk",
@@ -937,11 +967,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Registry Editor.lnk",
@@ -997,11 +1029,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Resource Monitor.lnk",
@@ -1057,11 +1091,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Security Configuration Management.lnk",
@@ -1117,11 +1153,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\System Configuration.lnk",
@@ -1177,11 +1215,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\System Information.lnk",
@@ -1237,11 +1277,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Task Scheduler.lnk",
@@ -1297,11 +1339,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\VMCreate.lnk",
@@ -1357,11 +1401,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\Windows Defender Firewall with Advanced Security.lnk",
@@ -1417,11 +1463,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\dfrgui.lnk",
@@ -1477,11 +1525,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\iSCSI Initiator.lnk",
@@ -1537,11 +1587,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools\\services.lnk",
@@ -1597,11 +1649,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Adobe Acrobat.lnk",
@@ -1656,11 +1710,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Adobe After Effects 2026.lnk",
@@ -1712,11 +1768,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Adobe Creative Cloud.lnk",
@@ -1770,11 +1828,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Adobe Illustrator 2026.lnk",
@@ -1826,11 +1886,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Adobe Media Encoder 2026.lnk",
@@ -1882,11 +1944,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Adobe Photoshop 2026.lnk",
@@ -1938,11 +2002,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Adobe Premiere Pro 2026.lnk",
@@ -1994,11 +2060,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Android Studio\\Android Studio.lnk",
@@ -2050,11 +2118,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\DJI Product\\DJI Assistant 2 (Consumer Drones Series)\\DJI Assistant 2 (Consumer Drones Series).lnk",
@@ -2108,11 +2178,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\DJI Product\\DJI Assistant 2 (Consumer Drones Series)\\Uninstall DJI Assistant 2 (Consumer Drones Series).lnk",
@@ -2166,11 +2238,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\DJI Product\\DJI Assistant 2 (DJI FPV series)\\DJI Assistant 2 (DJI FPV series).lnk",
@@ -2224,11 +2298,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\DJI Product\\DJI Assistant 2 (DJI FPV series)\\Uninstall DJI Assistant 2 (DJI FPV series).lnk",
@@ -2282,11 +2358,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Excel.lnk",
@@ -2341,11 +2419,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Ferramentas do Microsoft Office\\Preferências de Idioma do Office.lnk",
@@ -2400,11 +2480,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Firefox Navegação Privada.lnk",
@@ -2457,11 +2539,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Firefox.lnk",
@@ -2513,11 +2597,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Git\\Git Bash.lnk",
@@ -2570,11 +2656,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Git\\Git CMD.lnk",
@@ -2627,11 +2715,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Git\\Git GUI.lnk",
@@ -2684,11 +2774,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Git\\Git Release Notes.lnk",
@@ -2741,11 +2833,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Go Programming Language\\Uninstall Go.lnk",
@@ -2799,11 +2893,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Google Chrome.lnk",
@@ -2858,11 +2954,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Google Drive.lnk",
@@ -2917,11 +3015,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\HandBrake\\HandBrake.lnk",
@@ -2973,11 +3073,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\HandBrake\\Uninstall.lnk",
@@ -3025,11 +3127,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": true
+        "idListOnly": true,
+        "noUsablePathSource": true
       },
       "comparisonTier": "parser-empty",
       "matchedVia": null,
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\IObit Uninstaller.lnk",
@@ -3083,11 +3187,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\IObit Uninstaller\\IObit Uninstaller.lnk",
@@ -3141,11 +3247,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\IObit Uninstaller\\Uninstall IObit Uninstaller.lnk",
@@ -3199,11 +3307,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MPC-HC x64\\Desinstalar o MPC-HC.lnk",
@@ -3257,11 +3367,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MPC-HC x64\\MPC-HC x64.lnk",
@@ -3314,11 +3426,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon App\\Maxon.lnk",
@@ -3373,11 +3487,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon App\\StartUp\\MxNotify.lnk",
@@ -3432,11 +3548,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Commandline 2025.lnk",
@@ -3491,11 +3609,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Commandline 2026.lnk",
@@ -3550,11 +3670,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Maxon Cinema 4D 2025.lnk",
@@ -3609,11 +3731,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Maxon Cinema 4D 2026.lnk",
@@ -3668,11 +3792,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Team Render Client 2025.lnk",
@@ -3727,11 +3853,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Team Render Client 2026.lnk",
@@ -3786,11 +3914,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Team Render Server 2025.lnk",
@@ -3845,11 +3975,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon\\Maxon Cinema 4D\\Team Render Server 2026.lnk",
@@ -3904,11 +4036,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Mesa Digitalizadora Wacom\\Propriedades da mesa digitalizadora Wacom.lnk",
@@ -3961,11 +4095,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Mesa Digitalizadora Wacom\\Utilitário de atualização Wacom.lnk",
@@ -4018,11 +4154,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Mesa Digitalizadora Wacom\\Utilitário do Arquivo de Preferências da Mesa Digitalizadora Wacom.lnk",
@@ -4075,11 +4213,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Mesa Digitalizadora Wacom\\Wacom Center.lnk",
@@ -4132,11 +4272,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MobaXterm\\MobaDiff.lnk",
@@ -4185,11 +4327,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": true
+        "idListOnly": true,
+        "noUsablePathSource": true
       },
       "comparisonTier": "parser-empty",
       "matchedVia": null,
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MobaXterm\\MobaTextEditor.lnk",
@@ -4238,11 +4382,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": true
+        "idListOnly": true,
+        "noUsablePathSource": true
       },
       "comparisonTier": "parser-empty",
       "matchedVia": null,
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MobaXterm\\MobaXterm.lnk",
@@ -4297,11 +4443,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\MobaXterm\\Visit MobaXterm Website.lnk",
@@ -4345,11 +4493,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": true
+        "idListOnly": true,
+        "noUsablePathSource": true
       },
       "comparisonTier": "com-empty",
       "matchedVia": null,
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\NVIDIA Corporation\\NVIDIA App.lnk",
@@ -4403,11 +4553,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Node.js\\Install Additional Tools for Node.js.lnk",
@@ -4461,11 +4613,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Node.js\\Node.js command prompt.lnk",
@@ -4519,11 +4673,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Node.js\\Node.js.lnk",
@@ -4577,11 +4733,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Node.js\\Uninstall Node.js.lnk",
@@ -4635,11 +4793,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\OBS Studio.lnk",
@@ -4691,11 +4851,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\OneNote.lnk",
@@ -4750,11 +4912,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Outlook (classic).lnk",
@@ -4809,11 +4973,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\PowerPoint.lnk",
@@ -4868,11 +5034,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\PowerShell\\PowerShell 7 (x64).lnk",
@@ -4926,11 +5094,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\DENoise Manual.lnk",
@@ -4982,11 +5152,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\ReelSmart Motion Blur Manual.lnk",
@@ -5038,11 +5210,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\ReelSmart Motion Blur Pro Manual.lnk",
@@ -5094,11 +5268,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\ReelSmart Motion Blur Vector Manual.lnk",
@@ -5150,11 +5326,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\REVisionEffects\\REVision Effections\\Uninstall REVision Effections.lnk",
@@ -5206,11 +5384,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Riot Games\\League of Legends.lnk",
@@ -5256,11 +5436,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": true
+        "idListOnly": true,
+        "noUsablePathSource": true
       },
       "comparisonTier": "parser-empty",
       "matchedVia": null,
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Riot Games\\Riot Client.lnk",
@@ -5304,11 +5486,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": true
+        "idListOnly": true,
+        "noUsablePathSource": true
       },
       "comparisonTier": "parser-empty",
       "matchedVia": null,
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\Tailscale.lnk",
@@ -5363,11 +5547,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Steam\\Steam.lnk",
@@ -5421,11 +5607,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Sticky Notes (new).lnk",
@@ -5480,11 +5668,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools\\Task Manager.lnk",
@@ -5540,11 +5730,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Tailscale.lnk",
@@ -5599,11 +5791,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Topaz Video AI\\Topaz Video AI.lnk",
@@ -5650,11 +5844,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": true,
-        "idListOnly": true
+        "idListOnly": true,
+        "noUsablePathSource": true
       },
       "comparisonTier": "parser-empty",
       "matchedVia": null,
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Vibepollo\\Vibepollo.lnk",
@@ -5709,11 +5905,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\Debuggable Package Manager.lnk",
@@ -5767,11 +5965,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\Developer Command Prompt for VS 2022.lnk",
@@ -5834,11 +6034,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\Developer PowerShell for VS 2022.lnk",
@@ -5892,11 +6094,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\VC\\x64 Native Tools Command Prompt for VS 2022.lnk",
@@ -5959,11 +6163,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\VC\\x64_x86 Cross Tools Command Prompt for VS 2022.lnk",
@@ -6026,11 +6232,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\VC\\x86 Native Tools Command Prompt for VS 2022.lnk",
@@ -6093,11 +6301,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio 2022\\Visual Studio Tools\\VC\\x86_x64 Cross Tools Command Prompt for VS 2022.lnk",
@@ -6160,11 +6370,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio Installer.lnk",
@@ -6218,11 +6430,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\Console RAR manual.lnk",
@@ -6276,11 +6490,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\What is new in the latest version.lnk",
@@ -6334,11 +6550,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\WinRAR help.lnk",
@@ -6392,11 +6610,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\WinRAR.lnk",
@@ -6450,11 +6670,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Application Verifier (X64)\\Application Verifier (X64).lnk",
@@ -6508,11 +6730,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Application Verifier (X86)\\Application Verifier (WOW).lnk",
@@ -6566,11 +6790,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows App Certification Kit\\Windows App Cert Kit.lnk",
@@ -6624,11 +6850,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Documentation for Desktop Apps.lnk",
@@ -6682,11 +6910,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Documentation for UWP Apps.lnk",
@@ -6740,11 +6970,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Sample Desktop Apps.lnk",
@@ -6798,11 +7030,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Sample UWP Apps.lnk",
@@ -6856,11 +7090,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Tools for Desktop Apps.lnk",
@@ -6914,11 +7150,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Tools for UWP Apps.lnk",
@@ -6972,11 +7210,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows Kits\\Windows Software Development Kit\\Windows Software Development Kit.lnk",
@@ -7024,11 +7264,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": true
+        "idListOnly": true,
+        "noUsablePathSource": true
       },
       "comparisonTier": "parser-empty",
       "matchedVia": null,
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows PowerShell\\Windows PowerShell ISE (x86).lnk",
@@ -7084,11 +7326,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Windows PowerShell\\Windows PowerShell ISE.lnk",
@@ -7144,11 +7388,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Word.lnk",
@@ -7203,11 +7449,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\atkAudio Plugin\\Uninstall.lnk",
@@ -7259,11 +7507,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Accessibility\\LiveCaptions.lnk",
@@ -7319,11 +7569,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Accessibility\\Magnify.lnk",
@@ -7379,11 +7631,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Accessibility\\Narrator.lnk",
@@ -7439,11 +7693,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Accessibility\\On-Screen Keyboard.lnk",
@@ -7499,11 +7755,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Accessibility\\VoiceAccess.lnk",
@@ -7559,11 +7817,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Administrative Tools.lnk",
@@ -7619,11 +7879,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Antigravity.lnk",
@@ -7677,11 +7939,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Antigravity\\Antigravity IDE.lnk",
@@ -7734,11 +7998,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Antigravity\\Antigravity.lnk",
@@ -7791,11 +8057,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Aplicativos web do Firefox\\Claude.lnk",
@@ -7850,11 +8118,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Aplicativos web do Firefox\\Supabase Studio.lnk",
@@ -7909,11 +8179,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Betaflight\\Betaflight Configurator\\Betaflight Configurator.lnk",
@@ -7966,11 +8238,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Betaflight\\Betaflight Configurator\\Uninstall Betaflight Configurator.lnk",
@@ -8023,11 +8297,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Blender\\Blender 5.1.lnk",
@@ -8079,11 +8355,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Cursor.lnk",
@@ -8137,11 +8415,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Cursor\\Cursor.lnk",
@@ -8194,11 +8474,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Desligar servidor RTMP (Osmo).lnk",
@@ -8253,11 +8535,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Discord Inc\\Discord.lnk",
@@ -8312,11 +8596,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Discord.lnk",
@@ -8370,11 +8656,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Espelhar Galaxy S10e.lnk",
@@ -8429,11 +8717,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\ExpressLRS Configurator.lnk",
@@ -8487,11 +8777,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\File Explorer.lnk",
@@ -8537,11 +8829,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": true
+        "idListOnly": true,
+        "noUsablePathSource": true
       },
       "comparisonTier": "com-empty",
       "matchedVia": null,
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Firefox.lnk",
@@ -8596,11 +8890,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\GitHub, Inc\\GitHub Desktop.lnk",
@@ -8655,11 +8951,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Google Cloud SDK\\Google Cloud SDK Shell.lnk",
@@ -8707,11 +9005,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": true
+        "idListOnly": true,
+        "noUsablePathSource": true
       },
       "comparisonTier": "parser-empty",
       "matchedVia": null,
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\LANDrop.lnk",
@@ -8765,11 +9065,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Ligar servidor RTMP (Osmo).lnk",
@@ -8824,11 +9126,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\MSYS2\\MSYS2 CLANG64.lnk",
@@ -8881,11 +9185,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\MSYS2\\MSYS2 CLANGARM64.lnk",
@@ -8938,11 +9244,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\MSYS2\\MSYS2 MINGW64.lnk",
@@ -8995,11 +9303,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\MSYS2\\MSYS2 MSYS.lnk",
@@ -9052,11 +9362,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\MSYS2\\MSYS2 UCRT64.lnk",
@@ -9109,11 +9421,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\MaxVision Code Dev.lnk",
@@ -9167,11 +9481,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Maxon App\\Maxon Notifications.lnk",
@@ -9225,11 +9541,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Nightly Private Browsing.lnk",
@@ -9284,11 +9602,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Obsidian.lnk",
@@ -9342,11 +9662,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\OpenChatCut.lnk",
@@ -9400,11 +9722,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Openscreen.lnk",
@@ -9458,11 +9782,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Orca.lnk",
@@ -9516,11 +9842,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.12\\IDLE (Python 3.12 64-bit).lnk",
@@ -9575,11 +9903,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.12\\Python 3.12 (64-bit).lnk",
@@ -9633,11 +9963,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.12\\Python 3.12 Manuals (64-bit).lnk",
@@ -9691,11 +10023,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.12\\Python 3.12 Module Docs (64-bit).lnk",
@@ -9750,11 +10084,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.13\\IDLE (Python 3.13 64-bit).lnk",
@@ -9809,11 +10145,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.13\\Python 3.13 (64-bit).lnk",
@@ -9867,11 +10205,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.13\\Python 3.13 Manuals (64-bit).lnk",
@@ -9925,11 +10265,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Python 3.13\\Python 3.13 Module Docs (64-bit).lnk",
@@ -9984,11 +10326,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Steam\\Steam.lnk",
@@ -10042,11 +10386,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools\\Command Prompt.lnk",
@@ -10102,11 +10448,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "env-expanded",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools\\Control Panel.lnk",
@@ -10152,11 +10500,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": true
+        "idListOnly": true,
+        "noUsablePathSource": true
       },
       "comparisonTier": "com-empty",
       "matchedVia": null,
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\System Tools\\Run.lnk",
@@ -10202,11 +10552,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": true
+        "idListOnly": true,
+        "noUsablePathSource": true
       },
       "comparisonTier": "com-empty",
       "matchedVia": null,
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Visual Studio Code\\Visual Studio Code.lnk",
@@ -10259,11 +10611,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Warp.lnk",
@@ -10317,11 +10671,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\Console RAR manual.lnk",
@@ -10375,11 +10731,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\What is new in the latest version.lnk",
@@ -10433,11 +10791,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\WinRAR help.lnk",
@@ -10491,11 +10851,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\WinRAR\\WinRAR.lnk",
@@ -10549,11 +10911,13 @@
         "envVar": false,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Windows PowerShell\\Windows PowerShell (x86).lnk",
@@ -10617,11 +10981,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     },
     {
       "path": "C:\\Users\\MaxVision\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Windows PowerShell\\Windows PowerShell.lnk",
@@ -10685,11 +11051,13 @@
         "envVar": true,
         "unc": false,
         "msiAdvertised": false,
-        "idListOnly": false
+        "idListOnly": false,
+        "noUsablePathSource": false
       },
       "comparisonTier": "exact",
       "matchedVia": "linkinfo-local",
-      "secondaryMatchTier": null
+      "secondaryMatchTier": null,
+      "realpathErrors": null
     }
   ]
 }

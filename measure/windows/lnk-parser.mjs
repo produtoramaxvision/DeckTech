@@ -74,6 +74,19 @@
 //       returned as `extraDataBlockSignatures` on the parse result so a
 //       caller (the benchmark) can persist and use it, instead of being
 //       dead code. Minor finding 10b.
+//
+// --- ROUND-3 REVIEW FIXES (see docs/adr/0003-proof-03-lnk-binary-parsing.md) ---
+//
+//   (e) `category.noUsablePathSource` was added alongside the existing,
+//       narrower `category.idListOnly` (HasLinkTargetIDList &&
+//       !HasLinkInfo). `idListOnly` does not account for ForceNoLinkInfo:
+//       a shortcut with LinkInfo present but spec-mandated-ignored, and no
+//       env-var fallback, produces zero candidates while still reading
+//       idListOnly: false. `noUsablePathSource` is derived directly from
+//       `candidates.length === 0`, the SAME array the candidate builder
+//       above produces, so gap classification (in the benchmark) cannot
+//       drift from what this parser actually resolved. Round-3 minor
+//       finding 7.
 
 /** HeaderSize (section 2.1): ShellLinkHeader.HeaderSize MUST be this value. */
 const HEADER_SIZE = 0x0000004c;
@@ -390,7 +403,7 @@ function invalidResult(rejectReason) {
     extraDataBlockSignatures: [],
     candidates: [],
     resolvedTargetPath: null,
-    category: { envVar: false, unc: false, msiAdvertised: false, idListOnly: false },
+    category: { envVar: false, unc: false, msiAdvertised: false, idListOnly: false, noUsablePathSource: false },
   };
 }
 
@@ -413,7 +426,7 @@ function invalidResult(rejectReason) {
  *   extraDataBlockSignatures: string[],
  *   candidates: Array<{source: string, value: string}>,
  *   resolvedTargetPath: string|null,
- *   category: {envVar: boolean, unc: boolean, msiAdvertised: boolean, idListOnly: boolean},
+ *   category: {envVar: boolean, unc: boolean, msiAdvertised: boolean, idListOnly: boolean, noUsablePathSource: boolean},
  * }}
  */
 export function parseLnk(buf) {
@@ -494,7 +507,30 @@ export function parseLnk(buf) {
       envVar: flags.HasExpString,
       unc: !!(linkInfo && linkInfo.resolvedUnc),
       msiAdvertised: flags.HasDarwinID,
+      // Structural shape only: HasLinkTargetIDList set, HasLinkInfo NOT
+      // set at all. This does NOT account for ForceNoLinkInfo (LinkInfo
+      // present but spec-mandated-ignored) -- round-3 minor finding 7
+      // found this predicate disagreed with the candidate builder above
+      // (which correctly gates on `linkInfo && !flags.ForceNoLinkInfo`),
+      // so a shortcut with LinkInfo present-but-ignored and no env block
+      // would produce zero candidates while still reading idListOnly:
+      // false. Kept as-is (rather than folded into noUsablePathSource
+      // below) because it names a specific, narrower structural shape
+      // that the ADR's category table and shortcut list already describe
+      // by this exact name; gap CLASSIFICATION now uses the field below
+      // instead, so the two cannot drift again.
       idListOnly: flags.HasLinkTargetIDList && !flags.HasLinkInfo,
+      // Derived from the SAME array the candidate builder above produced
+      // (candidates.length), so this can never disagree with what the
+      // parser actually resolved -- by construction, not by keeping two
+      // predicates in sync by hand. True whenever this shortcut carries a
+      // shell-namespace IDList but produced zero usable candidates,
+      // whether because LinkInfo is entirely absent (idListOnly above) OR
+      // present-but-ForceNoLinkInfo'd with no env-var fallback (the
+      // drifted case round-3 finding 7 identified). This is the field the
+      // benchmark's gap classification (idListOnlyGapCount /
+      // unexpectedParserEmptyGapCount) filters on.
+      noUsablePathSource: flags.HasLinkTargetIDList && candidates.length === 0,
     };
 
     return {

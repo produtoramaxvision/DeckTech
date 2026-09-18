@@ -1,12 +1,164 @@
 # ADR-0003: Binary `.lnk` parsing in Node vs COM (`WScript.Shell`)
 
-- Status: Accepted (revised after round-2 review — see "Round-2 revision" below)
+- Status: Accepted (revised after round-2 AND round-3 review — see "Round-3
+  revision" below, then "Round-2 revision")
 - Date: 2026-09-17
 - Requirement: PROOF-03 (`.maxvision/REQUIREMENTS.md` Fase 0), gates PLAT-10
 - Supersedes: nothing. First measurement of unvalidated assumption U5
   (`.maxvision/research/SUMMARY.md:646`).
 
-## Round-2 revision (this document)
+## Round-3 revision (this document)
+
+A rigorous reviewer rejected the round-2 version of this ADR and the
+benchmark behind it. Eight findings, one blocker, two major. All eight are
+fixed; every number below is from a re-run executed after the fix, not
+carried over from round 2. What changed, in order of severity:
+
+1. **[blocker, fixed]** The round-2 ADR's "cold" speedup (10.2x, claimed
+   range 9.5x–10.2x) does not reproduce on a genuinely first-touch run. The
+   reviewer ran the benchmark twice: on the FIRST run this session (nothing
+   had touched the 182 `.lnk` files beforehand — a real cold cache), COM
+   loop-only measured 310.2 ms and Node measured 140.72 ms, a 2.2x speedup.
+   On the immediately following run (cache now warm from the first), COM
+   measured 420.4 ms and Node measured 33.74 ms, a 12.5x speedup — Node's
+   number moved 4.2x faster while COM's moved 1.35x in the OPPOSITE
+   direction. Both iteration-0s are fresh Node processes (V8/JIT state
+   controlled for), so the OS file cache is the only variable that explains
+   a swing that size. The root cause is structural, stated plainly in the
+   script's own header (this document's round-2 text, quoted by the
+   reviewer): iteration 0 runs the Node parser FIRST, so Node absorbs every
+   file's first-touch disk read, and COM then reads a cache Node just
+   warmed — biased against COM, not a fair comparison, which is why a
+   "cold" ratio derived from it can land anywhere from 2.2x to 12.5x
+   depending on how warm the cache already was before the run started.
+   **Fixed by taking the reviewer's option (b):** the speedup ratio is no
+   longer computed or printed for iteration 0 at all — not in the console,
+   not in the JSON (`thisRun.cold` / `speedupComLoopOverNode` is gone,
+   replaced by `thisRun.iteration0` with comLoopOnlyMs/comWallMs/
+   nodeParserMs only, no ratio field). The console header and the JSON
+   `note` field both now state the mechanism explicitly: "NOT a fair
+   cold-vs-warm comparison ... Node absorbs every file's first-touch disk
+   read and COM then reads a cache Node just warmed." The WARM claim is
+   untouched by this fix and still stands — it reproduced against the
+   reviewer's own measurements (see "Measured result" below).
+2. **[major, fixed]** `scanForUwpMarkers` swallowed every file-read error
+   with a bare `catch { continue; }` while the console and this ADR still
+   printed the hit count over a `/182` denominator — an unreadable file
+   would be invisible and the denominator would be a lie, the same defect
+   class round-2 major finding 5 fixed in `walkLnkFiles` but left
+   unfixed in this sibling function. `scanForUwpMarkers` now records every
+   read failure into `unreadable`/`unreadableRows` (path + error code +
+   message), returns `scanned` (files ACTUALLY read, i.e. `files.length -
+   unreadable`), and the console prints hit counts against `scanned`, not
+   `files.length`, plus an explicit `WARNING` line when `unreadable > 0` —
+   the same treatment `dirErrors` already gets. This run: `unreadable: 0`,
+   `scanned: 182` (see "UWP/Store shell-item marker scan" below) — now
+   something the report can state because it was actually checked, not
+   assumed from an unconditional denominator.
+3. **[major, addressed by deletion]** This ADR previously stated as flat
+   fact that "warming does not make COM consistently faster than its cold
+   figure" (round-2 text: 273.1 ms warm vs. 260.6 ms cold), using it to
+   retire round 1's file-cache explanation. That rested on a single
+   two-point comparison whose SIGN FLIPS between the reviewer's two re-runs
+   — cold 310.2 ms / warm median 441.8 ms (cold faster, same direction as
+   round 2's claim) on the first re-run, then cold 420.4 ms / warm median
+   321.8 ms (cold SLOWER, opposite direction) on the second. A directional
+   claim that flips between two consecutive runs is not a measured
+   conclusion at n=1 (or n=2). The sentence is deleted outright rather than
+   softened: neither "warming helps COM" nor "warming doesn't help COM" is
+   supported by this benchmark, and this document no longer asserts either.
+   The corrected fact, kept: COM's own loop-only time varies substantially
+   run to run — the reviewer measured a ~40% swing within a single warm
+   run, and the cold-vs-warm ORDERING itself is not stable across runs —
+   which is itself the reason this document does not derive a causal claim
+   from it, in either direction.
+4. **[minor, fixed]** The ANSI half of the round-2 blocker-1 fix (env-
+   expanded-ansi ranked ahead of env-raw-ansi) was untested — every env-var
+   test built its buffer via `buildEnvBlock`, which always populates
+   `targetUnicode`, so `lnk-parser.mjs`'s `if (envBlock.targetUnicode)`
+   branch always won and the ANSI `else if` branch (previously lines
+   486–487) never executed in the suite. A new test
+   (`test/windows-lnk-parser.test.mjs`) builds a full-size (`0x314`)
+   `EnvironmentVariableDataBlock` whose Unicode field is left all-`NUL`
+   (so `readNulTerminatedUtf16` returns `''`, which is falsy, forcing the
+   ANSI branch) and asserts `candidates[0].source === 'env-expanded-ansi'`
+   with the expanded value. Verified the same way round 2's own mutation
+   test was verified: the two `push()` calls at lines 486–487 were swapped,
+   the suite re-run, and exactly this one new test failed (see "Verifying
+   the round-3 ANSI fix" below); the swap was then reverted and the full
+   suite re-confirmed green.
+5. **[minor, fixed]** The benchmark exited 0 on the two conditions it
+   itself printed as `WARNING`/"investigate": a non-empty `dirErrors`
+   (scanned set under-counted) and `unexpectedParserEmptyGapCount > 0` (a
+   parser-empty row with no accepted-gap explanation) did not move
+   `process.exitCode`, which stayed 1 only for mismatches and secondary-
+   only matches — a half-fix of round-2 finding 5, since re-running the
+   script (this ADR's own "Reproducing this measurement" instructions) used
+   exit code as the pass signal without those two conditions actually
+   gating it. Fixed: exit code is now decided once, after every `RESULT`
+   branch prints, from `mismatches.length > 0 || secondaryOnlyMatches.length
+   > 0 || dirErrors.length > 0 || unexpectedParserEmptyGapCount > 0`.
+   `idListOnlyGapCount` (the accepted, honestly-scoped 8/182 coverage gap)
+   is deliberately NOT one of these conditions — gating on it would make
+   exit 1 the permanent normal state for a clean run on this machine's own
+   shortcut set, not a signal that something regressed.
+6. **[minor, fixed]** `realpathOrNull` collapsed every failure mode into
+   `null`, making a genuine `EACCES`/`EPERM` on a real target
+   indistinguishable from "the path does not exist" in the realpath
+   comparison tier. No live impact on this machine (the realpath tier count
+   is 0 in every committed run), but on a machine where a target sits
+   behind a permission boundary this would silently downgrade a resolvable
+   comparison to "mismatch" with no signal as to why. Fixed:
+   `realpathOrNull` now returns `{value, errorCode}`, returning `null`
+   silently only for `ENOENT`/`ENOTDIR` and recording every other code.
+   `compareTiered` accumulates every non-null `errorCode` it encounters
+   into a `realpathErrors` array on its return value (the existing tests
+   only asserted `.tier`/`.matchedVia`/`.secondaryMatchTier`, so this
+   additive field is not a breaking change), the benchmark attaches it to
+   the row (`row.realpathErrors`, `null` when empty) and prints an
+   aggregate `WARNING` when any row hit one. This run: 0 realpath errors
+   (see `proof-03-results.json`'s top-level `realpathErrors: []`).
+7. **[minor, fixed]** `category.idListOnly` (`HasLinkTargetIDList &&
+   !HasLinkInfo`) did not account for `ForceNoLinkInfo`, so a shortcut
+   whose `LinkInfo` is present but spec-mandated-ignored, with no env
+   block, would produce zero candidates while still reading `idListOnly:
+   false` — landing in `unexpectedParserEmptyGapCount` (an "investigate"
+   bucket) instead of the accepted coverage gap, even though the parser's
+   behavior (abstain, don't guess) is identical to the true IDList-only
+   case. Not hypothetical on this machine: `forceNoLinkInfoCount` is 38,
+   it just happens that all 38 carry an env block supplying a candidate —
+   remove the env block from any one of them and the round-2 classification
+   would have been wrong. **Fixed by introducing a separate category field
+   rather than redefining `idListOnly`** (the reviewer's second suggested
+   option): `category.noUsablePathSource` is now derived directly from
+   `candidates.length === 0` (qualified by `HasLinkTargetIDList`) — the
+   SAME array the candidate builder produces — so it cannot drift from what
+   the parser actually resolved, by construction, not by keeping two
+   predicates in sync by hand. The benchmark's gap classification
+   (`idListOnlyGapCount`/`unexpectedParserEmptyGapCount`) now filters on
+   `category.noUsablePathSource`, not `category.idListOnly`.
+   `category.idListOnly` itself is kept, unchanged, as the narrower
+   structural predicate this document's shortcut list and category table
+   already name it by. A new synthetic test builds the exact drift shape
+   (`HasLinkTargetIDList` + `HasLinkInfo` + `ForceNoLinkInfo` + no env
+   block) and asserts `category.idListOnly === false` while
+   `category.noUsablePathSource === true`. On this machine's real data the
+   two fields are identical (12 and 12 — see "Category coverage" below):
+   this is a classification-robustness fix, not a finding that this
+   machine's numbers were wrong.
+8. **[minor, no code change — process fix]** Commit `1fa06ae` (a round-2
+   fix commit) used a bare `git commit -m` with no pathspec, which swept in
+   a concurrent session's already-staged deletion of a file outside the
+   PROOF-03 set (`measure/windows/proof-02/out/raw-startapps.json`), and
+   the commit message did not mention it. The deletion itself was
+   substantively defensible (machine-specific data a concurrent session's
+   `.gitignore` rule excludes) but undisclosed in the message. Nothing to
+   revert — the fix is procedural: this round's commit stages the PROOF-03
+   paths explicitly (`git commit -- <paths>`, never a bare `-m` against the
+   shared index), since concurrent sessions are known to be writing to this
+   working tree.
+
+## Round-2 revision
 
 A rigorous reviewer rejected the round-1 version of this ADR and the
 benchmark behind it. Ten findings, two of them blockers. All ten are fixed;
@@ -141,7 +293,7 @@ resolves to the wrong `.exe`, or to nothing, notices immediately.
   item-by-item comparison against the parser's PRIMARY output, and
   prints/records the result.
 
-## Measured result (this machine, 2026-09-17, re-run after all 10 fixes)
+## Measured result (this machine, 2026-09-17, re-run after all round-3 fixes)
 
 Scope: every `.lnk` under `%ProgramData%\Microsoft\Windows\Start Menu\Programs`
 and `%APPDATA%\Microsoft\Windows\Start Menu\Programs` (machine + user),
@@ -149,46 +301,63 @@ and `%APPDATA%\Microsoft\Windows\Start Menu\Programs` (machine + user),
 other non-`ENOENT` errors this run, all subtrees read cleanly.
 
 Command run: `node measure/windows/proof-03-lnk-benchmark.mjs`. Verbatim
-timing block from that run:
+timing block from that run (exit code 0):
 
 ```
---- Timing: cold (n=1, first pass; Node parser ran BEFORE COM, so COM was not measured on a cold OS file cache in this harness) ---
-COM loop-only (cold): 182 shortcuts, 260.6 ms total, 1.43 ms/shortcut
-COM wall incl. PowerShell startup + COM instantiation (cold): 666.1 ms total
-Node binary parser (cold): 182 shortcuts, 25.66 ms total, 0.1410 ms/shortcut
-Speedup (cold, COM loop-only / Node parser): 10.2x
+--- Timing: iteration 0 (n=1, first pass; NOT a fair cold-vs-warm comparison -- see note below) ---
+COM loop-only (iteration 0): 182 shortcuts, 449.9 ms total, 2.47 ms/shortcut
+COM wall incl. PowerShell startup + COM instantiation (iteration 0): 908.2 ms total
+Node binary parser (iteration 0): 182 shortcuts, 54.61 ms total, 0.3000 ms/shortcut
+NOTE: no speedup ratio is printed for iteration 0. The Node parser runs BEFORE COM in this iteration, so Node absorbs every file's first-touch disk read and COM then reads a cache Node just warmed -- structurally biased toward Node, not a like-for-like comparison. A genuinely first-touch run on this machine produced speedups ranging 2.2x-12.5x across two attempts, moving in opposite directions for Node vs COM between runs. Only the warm figures below (n=5, cache already stable) are used as a speedup claim. See docs/adr/0003, round-3 fix 1.
 
 --- Timing: warm (n=5, after 1 discarded warmup iteration -- warmup changes the profile, do not compare a cold number against a warm one) ---
-Node parser: median 19.02 ms, min 16.78, max 22.58, stddev 2.15 -- raw: [19.02, 16.78, 17.60, 21.07, 22.58]
-COM loop-only: median 273.1 ms, min 230.5, max 325.6, stddev 41.3 -- raw: [230.5, 231.1, 325.6, 273.1, 320.4]
-Speedup (median of per-iteration COM/Node ratios): median 13.8x, min 12.1x, max 18.5x
-Node parser warm median, per-shortcut: 0.1045 ms/shortcut
+Node parser: median 20.69 ms, min 18.88, max 24.25, stddev 1.94 -- raw: [21.58, 24.25, 18.88, 20.69, 19.18]
+COM loop-only: median 310.2 ms, min 281.1, max 395.8, stddev 41.3 -- raw: [395.8, 281.1, 310.2, 285.6, 316.1]
+Speedup (median of per-iteration COM/Node ratios): median 16.4x, min 11.6x, max 18.3x
+Node parser warm median, per-shortcut: 0.1137 ms/shortcut
 ```
 
-Reading this honestly: the Node parser is consistently faster than COM by
-roughly an order of magnitude, both cold (10.2x) and warm (median 13.8x,
-range 12.1x–18.5x across 5 iterations). It is NOT a stable "8.0x" or any
-other single two-significant-figure number — that was round 1's mistake
-(n=1, no variance reported). Several re-runs performed during this
-revision (while iterating on the fixes and re-verifying them) produced
-cold speedups in the 9.5x–10.2x range and warm medians in the 12.2x–13.8x
-range, each with a different min/max spread (the committed
-`proof-03-results.json` reflects exactly ONE of those runs, printed above,
-and is the only one this document's numbers are drawn from) — the range
-itself, not a single figure from any one run, is the honest claim.
-COM's own loop-only time varies by roughly 40% across warm iterations
-(230.5–325.6 ms this run) on a machine with other software running
-concurrently (Blender, Adobe Creative Cloud apps, etc. were present in this
-session — see the process list implied by `.maxvision/research/
-WINDOWS-STACK.md`), which is itself evidence for why n=1 was insufficient.
-Warming does not make COM consistently faster than its cold figure here
-(median 273.1 ms warm vs. 260.6 ms cold) — the file-cache-warmth
-explanation round 1 offered for why COM might read fast was not borne out
-by repetition. This is stated as a hypothesis, not a measured conclusion:
-COM's variance is plausibly dominated by PowerShell process / COM
-instantiation jitter rather than file-cache state, but that specific cause
-was not isolated or investigated further here, and no figure in this
-document depends on it being true.
+Reading this honestly: **no speedup figure is claimed for iteration 0.**
+Round-3 blocker 1 found that number is an artifact of which method happens
+to run first in a given iteration, not a property of either method — a
+genuinely first-touch run on this machine (nothing had touched the 182
+files beforehand) produced a 2.2x speedup, and the immediately following
+run (cache now warm) produced 12.5x, with COM's own loop-only time moving
+in the OPPOSITE direction between those two runs from Node's. The
+previously-claimed "10.2x cold" and "9.5x–10.2x cold range" are deleted
+from this document, not merely softened — they do not describe a stable
+property of the two methods being compared.
+
+The **warm** claim is the one this document stands behind: the Node parser
+is consistently faster than COM in the warm regime, median 16.4x this run,
+range 11.6x–18.3x across 5 iterations. It is NOT a stable
+two-significant-figure constant — round 2's committed run measured a warm
+median of 13.8x (range 12.1x–18.5x), and the reviewer's own two re-runs of
+the warm figures (performed to check this document, not carried forward as
+its numbers) measured warm medians of 17.0x and 12.3x with ranges
+15.8x–17.6x and 9.8x–15.4x. Consistent order of magnitude (roughly
+one-and-a-half orders), not a reproducible two-sig-fig number — the same
+honest framing round 2 used for the (now-deleted) cold claim applies here,
+and this time it is the framing the data actually supports at four
+independent n=5 runs compared (13.8x, 17.0x, 12.3x, 16.4x).
+
+COM's own loop-only time varies substantially run to run and within a
+single warm run — 281.1–395.8 ms this run's 5 warm iterations, a ~40% swing
+the reviewer independently confirmed on their own re-runs, on a machine
+with other software running concurrently (Blender, Adobe Creative Cloud
+apps, etc. — see the process list implied by
+`.maxvision/research/WINDOWS-STACK.md`). **This document does NOT assert
+whether warming makes COM faster, slower, or has no effect.** Round 2's
+version of this section claimed warming did not help COM, from a single
+two-point comparison; round-3 blocker 3 found that comparison's direction
+flips between the reviewer's own two re-runs (cold faster on one, cold
+slower on the other), so neither direction is a measured conclusion at the
+sample size this benchmark provides. What the data DOES support, stated
+without a directional claim: COM's variance is large enough, and unstable
+enough in sign across runs, that this benchmark cannot isolate its cause
+(file-cache state, PowerShell/COM instantiation jitter, background system
+load, or some combination) — and no figure in this document depends on
+having isolated it.
 
 Full per-shortcut data, all raw timing iterations, and the full flags
 object per row: `measure/windows/proof-03-results.json` (regenerated by
@@ -221,17 +390,18 @@ pass.
 flagged as resting on an unreconciled denominator, not a validated one:**
 `16.07 ms/shortcut` (`2395/149`) is the research doc's own number, restated
 here for context, not re-derived or extended into a speedup claim. This
-ADR's own speedup claims (10.2x cold, 12.1x–18.5x warm) are computed against
-this run's OWN COM measurement (182 shortcuts, both paths, same process, same
-machine, same moment) — not against the 149 baseline — specifically to avoid
-building a claim on top of that unreconciled number. If a reader wants the
-number anyway: the benchmark itself now prints and persists
+ADR's speedup claim (11.6x–18.3x warm this run; no cold/iteration-0 ratio is
+claimed at all — round-3 blocker 1) is computed against this run's OWN COM
+measurement (182 shortcuts, both paths, same process, same machine, same
+moment) — not against the 149 baseline — specifically to avoid building a
+claim on top of that unreconciled number. If a reader wants the number
+anyway: the benchmark itself now prints and persists
 (`thisRun.warm.nodeParserMsPerItemMedian`) the warm-median Node parser
-per-shortcut time — `0.1045 ms/shortcut` this run — instead of requiring
+per-shortcut time — `0.1137 ms/shortcut` this run — instead of requiring
 hand arithmetic in this document (round 1 was rejected in part for an
 ADR-only figure, "174", that no script printed; this document does not
 repeat that mistake with a different number). Dividing the original 16.07
-ms/shortcut baseline by that printed figure gives ~154x, but that ratio
+ms/shortcut baseline by that printed figure gives ~141.4x, but that ratio
 inherits every ambiguity in the 149 denominator above and is not asserted
 as a validated speedup.
 
@@ -286,6 +456,29 @@ reviewer's `lnk-parser.mjs:384` mutation exactly), and
 The guard fails exactly as required. The mutation was then reverted and the
 full suite re-confirmed green (7/7) before this ADR was written.
 
+**Verifying the round-3 ANSI fix (finding 4):** `lnk-parser.mjs`'s ANSI
+branch (the `push()` calls at what were then lines 486–487) was untested by
+every existing test, which all populate `targetUnicode` and so never reach
+that branch. A new test builds a full-size `EnvironmentVariableDataBlock`
+with an all-`NUL` Unicode field (forcing the ANSI branch) and asserts
+`candidates[0].source === 'env-expanded-ansi'`. The two `push()` calls were
+then swapped (`env-raw-ansi` first, matching the exact defect shape
+blocker 1 fixed in the Unicode branch) and the suite re-run:
+
+```
+✖ resolvedTargetPath for an env-var shortcut falls back to the ANSI form when the Unicode field is empty (all-NUL) -- round-3 minor finding 4 (2.5355ms)
+  AssertionError [ERR_ASSERTION]: the ANSI branch (lnk-parser.mjs:486-487) must produce the PRIMARY candidate when TargetUnicode is empty -- if this reads "env-raw-ansi", the two push() calls were swapped back
+  + actual - expected
+  + 'env-raw-ansi'
+  - 'env-expanded-ansi'
+ℹ tests 9
+ℹ pass 8
+ℹ fail 1
+```
+
+Exactly the one new test fails, exactly as required. The swap was reverted
+and the full suite re-confirmed green (9/9) before this ADR was written.
+
 **Zero mismatches, zero secondary-only matches, not full coverage.** 170 of
 the 178 shortcuts where COM produced a non-empty `TargetPath` were matched
 at the `exact` tier by the parser's actual (primary) output — no
@@ -306,8 +499,15 @@ which COM has access to and a pure binary reader does not, by construction
 (documented as limitation 1 in `lnk-parser.mjs`'s module header). 8 of the
 12 have a non-empty COM `TargetPath` — the honest coverage gap
 (`idListOnlyGapCount: 8`, derived from `comparisonTier === 'parser-empty'
-&& category.idListOnly`, not merely from an empty candidate list — round-2
-minor finding 8):
+&& category.noUsablePathSource`, not merely from an empty candidate list —
+round-2 minor finding 8, reclassified onto `noUsablePathSource` instead of
+`idListOnly` by round-3 minor finding 7 — see the "Round-3 revision"
+section above for why the two fields can disagree and why classification
+now uses the drift-proof one; on THIS machine's data
+`categoryCensus.noUsablePathSource === categoryCensus.idListOnly === 12`,
+so the fix changes nothing about the numbers below, only how they would be
+computed on a machine where a `ForceNoLinkInfo`-with-no-env-block shortcut
+exists):
 
 - `HandBrake\Uninstall.lnk` → COM: `C:\Program Files\HandBrake\uninst.exe`
 - `MobaXterm\MobaDiff.lnk`, `MobaXterm\MobaTextEditor.lnk` → COM:
@@ -328,8 +528,10 @@ The other 4 IDList-only shortcuts (`MobaXterm\Visit MobaXterm Website.lnk`,
 `TargetPath` from COM too — virtual-shell-item shortcuts with no real
 filesystem target either way, so there is nothing for either method to
 disagree about. `unexpectedParserEmptyGapCount: 0` this run — every
-`parser-empty` row is accounted for by `idListOnly`; none of the 8/12 above
-are silently mislabeled or hiding a different root cause.
+`parser-empty` row is accounted for by `noUsablePathSource`; none of the
+8/12 above are silently mislabeled or hiding a different root cause. This
+condition also now gates the script's exit code directly (round-3 minor
+finding 5): a future run where it is nonzero exits 1, not 0.
 
 None of these 12 is a mismatch: the parser correctly reports "no candidate"
 rather than fabricating a wrong path.
@@ -366,15 +568,22 @@ ForceNoLinkInfo assertion about.
 `measure/windows/proof-03-lnk-benchmark.mjs`'s `scanForUwpMarkers()` reads
 every `.lnk`'s raw bytes and searches both the UTF-16LE and Latin-1
 decodings for the `AppsFolder` and `!App` (AUMID suffix) byte patterns a
-UWP/Store shell-item `.lnk` would carry in its `LinkTargetIDList`. This
-run:
+UWP/Store shell-item `.lnk` would carry in its `LinkTargetIDList`. Every
+read failure is now recorded (`unreadable`/`unreadableRows`), and the
+denominator printed is the count actually read (`scanned`), not
+`files.length` — round-3 major finding 2: the round-2 version's bare
+`catch { continue; }` meant an unreadable file would vanish from both the
+numerator and the denominator, so a shrunken scan could print a clean
+`0/182` with nothing in the artifact to reveal it. This run:
 
 ```
-"AppsFolder" byte-pattern found in: 0/182 .lnk files
-"!App" (AUMID suffix) byte-pattern found in: 0/182 .lnk files
+"AppsFolder" byte-pattern found in: 0/182 .lnk files actually read (0 unreadable, 182 enumerated)
+"!App" (AUMID suffix) byte-pattern found in: 0/182 .lnk files actually read (0 unreadable, 182 enumerated)
 ```
 
-Zero hits, consistent with the known fact that real Start Menu tiles for
+Zero unreadable files this run — the denominator is genuinely 182, not
+merely assumed to be. Zero hits, consistent with the known fact that real
+Start Menu tiles for
 UWP/Store apps (Calculator, Photos, Terminal, etc.) are not `.lnk` files at
 all — they resolve through `shell:AppsFolder`, PROOF-02's scope, not
 PROOF-03's. This is now backed by `uwpMarkerScan` in
@@ -405,20 +614,26 @@ parser produced somewhere in a candidate list:
    tier, checked against the parser's actual returned value — verified by
    the discriminating `135 + 35 = 170` decomposition and a real mutation
    test (see "Verifying the fix" above).
-2. A roughly-order-of-magnitude speedup over COM, measured with warmup and
-   repetition: 10.2x cold (n=1), median 13.8x warm (n=5, range 12.1x–18.5x)
-   — the committed run. Other re-runs during this revision landed cold
-   9.5x–10.2x and warm median 12.2x–13.8x, each with its own min-max
-   spread — consistent order of magnitude, not a reproducible
-   two-significant-figure constant.
-   Not a single two-significant-figure number, and NOT compared against the
-   research doc's 149/2395ms baseline as a validated ratio (see "The
-   149-vs-182 denominator" above) — only against this run's own COM
-   measurement, same machine, same moment, same process.
-3. A well-defined, honestly-scoped gap (IDList-only shortcuts with a
-   non-empty COM target, 8/182 ≈ 4.4% of this machine's set) with an
-   unambiguous signal when it occurs (`resolvedTargetPath: null`,
-   `category.idListOnly: true`) rather than a silently wrong answer.
+2. A warm-state speedup over COM, measured with warmup and repetition:
+   median 16.4x, range 11.6x–18.3x (n=5) — the committed run. Round-2's
+   committed run measured warm median 13.8x (range 12.1x–18.5x); the
+   round-3 reviewer's own re-runs measured warm medians 17.0x and 12.3x
+   (ranges 15.8x–17.6x and 9.8x–15.4x). Consistent order of magnitude
+   across four independent warm measurements, not a reproducible
+   two-significant-figure constant, and NOT compared against the research
+   doc's 149/2395ms baseline as a validated ratio (see "The 149-vs-182
+   denominator" above) — only against each run's own COM measurement, same
+   machine, same moment, same process. **No cold/first-touch speedup is
+   claimed at all** — round-3 blocker 1 found the previously-claimed
+   9.5x–10.2x cold range does not reproduce on a genuinely first-touch run
+   (measured 2.2x and 12.5x across two attempts, moving in opposite
+   directions for Node vs COM), so that number is deleted from this
+   decision rather than restated with different bounds.
+3. A well-defined, honestly-scoped gap (shortcuts with no usable
+   target-path source and a non-empty COM target, 8/182 ≈ 4.4% of this
+   machine's set) with an unambiguous signal when it occurs
+   (`resolvedTargetPath: null`, `category.noUsablePathSource: true`)
+   rather than a silently wrong answer.
 
 **PLAT-10 must keep a COM (or `IShellLinkW`) fallback for the IDList-only
 case**, not replace COM outright. When `lnk-parser.mjs` returns no
@@ -447,4 +662,16 @@ including raw per-iteration timing, the full per-row `parserFlags` object,
 and the UWP-marker scan. It runs 1 discarded warmup iteration plus 5 timed
 iterations (both Node parser and COM), so a re-run takes roughly 6x the
 single-pass time reported in round 1 (a handful of seconds on this
-machine, dominated by the 6 PowerShell process spawns).
+machine, dominated by the 6 PowerShell process spawns). `node --test`
+should report 9 tests, 9 pass, 0 fail (round 2 added 7, round 3 added 2
+more — the ANSI-branch and `noUsablePathSource` guards).
+
+**Exit code is a real pass/fail signal, not merely mismatches/secondary-
+only matches (round-3 minor finding 5).** The benchmark exits 1 if ANY of:
+a mismatch, a secondary-only match, a non-empty `dirErrors` (the scanned
+Start Menu set was under-counted by a permission or other non-`ENOENT`
+readdir error), or `unexpectedParserEmptyGapCount > 0` (a parser-empty row
+not accounted for by the accepted `noUsablePathSource` gap). It exits 0
+only when none of those hold — `idListOnlyGapCount`/`noUsablePathSource`
+being nonzero (the accepted 8/182 gap) does NOT fail the run; gating on it
+would make exit 1 the permanent normal state here. This run: exit code 0.
