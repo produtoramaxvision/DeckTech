@@ -404,7 +404,7 @@ function defaultPlatform() {
     return createPlatform();
   } catch (err) {
     if (err && err.code === "PLATFORM_NOT_IMPLEMENTED") {
-      return createPlatform("fallback");
+      return { listInstalledApps, listAppProcesses, activateApp, openWebsite, iconService: realIconService() };
     }
     throw err;
   }

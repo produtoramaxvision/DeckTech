@@ -145,6 +145,44 @@ test("PLAT-12: darwin tem degradação explicitamente declarada (PlatformNotImpl
   await assert.rejects(platform.openNewWindow("App"), PlatformNotImplementedError);
 });
 
+test("PLAT-11: darwin listAppProcesses devolve janelas com id, title, monitor e state definidos (degradação declarada, sem undefined)", async () => {
+  const platform = createPlatform("darwin", {
+    listAppProcesses: async () => [
+      { name: "Safari", pid: 1234, type: "Foreground" },
+      { name: "Notes", pid: 5678, type: "Background" },
+    ],
+  });
+  const windows = await platform.listAppProcesses();
+  assert.equal(windows.length, 2);
+  assert.deepEqual(windows[0], {
+    id: "darwin-1234",
+    name: "Safari",
+    title: "Safari",
+    monitor: 0,
+    state: "focused",
+    type: "Foreground",
+    pid: 1234,
+    degraded: true,
+  });
+  assert.deepEqual(windows[1], {
+    id: "darwin-5678",
+    name: "Notes",
+    title: "Notes",
+    monitor: 0,
+    state: "background",
+    type: "Background",
+    pid: 5678,
+    degraded: true,
+  });
+  for (const w of windows) {
+    assert.notEqual(w.id, undefined);
+    assert.notEqual(w.name, undefined);
+    assert.notEqual(w.title, undefined);
+    assert.notEqual(w.monitor, undefined);
+    assert.notEqual(w.state, undefined);
+  }
+});
+
 test("PLAT-12/MJ3: fallback platform devolve os 9 membros e degradação declarada (Phase 14 critério 6)", async () => {
   const platform = createPlatform("fallback");
   assert.deepEqual(Object.keys(platform).sort(), [...CONTRACT_MEMBERS].sort());

@@ -1,10 +1,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
+import { createServer } from "node:http";
 
-import { startServer } from "../server.js";
+import { startServer, makeApp } from "../server.js";
 import { ActionError } from "../actions.js";
 import { PlatformNotImplementedError } from "../platform/index.js";
+
+async function createTestApp(platform, onStatusChange) {
+  const handler = makeApp({
+    platform,
+    onStatusChange,
+  });
+  const server = createServer(handler);
+  await new Promise((resolve) => server.listen(0, resolve));
+  const port = server.address().port;
+  const close = () => new Promise((resolve) => server.close(resolve));
+  return { port, close };
+}
 
 test("PLAT-12 routes: POST /api/windows/:id/focus retorna 200 em sucesso e aciona onStatusChange", async () => {
   let focusedId = null;
@@ -25,9 +38,8 @@ test("PLAT-12 routes: POST /api/windows/:id/focus retorna 200 em sucesso e acion
     openNewWindow: async () => {},
   };
 
-  const { port, close } = await startServer({
-    port: 0,
-    platform: fakePlatform,
+  const { port, close } = await createTestApp(fakePlatform, () => {
+    statusChanged = true;
   });
 
   try {
@@ -38,6 +50,7 @@ test("PLAT-12 routes: POST /api/windows/:id/focus retorna 200 em sucesso e acion
     assert.equal(res.status, 200);
     assert.deepEqual(body, { ok: true });
     assert.equal(focusedId, "win-123");
+    assert.equal(statusChanged, true, "onStatusChange deve ser chamado após foco com sucesso");
   } finally {
     await close();
   }
@@ -227,6 +240,53 @@ test("PLAT-12 routes: POST /api/apps/:name/open-new-window aceita path com espa�
     assert.equal(resFail.status, 500);
     assert.equal(bodyFail.ok, false);
     assert.equal(bodyFail.code, "APP_NOT_FOUND");
+  } finally {
+    await close();
+  }
+});
+
+test("PLAT-12: todas as 4 rotas de janela acionam onStatusChange em sucesso (discriminação)", async () => {
+  let statusChangeCount = 0;
+  const fakePlatform = {
+    listInstalledApps: async () => [],
+    listAppProcesses: async () => [],
+    activateApp: async () => {},
+    openWebsite: async () => {},
+    iconService: { getIconPng: async () => null },
+    focusWindow: async () => ({ ok: true }),
+    minimizeWindow: async () => ({ ok: true }),
+    closeWindow: async () => ({ ok: true }),
+    openNewWindow: async () => ({ ok: true }),
+  };
+
+  const { port, close } = await createTestApp(fakePlatform, () => {
+    statusChangeCount++;
+  });
+
+  try {
+    // 1. POST /api/windows/:id/focus
+    statusChangeCount = 0;
+    const r1 = await fetch(`http://127.0.0.1:${port}/api/windows/win-1/focus`, { method: "POST" });
+    assert.equal(r1.status, 200);
+    assert.equal(statusChangeCount, 1, "focusWindow deve acionar onStatusChange");
+
+    // 2. POST /api/windows/:id/minimize
+    statusChangeCount = 0;
+    const r2 = await fetch(`http://127.0.0.1:${port}/api/windows/win-1/minimize`, { method: "POST" });
+    assert.equal(r2.status, 200);
+    assert.equal(statusChangeCount, 1, "minimizeWindow deve acionar onStatusChange");
+
+    // 3. POST /api/windows/:id/close
+    statusChangeCount = 0;
+    const r3 = await fetch(`http://127.0.0.1:${port}/api/windows/win-1/close`, { method: "POST" });
+    assert.equal(r3.status, 200);
+    assert.equal(statusChangeCount, 1, "closeWindow deve acionar onStatusChange");
+
+    // 4. POST /api/apps/:name/open-new-window
+    statusChangeCount = 0;
+    const r4 = await fetch(`http://127.0.0.1:${port}/api/apps/App/open-new-window`, { method: "POST" });
+    assert.equal(r4.status, 200);
+    assert.equal(statusChangeCount, 1, "openNewWindow deve acionar onStatusChange");
   } finally {
     await close();
   }

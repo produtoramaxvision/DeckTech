@@ -50,6 +50,32 @@ function notImplemented(member, platformName) {
 }
 
 /**
+ * Adapta a lista de processos por-processo (apps.js) para o contrato por-janela
+ * do PLAT-11 com degradação explicitamente declarada:
+ * Como o host Windows não compila fontes Swift/macOS (mac/Sources) e não
+ * executa CGWindowListCopyWindowInfo, os provedores darwin e fallback declaram
+ * degradação estrutural explícita: cada processo é projetado como uma janela
+ * com id estável, monitor 0, título derivado do app e estado ("focused" / "background"),
+ * garantindo que os campos do contrato PLAT-11 (id, title, monitor, state) nunca
+ * sejam undefined.
+ */
+export function makeDarwinListAppProcesses(rawList = listAppProcesses) {
+  return async function darwinListAppProcesses(opts) {
+    const list = await rawList(opts);
+    return (list ?? []).map(a => ({
+      id: `darwin-${a.pid}`,
+      name: a.name,
+      title: a.title ?? a.name,
+      monitor: Number(a.monitor ?? 0),
+      state: a.state ?? (a.type === "Foreground" ? "focused" : "background"),
+      type: a.type ?? "Foreground",
+      pid: a.pid,
+      degraded: true,
+    }));
+  };
+}
+
+/**
  * Contrato macOS: reusa as implementações reais já injetáveis em
  * server.js:295-298 e apps.js:559-573. O iconHelper é resolvido AQUI, de
  * forma explícita, e passado para makeIconService — não fica implícito
@@ -62,10 +88,11 @@ function darwinPlatform(deps = {}) {
   const {
     makeIconService = realIconService,
     resolveMacIconHelper: resolveHelper = resolveMacIconHelper,
+    listAppProcesses: rawListAppProcesses = listAppProcesses,
   } = deps;
   return {
     listInstalledApps,
-    listAppProcesses,
+    listAppProcesses: makeDarwinListAppProcesses(rawListAppProcesses),
     activateApp,
     openWebsite,
     iconService: makeIconService({ iconHelper: resolveHelper() }),
@@ -148,10 +175,13 @@ function win32Platform(deps = {}) {
  */
 export function fallbackPlatform(deps = {}) {
   const platformName = "fallback";
-  const { makeIconService = realIconService } = deps;
+  const {
+    makeIconService = realIconService,
+    listAppProcesses: rawListAppProcesses = listAppProcesses,
+  } = deps;
   return {
     listInstalledApps,
-    listAppProcesses,
+    listAppProcesses: makeDarwinListAppProcesses(rawListAppProcesses),
     activateApp,
     openWebsite,
     iconService: makeIconService(),

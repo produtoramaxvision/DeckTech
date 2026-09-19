@@ -747,28 +747,47 @@ test("PLAT-11: os três estados (focused, background, minimized) são derivados 
   assert.equal(result[2].type, "Foreground");
 });
 
-test("PLAT-11/B1: o filtro deckQueue da PWA (public/index.html:1882-1887) preserva todas as janelas retornadas por matchRunningProcesses", () => {
+test("PLAT-11: matchRunningProcesses preserva múltiplas janelas do mesmo app e garante compatibilidade de type='Foreground'", () => {
   const catalog = [
-    { name: "Warp", path: "C:\\Apps\\Warp.exe", kind: "win32" },
-    { name: "OBS Studio", path: "C:\\Apps\\obs.exe", kind: "win32" },
-    { name: "Google Chrome", path: "C:\\Apps\\chrome.exe", kind: "win32" },
+    { name: "Mozilla Firefox", path: "C:\\Program Files\\Mozilla Firefox\\firefox.exe", kind: "win32" },
   ];
+  // Duas janelas do mesmo app em dois monitores distintos (cenário motivador do PLAT-11)
   const windows = [
-    { Id: 1, hwnd: 10, title: "Warp", min: false, isFg: false, Path: "C:\\Apps\\Warp.exe" },
-    { Id: 2, hwnd: 20, title: "OBS Studio", min: true, isFg: false, Path: "C:\\Apps\\obs.exe" },
-    { Id: 3, hwnd: 30, title: "Chrome", min: false, isFg: true, Path: "C:\\Apps\\chrome.exe" },
+    { Id: 42120, hwnd: 2232068, mon: 65539, min: false, isFg: true, title: "Firefox - Monitor 1", Path: "C:\\Program Files\\Mozilla Firefox\\firefox.exe" },
+    { Id: 42120, hwnd: 2232069, mon: 65540, min: false, isFg: false, title: "Firefox - Monitor 2", Path: "C:\\Program Files\\Mozilla Firefox\\firefox.exe" },
   ];
   const running = matchRunningProcesses(windows, catalog);
-  // Filtro verbatim do deckQueue em public/index.html:1882-1887
-  const q = [];
+
+  // 1. Prova de enumeração por JANELA no backend: as duas janelas são preservadas como entradas distintas
+  assert.equal(running.length, 2, "matchRunningProcesses deve retornar ambas as janelas");
+  assert.equal(running[0].name, "Mozilla Firefox");
+  assert.equal(running[1].name, "Mozilla Firefox");
+  assert.notEqual(running[0].id, running[1].id, "cada janela tem ID estável próprio");
+  assert.equal(running[0].monitor, 65539);
+  assert.equal(running[1].monitor, 65540);
+  assert.equal(running[0].state, "focused");
+  assert.equal(running[1].state, "background");
+
+  // 2. Prova de compatibilidade de wire: type === 'Foreground' é preservado para que
+  // clientes ou filtros que descartem !Foreground não rejeitem as janelas
+  assert.equal(running[0].type, "Foreground");
+  assert.equal(running[1].type, "Foreground");
+  const passedTypeFilter = running.filter((a) => !a.type || a.type === "Foreground");
+  assert.equal(passedTypeFilter.length, 2, "ambas as janelas passam pelo filtro de tipo 'Foreground'");
+
+  // 3. Documentação discriminante da semântica legada do deckQueue (public/index.html:1882-1887):
+  // O filtro legado da PWA dedupava por `seen[a.name]`, mantendo apenas 1 card por nome de app.
+  // A exibição de múltiplos cards por janela é responsabilidade da UI (UI-14), enquanto o backend (PLAT-11)
+  // entrega o payload completo com todas as janelas preservadas.
+  const legacyDeckCards = [];
   const seen = {};
-  running.forEach(function(a){
+  running.forEach(function (a) {
     if (a.type && a.type !== "Foreground") return;
     if (seen[a.name]) return;
     seen[a.name] = true;
-    q.push(a.name);
+    legacyDeckCards.push(a.name);
   });
-  assert.deepEqual(q, ["Warp", "OBS Studio", "Google Chrome"]);
+  assert.deepEqual(legacyDeckCards, ["Mozilla Firefox"], "filtro legado do deckQueue preserva 1 card por app name; UI-14 consome o payload por janela");
 });
 
 test("PLAT-11: createWindowTracker garante estabilidade de id enquanto viva e proteção contra reciclagem de HWND", () => {
@@ -943,6 +962,12 @@ test("PLAT-11 (real): runPowerShellListProcesses devolve janelas reais com hwnd,
   assert.equal(typeof win.min, "boolean");
   assert.equal(typeof win.isFg, "boolean");
   assert.equal(typeof win.title, "string");
+
+  // Critério discriminante (B4): mon não pode ser 0 e pelo menos uma janela deve estar em foco
+  assert.ok(rawWindows.every((w) => typeof w.mon === "number" && w.mon !== 0), "todas as janelas devem reportar handle de monitor válido (mon != 0)");
+  const fgWindows = rawWindows.filter((w) => w.isFg === true);
+  assert.ok(fgWindows.length >= 1, "pelo menos uma janela deve estar em foco (isFg == true)");
+
   t.diagnostic(`Janelas observadas: ${rawWindows.length}, primeira: hwnd=${win.hwnd} title="${win.title}" pid=${win.Id} mon=${win.mon}`);
 });
 
@@ -960,11 +985,27 @@ test("PLAT-12 (real): focusWindow, minimizeWindow e closeWindow controlam janela
     const focusRes = await focus(windowId);
     assert.deepEqual(focusRes, { ok: true }, "focusWindow deve retornar { ok: true }");
 
+    // Verifica o estado real via runPowerShellListProcesses após foco (B4)
+    const rawAfterFocus = await runPowerShellListProcesses();
+    const charmapWinFocus = rawAfterFocus.find((w) => w.Id === targetPid);
+    assert.ok(charmapWinFocus, "charmap deve aparecer na enumeração de janelas");
+    assert.equal(charmapWinFocus.isFg, true, "janela em foco deve ter isFg === true");
+    assert.equal(charmapWinFocus.min, false, "janela em foco não deve estar minimizada");
+    assert.notEqual(charmapWinFocus.mon, 0, "janela em foco deve ter monitor válido (mon != 0)");
+
     // 2. Testar minimizar
     const minimize = makeMinimizeWindow({ tracker, log: silentLog });
     const minRes = await minimize(windowId);
     assert.deepEqual(minRes, { ok: true }, "minimizeWindow deve retornar { ok: true }");
     assert.equal(await isWindowIconic(targetHandle), true, "janela deve estar minimizada");
+
+    // Verifica o estado real via runPowerShellListProcesses após minimizar (B4)
+    const rawAfterMin = await runPowerShellListProcesses();
+    const charmapWinMin = rawAfterMin.find((w) => w.Id === targetPid);
+    assert.ok(charmapWinMin, "charmap deve aparecer na enumeração de janelas após minimizar");
+    assert.equal(charmapWinMin.min, true, "janela minimizada deve ter min === true");
+    assert.equal(charmapWinMin.isFg, false, "janela minimizada não deve ter isFg === true");
+    assert.notEqual(charmapWinMin.mon, 0, "janela minimizada deve ter monitor válido (mon != 0)");
 
     // 3. Testar fechar (WM_CLOSE, sem force-kill)
     const close = makeCloseWindow({ tracker, log: silentLog });
@@ -1084,6 +1125,103 @@ $hwnd = $form.Handle
     }
     assert.equal(isAlive, true, "o processo que cancelou WM_CLOSE deve permanecer vivo (nunca force-kill)");
     t.diagnostic(`fechamento recusado com CLOSE_FAILED: processo pid=${pid} continua vivo=${isAlive}`);
+  } finally {
+    rmSync(tmpScript, { force: true });
+    if (pid) {
+      await killPid(pid);
+    }
+  }
+});
+
+test("PLAT-11/M1 (real): runPowerShellListProcesses preserva caracteres não-ASCII e acentuação no título da janela (Unicode)", win32Only, async (t) => {
+  const tmpScript = join(tmpdir(), `unicode-title-${Date.now()}.ps1`);
+  const readyFile = join(tmpdir(), `unicode-title-ready-${Date.now()}.txt`);
+  const safeReadyPath = readyFile.replace(/\\/g, "\\\\");
+  const testTitle = "◐ DeckTech análise e otimização do Dokke";
+  const psContent = `
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+Add-Type -AssemblyName System.Windows.Forms
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "${testTitle}"
+$hwnd = $form.Handle
+[System.IO.File]::WriteAllText("${safeReadyPath}", "$($hwnd):$PID", [System.Text.Encoding]::UTF8)
+[System.Windows.Forms.Application]::Run($form)
+`;
+  writeFileSync(tmpScript, "\uFEFF" + psContent, "utf8");
+  const child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", tmpScript], {
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  let hwnd = null;
+  let pid = null;
+  try {
+    for (let i = 0; i < 50; i++) {
+      if (existsSync(readyFile)) {
+        const text = readFileSync(readyFile, "utf8").trim();
+        const parts = text.split(":");
+        hwnd = Number(parts[0]);
+        pid = Number(parts[1]);
+        rmSync(readyFile, { force: true });
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    assert.ok(hwnd && pid, "deve ter obtido hwnd e pid da janela WinForms com título Unicode");
+
+    const raw = await runPowerShellListProcesses();
+    const win = raw.find((w) => w.Id === pid);
+    assert.ok(win, "janela com título Unicode deve ser encontrada");
+    assert.equal(win.title, testTitle, "título da janela deve preservar exatamente os caracteres Unicode (não converter para '?')");
+    assert.doesNotMatch(win.title, /\?/, "nenhum caractere Unicode deve virar '?'");
+  } finally {
+    rmSync(tmpScript, { force: true });
+    if (pid) {
+      await killPid(pid);
+    }
+  }
+});
+
+test("PLAT-12/M2 (real): closeWindow fecha normalmente janela cujo FormClosing demora mais de 250ms (sem CLOSE_FAILED)", win32Only, async (t) => {
+  const tmpScript = join(tmpdir(), `slow-close-${Date.now()}.ps1`);
+  const readyFile = join(tmpdir(), `slow-close-ready-${Date.now()}.txt`);
+  const safeReadyPath = readyFile.replace(/\\/g, "\\\\");
+  const psContent = `
+Add-Type -AssemblyName System.Windows.Forms
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "DeckTechSlowClosingForm"
+$form.add_FormClosing({ param($s, $e) [System.Threading.Thread]::Sleep(600) })
+$hwnd = $form.Handle
+[System.IO.File]::WriteAllText("${safeReadyPath}", "$($hwnd):$PID")
+[System.Windows.Forms.Application]::Run($form)
+`;
+  writeFileSync(tmpScript, psContent, "utf8");
+  const child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", tmpScript], {
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  let hwnd = null;
+  let pid = null;
+  try {
+    for (let i = 0; i < 50; i++) {
+      if (existsSync(readyFile)) {
+        const text = readFileSync(readyFile, "utf8").trim();
+        const parts = text.split(":");
+        hwnd = Number(parts[0]);
+        pid = Number(parts[1]);
+        rmSync(readyFile, { force: true });
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    assert.ok(hwnd && pid, "deve ter obtido hwnd e pid da janela WinForms de fechamento lento");
+
+    const tracker = createWindowTracker();
+    const winId = tracker.getOrCreateId(hwnd, pid);
+    tracker.register({ id: winId, hwnd, pid });
+
+    const close = makeCloseWindow({ tracker, log: silentLog });
+    const res = await close(winId);
+    assert.deepEqual(res, { ok: true }, "closeWindow deve fechar normalmente sem CLOSE_FAILED");
+    assert.equal(tracker.get(winId), null, "janela deve ser removida do tracker após fechar");
+    pid = null; // já fechou
   } finally {
     rmSync(tmpScript, { force: true });
     if (pid) {
