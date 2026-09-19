@@ -6,36 +6,61 @@ See: .maxvision/PROJECT.md (updated 2026-09-17)
 
 **Core value:** Um usuário Windows instala o DeckTech, abre o host, conecta o celular pelo PIN e
 aciona um app Windows pelo dock — tudo na primeira sessão, sem instalar Node.js.
-**Current focus:** Phase 2 — Contrato de plataforma (Phase 0 COMPLETA)
+**Current focus:** Fase 4 — Dados do usuario no Windows (Fases 0,1,2,3,6 COMPLETAS)
 
 ## Current Position
 
-Phase: 0 of 13 — **COMPLETA** em 2026-09-18
-Plan: 7/7 lanes fechadas (PROOF-01..08; PROOF-05 executado, nao implementado)
-Status: Fase 0 fechada; proxima onda = Phase 2 + Phase 6 em paralelo
-Last activity: 2026-09-18 — PROOF-08 tee blocker fechado; suite 389 tests / 374 pass / 0 fail / 15 skipped / exit 0
+Phase: 5 de 14 fechadas (0, 1, 2, 3, 6) — Fase 4 desbloqueada pela Fase 1
+Plan: marco de integracao fechado — o servidor DeckTech enumera apps Windows reais
+Status: `homolog` = `d341fdb`, empurrado, suite verde
+Last activity: 2026-09-18 — handshake READY do theme watcher; suite 651 tests / 636 pass / 0 fail / 15 skipped
 
-Progress: [█░░░░░░░░░] 8/79 requisitos (10%)
+Progress: [####______] 34/80 requisitos (43%)
 
-### Fase 0 — resultado
+### Fases fechadas
 
-| Lane | Rodadas | Fecho |
+| Fase | Requisitos | Fecho |
 |---|---|---|
-| PROOF-01 | 9 | APROVADO. ADR-0001: ponte de icone = **N-API addon**, koffi como fallback, pool PowerShell rejeitado |
-| PROOF-02 | 3 | APROVADO. ADR-0002: enumeracao UWP via `shell:AppsFolder`, 3/3 apps-prova detectados, locale pt-BR tratado |
-| PROOF-03 | 10 (exhausted) + sweep M4 | ADR-0003: parser binario `.lnk` **8,8x-16,4x** mais rapido que COM, zero divergencia em 182 atalhos |
-| PROOF-04 | 8 + sweep M3 | ADR PROOF-04: regra de exclusao de desinstaladores, com mutation harness (17 killed / 1 survivor) |
-| PROOF-06 | 1 + sweep M1/M2 | `ds-store` -> `optionalDependencies`; `npm ci` volta a funcionar no Windows; guarda de regressao em `test/package-dmg.test.mjs:226` |
-| PROOF-07 | 2 | Testes macOS-only gateados; 15 skips com motivo impresso |
-| PROOF-08 | 10 (exhausted) + sweep tee | ADR-0004: **`utilityProcess.fork`** decidido. D15 resolvido |
+| 0 Prova tecnica | 8 | ADR-0001 (N-API addon), ADR-0002 (`shell:AppsFolder`), ADR-0003 (parser binario `.lnk`), ADR-0004 (`utilityProcess.fork`). 100 agentes, ~19,6 M tokens |
+| 1 Identidade + wire | 7 | `decktech:discover` com `dokke:discover` legado ate 2027-03-18; `/health` sem header continua byte-a-byte Dokke (`DokkeDiscovery.kt:12` casa) |
+| 2 Contrato de plataforma | 4 | `createPlatform(platformName, deps)` em `platform/index.js:144`; erros tipados |
+| 3 Provedores Windows | 7 | `platform/windows/{apps,icon,actions,theme}.js` + addon N-API |
+| 6 Tokens + fixture | 8 | Fonte unica de cor/raio/motion; fixture dos invariantes do PRD §7 |
 
-Custo: 86 + 10 + 4 = 100 agentes, ~19,6 M tokens de subagente, 0 erro.
+### Marco de integracao (2026-09-18)
 
-Achado extra fora do escopo da fase: 2 testes de `test/ui.test.mjs` que **nunca passaram em lugar
-nenhum** (arquivo inalterado desde o fork, CI upstream e `workflow_dispatch`-only sem Playwright).
-Causa: o dock so preenche um tile quando a peca resolve contra `/api/apps/installed`, que no
-Windows ainda devolve o fallback macOS. Corrigidos injetando `appTools` pelo seam `server.js:295`
-e removendo `waitUntil: "networkidle"`, que a doc oficial do Playwright marca DISCOURAGED.
+Os quatro fios que ligavam a fabrica de plataforma ao servidor estavam **abertos** — a Fase 3
+construiu os provedores, a Fase 2 construiu a fabrica, e `grep createPlatform server.js` devolvia
+zero. O servidor subia com o fallback macOS e listava **1 app ("Finder")** nesta maquina Windows.
+Quatro fases de review nao pegaram: cada teste exercitava sua propria peca isolada, e o criterio
+PLAT-02 era satisfeito por injecao, nunca pelo caminho default.
+
+Fios fechados em `6800857` + `4028448`:
+
+```
+server.js:423       platform = defaultPlatform()
+server.js:424-425   appTools e actions derivados dele
+server.js:427       iconService derivado dele
+server.js:1211,1216 o mesmo buraco no feed de status WebSocket
+platform/index.js:132 + server.js:1312   dispose do theme watcher (vazamento)
+```
+
+Medido com o servidor de pe, caminho default, sem injecao:
+
+```
+apps            : 152   em 1456ms   (criterio da Fase 3: >=122)
+UWP             : 18     (ex.: "Backup do Windows")
+"Finder"        : 0
+unins*.exe      : 0
+path com espaco : 71
+```
+
+Guarda: `test/plat-01-server-wiring.test.mjs`. Revertendo com
+`git checkout 24310f1 -- server.js platform/index.js` o teste falha com o defeito literal
+(`actual: [ { name: 'Finder', path: '/System/Library/CoreServices/Finder.app' } ]`).
+
+**Licao incorporada ao contrato de review:** nenhuma fase fecha sem alguem SUBIR o servidor pelo
+caminho default e olhar o numero. Criterio satisfeito por injecao nao e criterio satisfeito.
 
 ## Performance Metrics
 
@@ -63,8 +88,11 @@ e removendo `waitUntil: "networkidle"`, que a doc oficial do Playwright marca DI
 Decisões completas em PROJECT.md (Key Decisions) e REQUIREMENTS.md (D1-D14). Afetando o trabalho
 corrente:
 
-- **D1** — strings de wire congeladas como `Dokke` no v1. WIRE-01 **não está no roadmap**; o APK
-  distribuído casa `/health` por regex ancorada (`DokkeDiscovery.kt:12`).
+- **D1 REVISADO POR D19** — o wire NAO ficou congelado. WIRE-01 entrou na Fase 1 e fechou:
+  `decktech:discover` e o magic novo, `dokke:discover` continua aceito ate 2027-03-18, e
+  `/health` SEM o header `x-decktech` responde `service: "Dokke"` byte-a-byte — verificado ao vivo
+  contra a regex ancorada de `DokkeDiscovery.kt:12`, que casa o corpo sem header e rejeita o
+  DeckTech. O APK ja instalado no S10e segue funcionando sem update.
 - **Stack = Electron**, confiança alta. Não reabrir salvo orçamento explícito de footprint.
 - **D10** — mecanismo de ícone 256px decidido na Fase 0 **por medição**, não por preferência.
 - **D3/D8** — `%LOCALAPPDATA%` nunca Roaming; desinstalador preserva dados com checkbox opt-in.
@@ -77,6 +105,27 @@ corrente:
 Nenhum.
 
 ### Blockers/Concerns
+
+- **[Fase 3 REABERTA — PLAT-05] Ativar um app ja aberto NAO traz a janela pra frente neste
+  Windows.** Achado no primeiro teste ponta-a-ponta real (2026-09-18): o S10e pareou por PIN,
+  achou o host pela LAN e mandou o toque; o servidor respondeu
+  `FOCUS_RESTRICTED: focus restricted for "Firefox", opened new instance` e o foreground nao
+  mudou. Nao e ruido: `focusWindowByPid` devolveu `hadProcess: true, hadWindow: true,
+  setForegroundReturn: false, becameForeground: false` com handle valido, e
+  `ForegroundLockTimeout` ja esta em `0`. Numa bateria fria de 6 tentativas, 0 de 5 ativacoes
+  reais funcionaram (a 6a "passou" so porque o alvo ja era o foreground).
+
+  O efeito pro usuario e pior que "nao focou": o fallback do PRD §15 abre uma instancia nova, e a
+  maquina acumulou 15 processos `firefox.exe`.
+
+  **NAO validado:** qual alternativa corrige. Medi `SwitchToThisWindow`, o truque do ALT e
+  `AttachThreadInput` em tres harnesses e os resultados se contradizem (o mesmo `plain` deu 0/5
+  num, 4/6 noutro). A variavel que domina e quem detem direito de foreground no momento, e meus
+  harnesses a alteram ao tentar medi-la. Precisa de investigacao propria, com um harness que
+  nao toque no foreground pra observa-lo. Nao aplicar `AttachThreadInput` sem essa prova: o
+  comentario de `platform/windows/actions.js:20-37` rejeitou o bypass DE PROPOSITO, e reverter
+  uma decisao documentada exige evidencia, nao preferencia.
+
 
 - **[Fase 11] APK DeckTech não pode atualizar o APK Dokke in-place.** Verificado:
   `applicationId = "com.dokke.app"` (`android/app/build.gradle:35`) e a guarda
@@ -113,7 +162,9 @@ Nenhum.
 
 ## Session Continuity
 
-Last session: 2026-09-17
-Stopped at: ROADMAP.md e STATE.md escritos; traceability de REQUIREMENTS.md preenchida com 67 linhas
+Last session: 2026-09-18
+Stopped at: marco de integracao fechado e empurrado (`d341fdb`); worktree `decktech-f1` desfeito e
+branch `f1-identity` apagada (mergeada em `24310f1`)
 Resume file: None
-Next action: `/maxvision:plan-phase 0`
+Next action: teste ponta-a-ponta no S10e (`100.125.203.58:36403`, LAN `192.168.15.0/24`), depois
+`/maxvision:plan-phase 4`
