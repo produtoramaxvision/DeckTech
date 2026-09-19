@@ -1035,6 +1035,167 @@ export function makeApp(deps = {}) {
         return;
       }
     }
+    const winFocus = url.pathname.match(/^\/api\/windows\/([^/]+)\/focus$/);
+    if (winFocus && req.method === "POST") {
+      let id;
+      try { id = decodeURIComponent(winFocus[1]); }
+      catch {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ ok: false, error: "id inválido" }));
+        return;
+      }
+      const fn = actions.focusWindow ?? platform.focusWindow;
+      if (typeof fn !== "function") {
+        res.writeHead(501, JSON_HEADERS);
+        res.end(JSON.stringify({ ok: false, code: "PLATFORM_NOT_IMPLEMENTED", error: "focusWindow não implementado nesta plataforma" }));
+        return;
+      }
+      log.debug("action.window_focus.attempt", { requestId, id });
+      fn(id)
+        .then(() => {
+          log.debug("action.window_focus.ok", { requestId, id });
+          ok({ ok: true });
+        })
+        .then(() => { if (onStatusChange) onStatusChange(); })
+        .catch(err => {
+          const code = typeof err?.code === "string" ? err.code : null;
+          log.warn("action.window_focus.failed", { requestId, id, code, message: err?.message ?? String(err) });
+          if (code === "WINDOW_NOT_FOUND") {
+            res.writeHead(404, JSON_HEADERS);
+            res.end(JSON.stringify({ ok: false, code, error: "Janela não encontrada" }));
+            return;
+          }
+          if (code === "PLATFORM_NOT_IMPLEMENTED") {
+            res.writeHead(501, JSON_HEADERS);
+            res.end(JSON.stringify({ ok: false, code, error: "Ação de janela não implementada nesta plataforma" }));
+            return;
+          }
+          fail(res, err);
+        });
+      return;
+    }
+    const winMinimize = url.pathname.match(/^\/api\/windows\/([^/]+)\/minimize$/);
+    if (winMinimize && req.method === "POST") {
+      let id;
+      try { id = decodeURIComponent(winMinimize[1]); }
+      catch {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ ok: false, error: "id inválido" }));
+        return;
+      }
+      const fn = actions.minimizeWindow ?? platform.minimizeWindow;
+      if (typeof fn !== "function") {
+        res.writeHead(501, JSON_HEADERS);
+        res.end(JSON.stringify({ ok: false, code: "PLATFORM_NOT_IMPLEMENTED", error: "minimizeWindow não implementado nesta plataforma" }));
+        return;
+      }
+      log.debug("action.window_minimize.attempt", { requestId, id });
+      fn(id)
+        .then(() => {
+          log.debug("action.window_minimize.ok", { requestId, id });
+          ok({ ok: true });
+        })
+        .then(() => { if (onStatusChange) onStatusChange(); })
+        .catch(err => {
+          const code = typeof err?.code === "string" ? err.code : null;
+          log.warn("action.window_minimize.failed", { requestId, id, code, message: err?.message ?? String(err) });
+          if (code === "WINDOW_NOT_FOUND") {
+            res.writeHead(404, JSON_HEADERS);
+            res.end(JSON.stringify({ ok: false, code, error: "Janela não encontrada" }));
+            return;
+          }
+          if (code === "MINIMIZE_FAILED") {
+            res.writeHead(500, JSON_HEADERS);
+            res.end(JSON.stringify({ ok: false, code, error: "Não foi possível minimizar a janela" }));
+            return;
+          }
+          if (code === "PLATFORM_NOT_IMPLEMENTED") {
+            res.writeHead(501, JSON_HEADERS);
+            res.end(JSON.stringify({ ok: false, code, error: "Ação de janela não implementada nesta plataforma" }));
+            return;
+          }
+          fail(res, err);
+        });
+      return;
+    }
+    const winClose = url.pathname.match(/^\/api\/windows\/([^/]+)\/close$/);
+    if (winClose && req.method === "POST") {
+      let id;
+      try { id = decodeURIComponent(winClose[1]); }
+      catch {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ ok: false, error: "id inválido" }));
+        return;
+      }
+      const fn = actions.closeWindow ?? platform.closeWindow;
+      if (typeof fn !== "function") {
+        res.writeHead(501, JSON_HEADERS);
+        res.end(JSON.stringify({ ok: false, code: "PLATFORM_NOT_IMPLEMENTED", error: "closeWindow não implementado nesta plataforma" }));
+        return;
+      }
+      log.debug("action.window_close.attempt", { requestId, id });
+      fn(id)
+        .then(() => {
+          log.debug("action.window_close.ok", { requestId, id });
+          ok({ ok: true });
+        })
+        .then(() => { if (onStatusChange) onStatusChange(); })
+        .catch(err => {
+          const code = typeof err?.code === "string" ? err.code : null;
+          log.warn("action.window_close.failed", { requestId, id, code, message: err?.message ?? String(err) });
+          if (code === "WINDOW_NOT_FOUND") {
+            res.writeHead(404, JSON_HEADERS);
+            res.end(JSON.stringify({ ok: false, code, error: "Janela não encontrada" }));
+            return;
+          }
+          if (code === "CLOSE_FAILED") {
+            res.writeHead(500, JSON_HEADERS);
+            res.end(JSON.stringify({ ok: false, code, error: "Não foi possível fechar a janela" }));
+            return;
+          }
+          if (code === "PLATFORM_NOT_IMPLEMENTED") {
+            res.writeHead(501, JSON_HEADERS);
+            res.end(JSON.stringify({ ok: false, code, error: "Ação de janela não implementada nesta plataforma" }));
+            return;
+          }
+          fail(res, err);
+        });
+      return;
+    }
+    const openNewWin = url.pathname.match(/^\/api\/apps\/([^/]+)\/open-new-window$/);
+    if (openNewWin && req.method === "POST") {
+      let name;
+      try { name = decodeURIComponent(openNewWin[1]); }
+      catch {
+        res.writeHead(400, JSON_HEADERS);
+        res.end(JSON.stringify({ ok: false, error: "nome inválido" }));
+        return;
+      }
+      const fn = actions.openNewWindow ?? platform.openNewWindow;
+      if (typeof fn !== "function") {
+        res.writeHead(501, JSON_HEADERS);
+        res.end(JSON.stringify({ ok: false, code: "PLATFORM_NOT_IMPLEMENTED", error: "openNewWindow não implementado nesta plataforma" }));
+        return;
+      }
+      log.debug("action.open_new_window.attempt", { requestId, name });
+      fn(name)
+        .then(() => {
+          log.debug("action.open_new_window.ok", { requestId, name });
+          ok({ ok: true });
+        })
+        .then(() => { if (onStatusChange) onStatusChange(); })
+        .catch(err => {
+          const code = typeof err?.code === "string" ? err.code : null;
+          log.warn("action.open_new_window.failed", { requestId, name, code, message: err?.message ?? String(err) });
+          if (code === "PLATFORM_NOT_IMPLEMENTED") {
+            res.writeHead(501, JSON_HEADERS);
+            res.end(JSON.stringify({ ok: false, code, error: "Ação de janela não implementada nesta plataforma" }));
+            return;
+          }
+          fail(res, err);
+        });
+      return;
+    }
     const icon = url.pathname.match(/^\/api\/apps\/([^/]+)\/icon$/);
     if (icon) {
       let name;
@@ -1211,9 +1372,9 @@ export async function startServer(arg = {}) {
   opts.platform = opts.platform ?? defaultPlatform();
   const feed = createStatusFeed({
     readConfig: () => configFile ? loadConfig(configFile) : Promise.resolve(opts.config || { pinned: [] }),
-    listProcesses: (opts.appTools && opts.appTools.listAppProcesses)
-      ? opts.appTools.listAppProcesses
-      : opts.platform.listAppProcesses,
+    listProcesses: (opts.appTools && (opts.appTools.listWindows || opts.appTools.listAppProcesses))
+      ? (opts.appTools.listWindows || opts.appTools.listAppProcesses)
+      : (opts.platform.listWindows || opts.platform.listAppProcesses),
     version: uiVer,
   });
   const handler = makeApp({

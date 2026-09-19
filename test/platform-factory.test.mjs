@@ -9,10 +9,24 @@ import { makeWindowsIconService, WIN_ICON_MAX_PX } from "../platform/windows/ico
 import {
   listAppProcesses as win32ListAppProcesses,
   activateApp as win32ActivateApp,
+  focusWindow as win32FocusWindow,
+  minimizeWindow as win32MinimizeWindow,
+  closeWindow as win32CloseWindow,
+  openNewWindow as win32OpenNewWindow,
 } from "../platform/windows/actions.js";
 import { createWindowsAppearanceTracker } from "../platform/windows/theme.js";
 
-const CONTRACT_MEMBERS = ["listInstalledApps", "listAppProcesses", "activateApp", "openWebsite", "iconService"];
+const CONTRACT_MEMBERS = [
+  "listInstalledApps",
+  "listAppProcesses",
+  "activateApp",
+  "openWebsite",
+  "iconService",
+  "focusWindow",
+  "minimizeWindow",
+  "closeWindow",
+  "openNewWindow",
+];
 
 test("PLAT-01: darwin devolve os 5 membros do contrato quando chamado explicitamente", () => {
   const platform = createPlatform("darwin");
@@ -109,6 +123,26 @@ test("PLAT-05: win32 listAppProcesses/activateApp são os providers reais de pla
   assert.equal(platform.activateApp, win32ActivateApp);
   assert.equal(typeof platform.listAppProcesses, "function");
   assert.equal(typeof platform.activateApp, "function");
+});
+
+test("PLAT-12: win32 focusWindow/minimizeWindow/closeWindow/openNewWindow são os providers reais de platform/windows/actions.js", () => {
+  const platform = createPlatform("win32");
+  assert.equal(platform.focusWindow, win32FocusWindow);
+  assert.equal(platform.minimizeWindow, win32MinimizeWindow);
+  assert.equal(platform.closeWindow, win32CloseWindow);
+  assert.equal(platform.openNewWindow, win32OpenNewWindow);
+  assert.equal(typeof platform.focusWindow, "function");
+  assert.equal(typeof platform.minimizeWindow, "function");
+  assert.equal(typeof platform.closeWindow, "function");
+  assert.equal(typeof platform.openNewWindow, "function");
+});
+
+test("PLAT-12: darwin tem degradação explicitamente declarada (PlatformNotImplementedError) em focusWindow/minimizeWindow/closeWindow/openNewWindow", async () => {
+  const platform = createPlatform("darwin");
+  await assert.rejects(platform.focusWindow("win-1"), PlatformNotImplementedError);
+  await assert.rejects(platform.minimizeWindow("win-1"), PlatformNotImplementedError);
+  await assert.rejects(platform.closeWindow("win-1"), PlatformNotImplementedError);
+  await assert.rejects(platform.openNewWindow("App"), PlatformNotImplementedError);
 });
 
 // Critério 1 discriminante para PLAT-02: sem esta asserção de referência, um

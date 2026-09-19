@@ -28,6 +28,18 @@ import {
   focusWindowByPid,
   PS_FOCUS_SCRIPT,
   RUNNING_TTL_MS,
+  createWindowTracker,
+  makeFocusWindow,
+  makeMinimizeWindow,
+  makeCloseWindow,
+  makeOpenNewWindow,
+  focusWindow,
+  minimizeWindow,
+  closeWindow,
+  openNewWindow,
+  PS_FOCUS_WINDOW_SCRIPT,
+  PS_MINIMIZE_WINDOW_SCRIPT,
+  PS_CLOSE_WINDOW_SCRIPT,
 } from "../platform/windows/actions.js";
 import { ActionError } from "../actions.js";
 import { WindowsAppScanError } from "../platform/windows/apps.js";
@@ -37,19 +49,25 @@ const win32Only = process.platform === "win32" ? {} : { skip: "requer Windows re
 const silentLog = { error() {}, warn() {}, info() {}, debug() {} };
 
 // ---------------------------------------------------------------------
-// matchRunningProcesses — identidade por caminho do executável
+// matchRunningProcesses — identidade por caminho do executável (PLAT-05 / PLAT-11)
 // ---------------------------------------------------------------------
 
-test("PLAT-05: matchRunningProcesses casa processo -> nome do catálogo pelo Path (win32), não por ProcessName/título", () => {
+test("PLAT-05/PLAT-11: matchRunningProcesses casa processo -> nome do catálogo pelo Path (win32), não por ProcessName/título", () => {
   const processes = [
-    { Id: 111, ProcessName: "chrome", MainWindowTitle: "alguma aba", Path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
-    { Id: 222, ProcessName: "notepad", MainWindowTitle: "sem titulo", Path: "C:\\Windows\\system32\\notepad.exe" },
+    { Id: 111, hwnd: 1111, ProcessName: "chrome", MainWindowTitle: "alguma aba", Path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
+    { Id: 222, hwnd: 2222, ProcessName: "notepad", MainWindowTitle: "sem titulo", Path: "C:\\Windows\\system32\\notepad.exe" },
   ];
   const catalog = [
     { name: "Google Chrome", path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", kind: "win32", target: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" },
   ];
   const result = matchRunningProcesses(processes, catalog);
-  assert.deepEqual(result, [{ name: "Google Chrome", pid: 111, type: "Foreground" }]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].name, "Google Chrome");
+  assert.equal(result[0].pid, 111);
+  assert.equal(result[0].hwnd, 1111);
+  assert.equal(result[0].title, "alguma aba");
+  assert.equal(typeof result[0].id, "string");
+  assert.equal(result[0].state, "background");
 });
 
 test("PLAT-05: matchRunningProcesses ignora entradas UWP do catálogo (identidade é AUMID, não path) — gap documentado", () => {
@@ -62,13 +80,16 @@ test("PLAT-05: matchRunningProcesses ignora entradas UWP do catálogo (identidad
   assert.deepEqual(matchRunningProcesses(processes, catalog), []);
 });
 
-test("PLAT-05: matchRunningProcesses é case-insensitive no path e ignora processo sem catálogo correspondente", () => {
+test("PLAT-05/PLAT-11: matchRunningProcesses é case-insensitive no path e ignora processo sem catálogo correspondente", () => {
   const processes = [
     { Id: 1, ProcessName: "app", MainWindowTitle: "x", Path: "C:\\APPS\\Foo\\FOO.EXE" },
     { Id: 2, ProcessName: "ghost", MainWindowTitle: "y", Path: "C:\\Somewhere\\ghost.exe" },
   ];
   const catalog = [{ name: "Foo", path: "C:\\Apps\\Foo\\foo.exe", kind: "win32" }];
-  assert.deepEqual(matchRunningProcesses(processes, catalog), [{ name: "Foo", pid: 1, type: "Foreground" }]);
+  const result = matchRunningProcesses(processes, catalog);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].name, "Foo");
+  assert.equal(result[0].pid, 1);
 });
 
 test("PLAT-05: matchRunningProcesses ignora processo sem Path e sem pid inteiro positivo", () => {
@@ -80,23 +101,37 @@ test("PLAT-05: matchRunningProcesses ignora processo sem Path e sem pid inteiro 
   assert.deepEqual(matchRunningProcesses(processes, catalog), []);
 });
 
-test("PLAT-05: matchRunningProcesses deduplica por pid (nunca repete o mesmo processo)", () => {
+test("PLAT-11: matchRunningProcesses NÃO deduplica por PID — duas janelas do mesmo processo aparecem como entradas distintas", () => {
   const processes = [
-    { Id: 1, ProcessName: "app", MainWindowTitle: "x", Path: "C:\\Apps\\Foo\\foo.exe" },
-    { Id: 1, ProcessName: "app", MainWindowTitle: "x", Path: "C:\\Apps\\Foo\\foo.exe" },
+    { Id: 10, hwnd: 1001, ProcessName: "firefox", title: "Firefox - Monitor 1", mon: 65537, isFg: true, min: false, Path: "C:\\Apps\\Firefox\\firefox.exe" },
+    { Id: 10, hwnd: 1002, ProcessName: "firefox", title: "Firefox - Monitor 2", mon: 65539, isFg: false, min: false, Path: "C:\\Apps\\Firefox\\firefox.exe" },
   ];
-  const catalog = [{ name: "Foo", path: "C:\\Apps\\Foo\\foo.exe", kind: "win32" }];
-  assert.deepEqual(matchRunningProcesses(processes, catalog), [{ name: "Foo", pid: 1, type: "Foreground" }]);
+  const catalog = [{ name: "Mozilla Firefox", path: "C:\\Apps\\Firefox\\firefox.exe", kind: "win32" }];
+  const result = matchRunningProcesses(processes, catalog);
+  assert.equal(result.length, 2, "duas janelas do mesmo processo devem gerar dois cartões de janela");
+  assert.equal(result[0].name, "Mozilla Firefox");
+  assert.equal(result[1].name, "Mozilla Firefox");
+  assert.equal(result[0].title, "Firefox - Monitor 1");
+  assert.equal(result[1].title, "Firefox - Monitor 2");
+  assert.equal(result[0].monitor, 65537);
+  assert.equal(result[1].monitor, 65539);
+  assert.equal(result[0].state, "focused");
+  assert.equal(result[1].state, "background");
+  assert.equal(result[0].id !== result[1].id, true, "cada janela tem seu próprio identificador estável");
 });
 
 // Não-negociável #4: path.join sobre separador hardcoded, path com espaço
 // atravessa a identidade de ponta a ponta.
-test("PLAT-05: matchRunningProcesses casa um path com espaço (Program Files) intacto", () => {
+test("PLAT-05/PLAT-11: matchRunningProcesses casa um path com espaço (Program Files) intacto", () => {
   const spaced = join("C:\\Program Files", "Some App", "some app.exe");
   assert.match(spaced, / /, "fixture precisa ter um espaço de verdade");
   const processes = [{ Id: 7, ProcessName: "some app", MainWindowTitle: "t", Path: spaced }];
   const catalog = [{ name: "Some App", path: spaced, kind: "win32" }];
-  assert.deepEqual(matchRunningProcesses(processes, catalog), [{ name: "Some App", pid: 7, type: "Foreground" }]);
+  const result = matchRunningProcesses(processes, catalog);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].name, "Some App");
+  assert.equal(result[0].pid, 7);
+  assert.equal(result[0].title, "t");
 });
 
 // ---------------------------------------------------------------------
@@ -536,6 +571,9 @@ test("PLAT-05 (real): focusWindowByPid observa GetForegroundWindow contra um pro
     const observation = await focusWindowByPid(targetPid);
     const elapsedMs = Date.now() - t0;
 
+    t.diagnostic(`focusWindowByPid round-trip: ${elapsedMs}ms (inclui spawn do powershell.exe + Add-Type compile + 150ms sleep do script)`);
+    t.diagnostic(`observação medida (real, não simulada): ${JSON.stringify(observation)}`);
+
     // Estrutura sempre verdadeira, processo real com janela real:
     assert.equal(observation.hadProcess, true);
     assert.equal(observation.hadWindow, true);
@@ -545,16 +583,13 @@ test("PLAT-05 (real): focusWindowByPid observa GetForegroundWindow contra um pro
     assert.equal(observation.setForegroundReturn, true);
     assert.equal(observation.becameForeground, true, "focusWindowByPid deve trazer a janela alvo para o foreground");
     assert.equal(observation.foregroundHandleAfter, targetHandle, "handle do foreground final deve ser o handle da janela alvo");
-
-    t.diagnostic(`focusWindowByPid round-trip: ${elapsedMs}ms (inclui spawn do powershell.exe + Add-Type compile + 150ms sleep do script)`);
-    t.diagnostic(`observação medida (real, não simulada): ${JSON.stringify(observation)}`);
   } finally {
     if (distractorPid) await killPid(distractorPid);
     if (targetPid) await killPid(targetPid);
   }
 });
 
-async function minimizeWindow(hwnd) {
+async function minimizeWindowHwnd(hwnd) {
   await execFileP("powershell.exe", [
     "-NoProfile", "-NonInteractive", "-Command",
     `$sig = @"
@@ -595,7 +630,7 @@ test("PLAT-05 (real): focusWindowByPid restaura janela minimizada/icônica com S
     assert.equal(distractorObs.attachedTgt, true, "deve ter anexado ao alvo");
 
     // Minimiza a janela alvo e confirma que ela ficou icônica
-    await minimizeWindow(targetHandle);
+    await minimizeWindowHwnd(targetHandle);
     assert.equal(await isWindowIconic(targetHandle), true, "janela alvo deve estar icônica/minimizada antes do foco");
 
     const t0 = Date.now();
@@ -687,5 +722,234 @@ test("PLAT-05 (real): launchAppEntry abre um app real cujo path contém espaço 
   // processos com esse nome, que este teste acabou de criar.
   if (beforeCount === 0) {
     await execFileP("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", `Get-Process -Name '${procName}' -ErrorAction SilentlyContinue | Stop-Process -Force`]);
+  }
+});
+
+// ---------------------------------------------------------------------
+// PLAT-11 & PLAT-12 Unit Tests
+// ---------------------------------------------------------------------
+
+test("PLAT-11: os três estados (focused, background, minimized) são derivados de isFg e min, sem literais no código", () => {
+  const catalog = [{ name: "App", path: "C:\\Apps\\App.exe", kind: "win32" }];
+  const windows = [
+    { Id: 1, hwnd: 10, title: "Janela Minimizada", min: true, isFg: false, Path: "C:\\Apps\\App.exe" },
+    { Id: 2, hwnd: 20, title: "Janela em Foco", min: false, isFg: true, Path: "C:\\Apps\\App.exe" },
+    { Id: 3, hwnd: 30, title: "Janela em Segundo Plano", min: false, isFg: false, Path: "C:\\Apps\\App.exe" },
+  ];
+  const result = matchRunningProcesses(windows, catalog);
+  assert.equal(result.length, 3);
+  assert.equal(result[0].state, "minimized");
+  assert.equal(result[1].state, "focused");
+  assert.equal(result[2].state, "background");
+  assert.equal(result[0].type, "minimized");
+  assert.equal(result[1].type, "focused");
+  assert.equal(result[2].type, "background");
+});
+
+test("PLAT-11: createWindowTracker garante estabilidade de id enquanto viva e proteção contra reciclagem de HWND", () => {
+  const tracker = createWindowTracker();
+  // 1. Primeira observação gera ID único
+  const id1 = tracker.getOrCreateId(1234, 100);
+  assert.match(id1, /^win-100-1234-\d+$/);
+
+  // 2. Re-escaneamento da mesma janela viva devolve o MESMO id (estabilidade)
+  const id1Again = tracker.getOrCreateId(1234, 100);
+  assert.equal(id1Again, id1, "janela viva deve manter o mesmo id entre varreduras");
+
+  // 3. HWND é reciclado por outro PID (processo antigo fechou, novo abriu e pegou o mesmo handle)
+  const id2 = tracker.getOrCreateId(1234, 200);
+  assert.notEqual(id2, id1, "HWND reciclado para outro PID deve gerar novo ID");
+  assert.equal(tracker.get(id1), null, "o ID da janela antiga não pode mais resolver após reciclagem");
+
+  // 4. Sweep remove janelas que não estão mais presentes
+  tracker.register({ id: id2, hwnd: 1234, pid: 200 });
+  assert.notEqual(tracker.get(id2), null);
+  tracker.sweep([]);
+  assert.equal(tracker.get(id2), null, "sweep deve remover janela que fechou");
+});
+
+test("PLAT-12: focusWindow lança WINDOW_NOT_FOUND para ID desconhecido ou janela fechada", async () => {
+  const tracker = createWindowTracker();
+  const focus = makeFocusWindow({ tracker, log: silentLog });
+  await assert.rejects(focus("win-fantasma"), (err) => {
+    assert.ok(err instanceof ActionError);
+    assert.equal(err.code, "WINDOW_NOT_FOUND");
+    return true;
+  });
+});
+
+test("PLAT-12: focusWindow resolve quando becameForeground é true", async () => {
+  const tracker = createWindowTracker();
+  tracker.register({ id: "w1", hwnd: 100, pid: 50 });
+  const focus = makeFocusWindow({
+    tracker,
+    focusHwnd: async (hwnd, pid) => {
+      assert.equal(hwnd, 100);
+      assert.equal(pid, 50);
+      return { becameForeground: true };
+    },
+    log: silentLog,
+  });
+  const res = await focus("w1");
+  assert.deepEqual(res, { ok: true });
+});
+
+test("PLAT-12: focusWindow lança FOCUS_RESTRICTED quando becameForeground é false", async () => {
+  const tracker = createWindowTracker();
+  tracker.register({ id: "w1", hwnd: 100, pid: 50 });
+  const focus = makeFocusWindow({
+    tracker,
+    focusHwnd: async () => ({ becameForeground: false }),
+    log: silentLog,
+  });
+  await assert.rejects(focus("w1"), (err) => {
+    assert.ok(err instanceof ActionError);
+    assert.equal(err.code, "FOCUS_RESTRICTED");
+    return true;
+  });
+});
+
+test("PLAT-12: minimizeWindow resolve quando minimized é true e lança MINIMIZE_FAILED se falhar", async () => {
+  const tracker = createWindowTracker();
+  tracker.register({ id: "w1", hwnd: 100, pid: 50 });
+  let minCalls = 0;
+  let succeed = true;
+  const minimize = makeMinimizeWindow({
+    tracker,
+    minimizeHwnd: async (hwnd, pid) => {
+      minCalls++;
+      assert.equal(hwnd, 100);
+      assert.equal(pid, 50);
+      return { minimized: succeed };
+    },
+    log: silentLog,
+  });
+
+  const res = await minimize("w1");
+  assert.deepEqual(res, { ok: true });
+  assert.equal(minCalls, 1);
+
+  succeed = false;
+  await assert.rejects(minimize("w1"), (err) => {
+    assert.ok(err instanceof ActionError);
+    assert.equal(err.code, "MINIMIZE_FAILED");
+    return true;
+  });
+});
+
+test("PLAT-12: closeWindow fecha via WM_CLOSE, lança CLOSE_FAILED se o app não fechar, e NUNCA usa force-kill", async () => {
+  // Prova 1: o script de fechamento envia WM_CLOSE (0x0010) e NÃO contém Stop-Process nem -Force
+  assert.match(PS_CLOSE_WINDOW_SCRIPT, /0x0010/, "deve enviar mensagem WM_CLOSE");
+  assert.doesNotMatch(PS_CLOSE_WINDOW_SCRIPT, /Stop-Process/i, "NUNCA deve conter Stop-Process");
+  assert.doesNotMatch(PS_CLOSE_WINDOW_SCRIPT, /-Force/i, "NUNCA deve conter a flag -Force");
+  assert.doesNotMatch(PS_CLOSE_WINDOW_SCRIPT, /taskkill/i, "NUNCA deve conter taskkill");
+  assert.doesNotMatch(PS_CLOSE_WINDOW_SCRIPT, /TerminateProcess/i, "NUNCA deve chamar TerminateProcess");
+
+  const tracker = createWindowTracker();
+  tracker.register({ id: "w1", hwnd: 100, pid: 50 });
+
+  // Prova 2: sucesso quando closed=true
+  let closeCalls = 0;
+  let succeed = true;
+  const close = makeCloseWindow({
+    tracker,
+    closeHwnd: async (hwnd, pid) => {
+      closeCalls++;
+      assert.equal(hwnd, 100);
+      assert.equal(pid, 50);
+      return { closed: succeed };
+    },
+    log: silentLog,
+  });
+
+  const res = await close("w1");
+  assert.deepEqual(res, { ok: true });
+  assert.equal(tracker.get("w1"), null, "janela fechada deve ser removida do tracker");
+
+  // Prova 3: erro tipado CLOSE_FAILED se o app recusar o fechamento (ex.: diálogo salvar)
+  tracker.register({ id: "w2", hwnd: 200, pid: 60 });
+  succeed = false;
+  await assert.rejects(close("w2"), (err) => {
+    assert.ok(err instanceof ActionError);
+    assert.equal(err.code, "CLOSE_FAILED");
+    return true;
+  });
+  assert.notEqual(tracker.get("w2"), null, "janela que não fechou continua no tracker e viva");
+});
+
+test("PLAT-12: openNewWindow lança nova instância por app name, sem tentar focar ou lançar FOCUS_RESTRICTED", async () => {
+  let launched = null;
+  const openNew = makeOpenNewWindow({
+    resolveApps: async () => [{ name: "Firefox", path: "C:\\Apps\\Firefox\\firefox.exe", kind: "win32" }],
+    launch: async (entry) => { launched = entry; },
+    log: silentLog,
+  });
+
+  const res = await openNew("Firefox");
+  assert.deepEqual(res, { ok: true });
+  assert.equal(launched.name, "Firefox");
+
+  await assert.rejects(openNew("Desconhecido"), (err) => {
+    assert.ok(err instanceof ActionError);
+    assert.equal(err.code, "APP_NOT_FOUND");
+    return true;
+  });
+
+  const failingOpen = makeOpenNewWindow({
+    resolveApps: async () => [{ name: "Quebrado", path: "C:\\Apps\\broken.exe", kind: "win32" }],
+    launch: async () => { throw new Error("spawn failed"); },
+    log: silentLog,
+  });
+  await assert.rejects(failingOpen("Quebrado"), (err) => {
+    assert.ok(err instanceof ActionError);
+    assert.equal(err.code, "LAUNCH_FAILED");
+    return true;
+  });
+});
+
+test("PLAT-11 (real): runPowerShellListProcesses devolve janelas reais com hwnd, mon, title e estado", win32Only, async (t) => {
+  const rawWindows = await runPowerShellListProcesses();
+  assert.ok(Array.isArray(rawWindows));
+  assert.ok(rawWindows.length > 0, "deve encontrar pelo menos uma janela nesta máquina");
+  const win = rawWindows[0];
+  assert.equal(typeof win.Id, "number");
+  assert.equal(typeof win.hwnd, "number");
+  assert.equal(typeof win.mon, "number");
+  assert.equal(typeof win.min, "boolean");
+  assert.equal(typeof win.isFg, "boolean");
+  assert.equal(typeof win.title, "string");
+  t.diagnostic(`Janelas observadas: ${rawWindows.length}, primeira: hwnd=${win.hwnd} title="${win.title}" pid=${win.Id} mon=${win.mon}`);
+});
+
+test("PLAT-12 (real): focusWindow, minimizeWindow e closeWindow controlam janela real (charmap.exe)", win32Only, async (t) => {
+  let targetPid = null;
+  try {
+    targetPid = await launchGuiProcess(CHARMAP);
+    const targetHandle = await waitForMainWindowHandle(targetPid);
+
+    const tracker = createWindowTracker();
+    const windowId = tracker.getOrCreateId(targetHandle, targetPid);
+
+    // 1. Testar foco
+    const focus = makeFocusWindow({ tracker, log: silentLog });
+    const focusRes = await focus(windowId);
+    assert.deepEqual(focusRes, { ok: true }, "focusWindow deve retornar { ok: true }");
+
+    // 2. Testar minimizar
+    const minimize = makeMinimizeWindow({ tracker, log: silentLog });
+    const minRes = await minimize(windowId);
+    assert.deepEqual(minRes, { ok: true }, "minimizeWindow deve retornar { ok: true }");
+    assert.equal(await isWindowIconic(targetHandle), true, "janela deve estar minimizada");
+
+    // 3. Testar fechar (WM_CLOSE, sem force-kill)
+    const close = makeCloseWindow({ tracker, log: silentLog });
+    const closeRes = await close(windowId);
+    assert.deepEqual(closeRes, { ok: true }, "closeWindow deve retornar { ok: true }");
+
+    // Confirma que a janela foi fechada
+    assert.equal(tracker.get(windowId), null, "janela deve ser removida do tracker após close");
+    targetPid = null; // charmap já fechou
+  } finally {
+    if (targetPid) await killPid(targetPid);
   }
 });
