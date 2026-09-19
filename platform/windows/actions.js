@@ -311,7 +311,6 @@ export function createWindowTracker() {
   function clear() {
     byId.clear();
     hwndToId.clear();
-    counter = 0;
   }
 
   return { getOrCreateId, register, get, remove, sweep, clear, byId, hwndToId };
@@ -411,6 +410,7 @@ export function makeListAppProcesses(deps = {}) {
     now = Date.now,
     log = defaultLog,
   } = deps;
+  let cacheSeq = 0;
   let cache = { at: 0, value: null, promise: null };
 
   async function run(opts) {
@@ -422,21 +422,39 @@ export function makeListAppProcesses(deps = {}) {
     const t = now();
     if (cache.value && t - cache.at < ttlMs) return cache.value;
     if (cache.promise) return cache.promise;
-    cache.promise = run(opts)
+    const seq = ++cacheSeq;
+    const p = run(opts)
       .then((value) => {
-        cache = { at: now(), value, promise: null };
+        if (cacheSeq === seq) {
+          cache = { at: now(), value, promise: null };
+        }
         return value;
       })
       .catch((err) => {
-        cache.promise = null;
+        if (cacheSeq === seq) {
+          cache.promise = null;
+        }
         log.warn("windows.actions.list_processes_failed", { message: err?.message ?? String(err) });
         return [];
       });
-    return cache.promise;
+    cache.promise = p;
+    return p;
   }
+
+  /**
+   * Invalida apenas o cache em memória da listagem de processos,
+   * forçando nova coleta na próxima chamada, SEM limpar o window tracker.
+   * Usado após ações de janela (focus, minimize, close, openNewWindow, activate)
+   * para que o próximo status push ou GET /api/apps veja o estado novo imediatamente.
+   */
+  listAppProcesses.invalidateCache = () => {
+    cacheSeq++;
+    cache = { at: 0, value: null, promise: null };
+  };
 
   /** Só testes / hot-reload — mesmo nome/forma de apps.js#clearInstalledAppsCache. */
   listAppProcesses.clearCache = () => {
+    cacheSeq++;
     cache = { at: 0, value: null, promise: null };
     tracker.clear();
   };
@@ -447,9 +465,18 @@ export function makeListAppProcesses(deps = {}) {
 /** Instância padrão, ligada às dependências reais — o que platform/index.js consome. */
 export const listAppProcesses = makeListAppProcesses();
 
+/** Invalida apenas o cache de processos rodando sem tocar no tracker. */
+export function invalidateRunningProcessesCache() {
+  listAppProcesses.invalidateCache();
+}
+
 /** Só testes / hot-reload. */
-export function clearRunningProcessesCache() {
-  listAppProcesses.clearCache();
+export function clearRunningProcessesCache({ preserveTracker = false } = {}) {
+  if (preserveTracker) {
+    listAppProcesses.invalidateCache();
+  } else {
+    listAppProcesses.clearCache();
+  }
 }
 
 // --------------------------------------------------------------------
@@ -649,6 +676,7 @@ export function makeActivateApp(deps = {}) {
     resolveApps = defaultResolveApps,
     focusPid = focusWindowByPid,
     launch = launchAppEntry,
+    invalidateCache = () => listAppProcesses.invalidateCache(),
     log = defaultLog,
   } = deps;
 
@@ -681,17 +709,28 @@ export function makeActivateApp(deps = {}) {
       } catch (err) {
         log.debug("windows.actions.focus_attempt_failed", { pid, message: err?.message ?? String(err) });
       }
-      if (observation?.becameForeground === true) return; // sucesso: janela existente veio pra frente
+      if (observation?.becameForeground === true) {
+        if (typeof invalidateCache === "function") {
+          try { invalidateCache(); } catch {}
+        }
+        return; // sucesso: janela existente veio pra frente
+      }
       // Qualquer outro resultado (processo sumiu, sem janela, API chamada
       // mas o foreground não mudou, ou o próprio PowerShell falhou) — PRD
       // §15: abre nova instância e sinaliza FOCUS_RESTRICTED. Igual a
       // actions.js#focusApp no macOS: o fallback bem-sucedido não engole o
       // erro, ele propaga DEPOIS do open.
       await launch(entry);
+      if (typeof invalidateCache === "function") {
+        try { invalidateCache(); } catch {}
+      }
       throw new ActionError("FOCUS_RESTRICTED", `focus restricted for "${name}", opened new instance`);
     }
 
     await launch(entry);
+    if (typeof invalidateCache === "function") {
+      try { invalidateCache(); } catch {}
+    }
   }
 
   return activateApp;
@@ -808,6 +847,7 @@ export function makeFocusWindow(deps = {}) {
   const {
     tracker = defaultWindowTracker,
     focusHwnd = runPowerShellFocusWindow,
+    invalidateCache = () => listAppProcesses.invalidateCache(),
     log = defaultLog,
   } = deps;
 
@@ -830,6 +870,9 @@ export function makeFocusWindow(deps = {}) {
     }
     if (obs?.becameForeground !== true) {
       throw new ActionError("FOCUS_RESTRICTED", `focus restricted for window "${windowId}"`);
+    }
+    if (typeof invalidateCache === "function") {
+      try { invalidateCache(); } catch {}
     }
     return { ok: true };
   };
@@ -903,6 +946,7 @@ export function makeMinimizeWindow(deps = {}) {
   const {
     tracker = defaultWindowTracker,
     minimizeHwnd = runPowerShellMinimizeWindow,
+    invalidateCache = () => listAppProcesses.invalidateCache(),
     log = defaultLog,
   } = deps;
 
@@ -925,6 +969,9 @@ export function makeMinimizeWindow(deps = {}) {
     }
     if (obs?.minimized !== true) {
       throw new ActionError("MINIMIZE_FAILED", `failed to minimize window "${windowId}"`);
+    }
+    if (typeof invalidateCache === "function") {
+      try { invalidateCache(); } catch {}
     }
     return { ok: true };
   };
@@ -1007,6 +1054,7 @@ export function makeCloseWindow(deps = {}) {
   const {
     tracker = defaultWindowTracker,
     closeHwnd = runPowerShellCloseWindow,
+    invalidateCache = () => listAppProcesses.invalidateCache(),
     log = defaultLog,
   } = deps;
 
@@ -1033,6 +1081,9 @@ export function makeCloseWindow(deps = {}) {
       throw new ActionError("CLOSE_FAILED", `window "${windowId}" did not close`);
     }
     tracker.remove(windowId);
+    if (typeof invalidateCache === "function") {
+      try { invalidateCache(); } catch {}
+    }
     return { ok: true };
   };
 }
@@ -1043,6 +1094,7 @@ export function makeOpenNewWindow(deps = {}) {
   const {
     resolveApps = defaultResolveApps,
     launch = launchAppEntry,
+    invalidateCache = () => listAppProcesses.invalidateCache(),
     log = defaultLog,
   } = deps;
 
@@ -1064,6 +1116,9 @@ export function makeOpenNewWindow(deps = {}) {
     } catch (err) {
       if (err instanceof ActionError) throw err;
       throw new ActionError("LAUNCH_FAILED", `launch failed for "${name}"`);
+    }
+    if (typeof invalidateCache === "function") {
+      try { invalidateCache(); } catch {}
     }
     return { ok: true };
   };

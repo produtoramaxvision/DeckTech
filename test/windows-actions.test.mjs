@@ -183,6 +183,46 @@ test("PLAT-05: makeListAppProcesses.clearCache força nova coleta mesmo dentro d
   assert.equal(collectCalls, 2);
 });
 
+test("PLAT-11/PLAT-12 (M1): makeListAppProcesses.invalidateCache força nova coleta preservando IDs do window tracker", async () => {
+  let collectCalls = 0;
+  const tracker = createWindowTracker();
+  const listAppProcesses = makeListAppProcesses({
+    collect: async () => {
+      collectCalls++;
+      return [{ Id: 100, MainWindowTitle: "App 1", Path: "C:\\Apps\\Notepad++\\notepad++.exe" }];
+    },
+    resolveApps: async () => [{ name: "Notepad++", path: "C:\\Apps\\Notepad++\\notepad++.exe", kind: "win32" }],
+    tracker,
+    now: () => 0,
+    log: silentLog,
+  });
+
+  const res1 = await listAppProcesses();
+  assert.equal(collectCalls, 1);
+  assert.equal(res1.length, 1);
+  const id1 = res1[0].id;
+  assert.match(id1, /^win-100-100-/);
+
+  // Sem invalidar, chamada dentro do TTL retorna do cache sem nova coleta
+  const resCached = await listAppProcesses();
+  assert.equal(collectCalls, 1);
+  assert.equal(resCached[0].id, id1);
+
+  // invalidateCache invalida o cache, forçando nova coleta, MAS preserva o ID estável no tracker
+  listAppProcesses.invalidateCache();
+  assert.ok(tracker.get(id1) !== null, "tracker deve continuar mantendo a janela registrada");
+  const res2 = await listAppProcesses();
+  assert.equal(collectCalls, 2);
+  assert.equal(res2[0].id, id1, "ID da janela deve ser preservado pelo invalidateCache");
+
+  // Em contraste, clearCache() reseta o tracker e gera ID novo
+  listAppProcesses.clearCache();
+  assert.equal(tracker.get(id1), null, "clearCache deve ter esvaziado o tracker");
+  const res3 = await listAppProcesses();
+  assert.equal(collectCalls, 3);
+  assert.notEqual(res3[0].id, id1, "clearCache() deve limpar o tracker e produzir novo ID");
+});
+
 // ---------------------------------------------------------------------
 // makeActivateApp — vocabulário tipado (PLAT-06) e fallback do PRD §15
 // ---------------------------------------------------------------------
@@ -893,14 +933,12 @@ test("PLAT-12: closeWindow fecha via WM_CLOSE, lança CLOSE_FAILED se o app não
   tracker.register({ id: "w1", hwnd: 100, pid: 50 });
 
   // Prova 2: sucesso quando closed=true
-  let closeCalls = 0;
+  const closeCalls = [];
   let succeed = true;
   const close = makeCloseWindow({
     tracker,
     closeHwnd: async (hwnd, pid) => {
-      closeCalls++;
-      assert.equal(hwnd, 100);
-      assert.equal(pid, 50);
+      closeCalls.push({ hwnd, pid });
       return { closed: succeed };
     },
     log: silentLog,
@@ -908,6 +946,8 @@ test("PLAT-12: closeWindow fecha via WM_CLOSE, lança CLOSE_FAILED se o app não
 
   const res = await close("w1");
   assert.deepEqual(res, { ok: true });
+  assert.equal(closeCalls.length, 1);
+  assert.deepEqual(closeCalls[0], { hwnd: 100, pid: 50 });
   assert.equal(tracker.get("w1"), null, "janela fechada deve ser removida do tracker");
 
   // Prova 3: erro tipado CLOSE_FAILED se o app recusar o fechamento (ex.: diálogo salvar)
@@ -916,8 +956,11 @@ test("PLAT-12: closeWindow fecha via WM_CLOSE, lança CLOSE_FAILED se o app não
   await assert.rejects(close("w2"), (err) => {
     assert.ok(err instanceof ActionError);
     assert.equal(err.code, "CLOSE_FAILED");
+    assert.match(err.message, /did not close/);
     return true;
   });
+  assert.equal(closeCalls.length, 2);
+  assert.deepEqual(closeCalls[1], { hwnd: 200, pid: 60 });
   assert.notEqual(tracker.get("w2"), null, "janela que não fechou continua no tracker e viva");
 });
 
@@ -949,6 +992,52 @@ test("PLAT-12: openNewWindow lança nova instância por app name, sem tentar foc
     assert.equal(err.code, "LAUNCH_FAILED");
     return true;
   });
+});
+
+test("PLAT-12 (M1): focusWindow, minimizeWindow, closeWindow e openNewWindow acionam invalidateCache em sucesso", async () => {
+  const tracker = createWindowTracker();
+  tracker.register({ id: "w1", hwnd: 100, pid: 50 });
+  tracker.register({ id: "w2", hwnd: 200, pid: 60 });
+
+  let focusInvalidated = 0;
+  const focus = makeFocusWindow({
+    tracker,
+    focusHwnd: async () => ({ becameForeground: true }),
+    invalidateCache: () => { focusInvalidated++; },
+    log: silentLog,
+  });
+  await focus("w1");
+  assert.equal(focusInvalidated, 1, "focusWindow deve invalidar cache de processos em sucesso");
+
+  let minInvalidated = 0;
+  const min = makeMinimizeWindow({
+    tracker,
+    minimizeHwnd: async () => ({ minimized: true }),
+    invalidateCache: () => { minInvalidated++; },
+    log: silentLog,
+  });
+  await min("w1");
+  assert.equal(minInvalidated, 1, "minimizeWindow deve invalidar cache de processos em sucesso");
+
+  let closeInvalidated = 0;
+  const close = makeCloseWindow({
+    tracker,
+    closeHwnd: async () => ({ closed: true }),
+    invalidateCache: () => { closeInvalidated++; },
+    log: silentLog,
+  });
+  await close("w2");
+  assert.equal(closeInvalidated, 1, "closeWindow deve invalidar cache de processos em sucesso");
+
+  let openInvalidated = 0;
+  const openNew = makeOpenNewWindow({
+    resolveApps: async () => [{ name: "Firefox", path: "C:\\Apps\\Firefox\\firefox.exe", kind: "win32" }],
+    launch: async () => {},
+    invalidateCache: () => { openInvalidated++; },
+    log: silentLog,
+  });
+  await openNew("Firefox");
+  assert.equal(openInvalidated, 1, "openNewWindow deve invalidar cache de processos em sucesso");
 });
 
 test("PLAT-11 (real): runPowerShellListProcesses devolve janelas reais com hwnd, mon, title e estado", win32Only, async (t) => {

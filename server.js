@@ -980,6 +980,13 @@ export function makeApp(deps = {}) {
         .catch(err => fail(res, err));
       return;
     }
+    const invalidateRunningProcesses = () => {
+      const inv = appTools?.listAppProcesses?.invalidateCache
+        ?? platform?.listAppProcesses?.invalidateCache;
+      if (typeof inv === "function") {
+        try { inv(); } catch {}
+      }
+    };
     const activate = url.pathname.match(/^\/api\/apps\/([^/]+)\/activate$/);
     if (activate) {
       let name;
@@ -1008,7 +1015,7 @@ export function makeApp(deps = {}) {
           log.debug("action.activate.attempt", { requestId, name, pid: pid ?? null });
           actions.activateApp({ name, pid })
             .then(() => { log.debug("action.activate.ok", { requestId, name, pid: pid ?? null }); ok({ ok: true }); })
-            .then(() => { if (onStatusChange) onStatusChange(); })
+            .then(() => { invalidateRunningProcesses(); if (onStatusChange) onStatusChange(); })
             .catch(err => {
               const code = typeof err?.code === "string" ? err.code : null;
               log.warn("action.activate.failed", {
@@ -1027,7 +1034,7 @@ export function makeApp(deps = {}) {
               // um listener que lança derrubar esta resposta HTTP, que já foi
               // enviada por fail() acima.
               if (code === "FOCUS_RESTRICTED" && onStatusChange) {
-                try { onStatusChange(); }
+                try { invalidateRunningProcesses(); onStatusChange(); }
                 catch (e) { log.warn("action.activate.status_change_failed", { requestId, message: e?.message ?? String(e) }); }
               }
             });
@@ -1056,7 +1063,7 @@ export function makeApp(deps = {}) {
           log.debug("action.window_focus.ok", { requestId, id });
           ok({ ok: true });
         })
-        .then(() => { if (onStatusChange) onStatusChange(); })
+        .then(() => { invalidateRunningProcesses(); if (onStatusChange) onStatusChange(); })
         .catch(err => {
           const code = typeof err?.code === "string" ? err.code : null;
           log.warn("action.window_focus.failed", { requestId, id, code, message: err?.message ?? String(err) });
@@ -1100,7 +1107,7 @@ export function makeApp(deps = {}) {
           log.debug("action.window_minimize.ok", { requestId, id });
           ok({ ok: true });
         })
-        .then(() => { if (onStatusChange) onStatusChange(); })
+        .then(() => { invalidateRunningProcesses(); if (onStatusChange) onStatusChange(); })
         .catch(err => {
           const code = typeof err?.code === "string" ? err.code : null;
           log.warn("action.window_minimize.failed", { requestId, id, code, message: err?.message ?? String(err) });
@@ -1144,7 +1151,7 @@ export function makeApp(deps = {}) {
           log.debug("action.window_close.ok", { requestId, id });
           ok({ ok: true });
         })
-        .then(() => { if (onStatusChange) onStatusChange(); })
+        .then(() => { invalidateRunningProcesses(); if (onStatusChange) onStatusChange(); })
         .catch(err => {
           const code = typeof err?.code === "string" ? err.code : null;
           log.warn("action.window_close.failed", { requestId, id, code, message: err?.message ?? String(err) });
@@ -1188,7 +1195,7 @@ export function makeApp(deps = {}) {
           log.debug("action.open_new_window.ok", { requestId, name });
           ok({ ok: true });
         })
-        .then(() => { if (onStatusChange) onStatusChange(); })
+        .then(() => { invalidateRunningProcesses(); if (onStatusChange) onStatusChange(); })
         .catch(err => {
           const code = typeof err?.code === "string" ? err.code : null;
           log.warn("action.open_new_window.failed", { requestId, name, code, message: err?.message ?? String(err) });
@@ -1385,7 +1392,12 @@ export async function startServer(arg = {}) {
   const handler = makeApp({
     ...opts,
     configFile: configFile ?? undefined,
-    onStatusChange: () => feed.ping(),
+    onStatusChange: () => {
+      const inv = (opts.appTools && opts.appTools.listAppProcesses?.invalidateCache)
+        || (opts.platform && opts.platform.listAppProcesses?.invalidateCache);
+      if (typeof inv === "function") { try { inv(); } catch {} }
+      feed.ping();
+    },
     getDeviceCount: () => feed.clientCount(),
   });
   const server = makeServer();

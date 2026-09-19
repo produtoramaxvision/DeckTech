@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { createServer } from "node:http";
+import WebSocket from "ws";
 
 import { startServer, makeApp } from "../server.js";
 import { ActionError } from "../actions.js";
@@ -393,6 +394,171 @@ test("PLAT-12/MJ3 routes: provedor fallback responde 501 nas 4 rotas via erro ti
     assert.equal(rOpen.status, 501);
     assert.equal(bOpen.code, "PLATFORM_NOT_IMPLEMENTED");
   } finally {
+    await close();
+  }
+});
+
+test("PLAT-12 (M1): rotas de janela invalidam cache e onStatusChange entrega o novo estado imediatamente", async () => {
+  let currentState = "focused";
+  let windowList = [{ id: "win-1", name: "TestApp", state: currentState, monitor: 0, title: "Test" }];
+
+  let collectCalls = 0;
+  let cache = null;
+
+  const fakeListAppProcesses = async () => {
+    if (cache) return cache;
+    collectCalls++;
+    cache = windowList.map(w => ({ ...w, state: currentState }));
+    return cache;
+  };
+  fakeListAppProcesses.invalidateCache = () => {
+    cache = null;
+  };
+
+  let pushState = null;
+  const fakePlatform = {
+    listInstalledApps: async () => [],
+    listAppProcesses: fakeListAppProcesses,
+    activateApp: async () => {},
+    openWebsite: async () => {},
+    iconService: { getIconPng: async () => null },
+    focusWindow: async () => {
+      currentState = "focused";
+      return { ok: true };
+    },
+    minimizeWindow: async () => {
+      currentState = "minimized";
+      return { ok: true };
+    },
+    closeWindow: async () => {
+      windowList = [];
+      return { ok: true };
+    },
+    openNewWindow: async () => {
+      windowList = [
+        { id: "win-1", name: "TestApp", state: currentState, monitor: 0, title: "Test" },
+        { id: "win-2", name: "TestApp", state: "background", monitor: 0, title: "Test 2" },
+      ];
+      return { ok: true };
+    },
+  };
+
+  const { port, close } = await createTestApp(fakePlatform, async () => {
+    const procs = await fakePlatform.listAppProcesses();
+    pushState = procs;
+  });
+
+  try {
+    // 1. Aquece o cache com estado inicial "focused"
+    const warm = await fakePlatform.listAppProcesses();
+    assert.equal(warm[0].state, "focused");
+    assert.equal(collectCalls, 1);
+
+    // 2. Minimiza a janela via POST
+    const rMin = await fetch(`http://127.0.0.1:${port}/api/windows/win-1/minimize`, { method: "POST" });
+    assert.equal(rMin.status, 200);
+    // onStatusChange deve ter lido o estado NOVO imediatamente ("minimized"), não o cache antigo ("focused")
+    assert.equal(pushState[0].state, "minimized", "push após minimize deve carregar o novo estado 'minimized'");
+    assert.equal(collectCalls, 2);
+
+    // 3. Foca a janela via POST
+    const rFocus = await fetch(`http://127.0.0.1:${port}/api/windows/win-1/focus`, { method: "POST" });
+    assert.equal(rFocus.status, 200);
+    assert.equal(pushState[0].state, "focused", "push após focus deve carregar o novo estado 'focused'");
+    assert.equal(collectCalls, 3);
+
+    // 4. Abre nova janela via POST
+    const rOpen = await fetch(`http://127.0.0.1:${port}/api/apps/TestApp/open-new-window`, { method: "POST" });
+    assert.equal(rOpen.status, 200);
+    assert.equal(pushState.length, 2, "push após open-new-window deve conter a nova janela");
+    assert.equal(collectCalls, 4);
+
+    // 5. Fecha a janela via POST
+    const rClose = await fetch(`http://127.0.0.1:${port}/api/windows/win-1/close`, { method: "POST" });
+    assert.equal(rClose.status, 200);
+    assert.equal(pushState.length, 0, "push após close deve refletir fechamento imediatamente");
+    assert.equal(collectCalls, 5);
+  } finally {
+    await close();
+  }
+});
+
+test("PLAT-12 (M1): WebSocket push após ação de janela entrega o estado novo imediatamente (sem esperar TTL)", async () => {
+  let currentState = "focused";
+  let cache = null;
+  let collectCount = 0;
+
+  const fakeListAppProcesses = async () => {
+    if (cache) return cache;
+    collectCount++;
+    cache = [{ id: "win-1", name: "TestApp", state: currentState, monitor: 0, title: "Test" }];
+    return cache;
+  };
+  fakeListAppProcesses.invalidateCache = () => {
+    cache = null;
+  };
+
+  const fakePlatform = {
+    listInstalledApps: async () => [],
+    listAppProcesses: fakeListAppProcesses,
+    activateApp: async () => {},
+    openWebsite: async () => {},
+    iconService: { getIconPng: async () => null },
+    focusWindow: async () => {
+      currentState = "focused";
+      return { ok: true };
+    },
+    minimizeWindow: async () => {
+      currentState = "minimized";
+      return { ok: true };
+    },
+    closeWindow: async () => {
+      currentState = "closed";
+      return { ok: true };
+    },
+    openNewWindow: async () => ({ ok: true }),
+  };
+
+  const { port, close } = await startServer({
+    port: 0,
+    platform: fakePlatform,
+  });
+
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+  const wsMessages = [];
+  ws.on("message", (raw) => {
+    try {
+      const msg = JSON.parse(raw.toString("utf8"));
+      if (msg.type === "apps") wsMessages.push(msg);
+    } catch {}
+  });
+
+  await new Promise((resolve) => ws.once("open", resolve));
+  // Aguarda primeiro push do WS (estado inicial)
+  for (let i = 0; i < 20 && wsMessages.length === 0; i++) {
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  assert.equal(wsMessages.length, 1);
+  assert.equal(wsMessages[0].running[0].state, "focused");
+
+  try {
+    // POST /api/windows/win-1/minimize
+    const r = await fetch(`http://127.0.0.1:${port}/api/windows/win-1/minimize`, { method: "POST" });
+    assert.equal(r.status, 200);
+
+    // Aguarda o push disparado pela ação
+    for (let i = 0; i < 20 && wsMessages.length < 2; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    assert.ok(wsMessages.length >= 2, "deve ter recebido push imediato após minimize");
+    const pushAfterMin = wsMessages[1];
+    assert.equal(
+      pushAfterMin.running[0].state,
+      "minimized",
+      "o primeiro push após minimize DEVE carregar 'minimized', não o estado anterior em cache ('focused')"
+    );
+  } finally {
+    ws.close();
     await close();
   }
 });

@@ -62,7 +62,7 @@ function notImplemented(member, platformName) {
  * Opcionalmente aceita `getFrontmost` para marcar apenas a janela/app em foco real.
  */
 export function makeDarwinListAppProcesses(rawList = listAppProcesses, getFrontmost = null) {
-  return async function darwinListAppProcesses(opts) {
+  const fn = async function darwinListAppProcesses(opts) {
     const list = await rawList(opts);
     let front = null;
     if (typeof getFrontmost === "function") {
@@ -93,6 +93,13 @@ export function makeDarwinListAppProcesses(rawList = listAppProcesses, getFrontm
       };
     });
   };
+  if (typeof rawList?.invalidateCache === "function") {
+    fn.invalidateCache = () => rawList.invalidateCache();
+  }
+  if (typeof rawList?.clearCache === "function") {
+    fn.clearCache = () => rawList.clearCache();
+  }
+  return fn;
 }
 
 /**
