@@ -13,7 +13,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { readFileSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { spawn, execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -741,9 +742,33 @@ test("PLAT-11: os três estados (focused, background, minimized) são derivados 
   assert.equal(result[0].state, "minimized");
   assert.equal(result[1].state, "focused");
   assert.equal(result[2].state, "background");
-  assert.equal(result[0].type, "minimized");
-  assert.equal(result[1].type, "focused");
-  assert.equal(result[2].type, "background");
+  assert.equal(result[0].type, "Foreground");
+  assert.equal(result[1].type, "Foreground");
+  assert.equal(result[2].type, "Foreground");
+});
+
+test("PLAT-11/B1: o filtro deckQueue da PWA (public/index.html:1882-1887) preserva todas as janelas retornadas por matchRunningProcesses", () => {
+  const catalog = [
+    { name: "Warp", path: "C:\\Apps\\Warp.exe", kind: "win32" },
+    { name: "OBS Studio", path: "C:\\Apps\\obs.exe", kind: "win32" },
+    { name: "Google Chrome", path: "C:\\Apps\\chrome.exe", kind: "win32" },
+  ];
+  const windows = [
+    { Id: 1, hwnd: 10, title: "Warp", min: false, isFg: false, Path: "C:\\Apps\\Warp.exe" },
+    { Id: 2, hwnd: 20, title: "OBS Studio", min: true, isFg: false, Path: "C:\\Apps\\obs.exe" },
+    { Id: 3, hwnd: 30, title: "Chrome", min: false, isFg: true, Path: "C:\\Apps\\chrome.exe" },
+  ];
+  const running = matchRunningProcesses(windows, catalog);
+  // Filtro verbatim do deckQueue em public/index.html:1882-1887
+  const q = [];
+  const seen = {};
+  running.forEach(function(a){
+    if (a.type && a.type !== "Foreground") return;
+    if (seen[a.name]) return;
+    seen[a.name] = true;
+    q.push(a.name);
+  });
+  assert.deepEqual(q, ["Warp", "OBS Studio", "Google Chrome"]);
 });
 
 test("PLAT-11: createWindowTracker garante estabilidade de id enquanto viva e proteção contra reciclagem de HWND", () => {
@@ -951,5 +976,118 @@ test("PLAT-12 (real): focusWindow, minimizeWindow e closeWindow controlam janela
     targetPid = null; // charmap já fechou
   } finally {
     if (targetPid) await killPid(targetPid);
+  }
+});
+
+test("PLAT-11/PLAT-12/MJ2 (real): focusWindow, minimizeWindow e closeWindow rejeitam com WINDOW_NOT_FOUND se o HWND foi reciclado para outro PID ($actualPid -ne $ExpectedPid)", win32Only, async (t) => {
+  let targetPid = null;
+  try {
+    targetPid = await launchGuiProcess(CHARMAP);
+    const targetHandle = await waitForMainWindowHandle(targetPid);
+
+    // Simula janela cujo HWND pertence a targetPid, mas o tracker/chamador
+    // espera outro PID (ex.: reciclagem de handle entre escaneamentos)
+    const recycledPid = targetPid + 99999;
+    const tracker = createWindowTracker();
+    const winId = tracker.getOrCreateId(targetHandle, recycledPid);
+    tracker.register({ id: winId, hwnd: targetHandle, pid: recycledPid });
+
+    // 1. focusWindow com PID incompatível falha com WINDOW_NOT_FOUND
+    const focus = makeFocusWindow({ tracker, log: silentLog });
+    await assert.rejects(focus(winId), (err) => {
+      assert.ok(err instanceof ActionError);
+      assert.equal(err.code, "WINDOW_NOT_FOUND");
+      return true;
+    });
+
+    // 2. minimizeWindow com PID incompatível falha com WINDOW_NOT_FOUND e não minimiza
+    tracker.register({ id: winId, hwnd: targetHandle, pid: recycledPid });
+    const minimize = makeMinimizeWindow({ tracker, log: silentLog });
+    await assert.rejects(minimize(winId), (err) => {
+      assert.ok(err instanceof ActionError);
+      assert.equal(err.code, "WINDOW_NOT_FOUND");
+      return true;
+    });
+    assert.equal(await isWindowIconic(targetHandle), false, "janela não deve ter sido minimizada sob PID incompatível");
+
+    // 3. closeWindow com PID incompatível falha com WINDOW_NOT_FOUND e não fecha
+    tracker.register({ id: winId, hwnd: targetHandle, pid: recycledPid });
+    const close = makeCloseWindow({ tracker, log: silentLog });
+    await assert.rejects(close(winId), (err) => {
+      assert.ok(err instanceof ActionError);
+      assert.equal(err.code, "WINDOW_NOT_FOUND");
+      return true;
+    });
+
+    // A janela real do charmap ainda deve estar aberta e não fechada
+    const validWinId = tracker.getOrCreateId(targetHandle, targetPid);
+    tracker.register({ id: validWinId, hwnd: targetHandle, pid: targetPid });
+    const closeValid = await close(validWinId);
+    assert.deepEqual(closeValid, { ok: true });
+    targetPid = null; // já fechado
+  } finally {
+    if (targetPid) await killPid(targetPid);
+  }
+});
+
+test("PLAT-12/B2 (real): closeWindow em janela que recusa fechamento (FormClosing e.Cancel=true) devolve CLOSE_FAILED e mantém o processo vivo (sem force-kill)", win32Only, async (t) => {
+  const tmpScript = join(tmpdir(), `unclosable-${Date.now()}.ps1`);
+  const readyFile = join(tmpdir(), `unclosable-ready-${Date.now()}.txt`);
+  const safeReadyPath = readyFile.replace(/\\/g, "\\\\");
+  const psContent = `
+Add-Type -AssemblyName System.Windows.Forms
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "DeckTechUnclosableForm"
+$form.add_FormClosing({ param($s, $e) $e.Cancel = $true })
+$hwnd = $form.Handle
+[System.IO.File]::WriteAllText("${safeReadyPath}", "$($hwnd):$PID")
+[System.Windows.Forms.Application]::Run($form)
+`;
+  writeFileSync(tmpScript, psContent, "utf8");
+  const child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", tmpScript], {
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  let hwnd = null;
+  let pid = null;
+  try {
+    for (let i = 0; i < 50; i++) {
+      if (existsSync(readyFile)) {
+        const text = readFileSync(readyFile, "utf8").trim();
+        const parts = text.split(":");
+        hwnd = Number(parts[0]);
+        pid = Number(parts[1]);
+        rmSync(readyFile, { force: true });
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    assert.ok(hwnd && pid, "deve ter obtido hwnd e pid da janela WinForms");
+
+    const tracker = createWindowTracker();
+    const winId = tracker.getOrCreateId(hwnd, pid);
+    tracker.register({ id: winId, hwnd, pid });
+
+    const close = makeCloseWindow({ tracker, log: silentLog });
+    await assert.rejects(close(winId), (err) => {
+      assert.ok(err instanceof ActionError);
+      assert.equal(err.code, "CLOSE_FAILED");
+      return true;
+    });
+
+    // Prova viva e discriminante: o processo NÃO foi morto (sem force-kill)
+    let isAlive = false;
+    try {
+      process.kill(pid, 0);
+      isAlive = true;
+    } catch {
+      isAlive = false;
+    }
+    assert.equal(isAlive, true, "o processo que cancelou WM_CLOSE deve permanecer vivo (nunca force-kill)");
+    t.diagnostic(`fechamento recusado com CLOSE_FAILED: processo pid=${pid} continua vivo=${isAlive}`);
+  } finally {
+    rmSync(tmpScript, { force: true });
+    if (pid) {
+      await killPid(pid);
+    }
   }
 });

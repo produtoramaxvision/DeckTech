@@ -145,6 +145,45 @@ test("PLAT-12: darwin tem degradação explicitamente declarada (PlatformNotImpl
   await assert.rejects(platform.openNewWindow("App"), PlatformNotImplementedError);
 });
 
+test("PLAT-12/MJ3: fallback platform devolve os 9 membros e degradação declarada (Phase 14 critério 6)", async () => {
+  const platform = createPlatform("fallback");
+  assert.deepEqual(Object.keys(platform).sort(), [...CONTRACT_MEMBERS].sort());
+  for (const member of CONTRACT_MEMBERS) {
+    assert.notEqual(platform[member], undefined, `membro ausente: ${member}`);
+  }
+  // Nenhum dos métodos é undefined nem lança TypeError "is not a function"
+  assert.equal(typeof platform.focusWindow, "function");
+  assert.equal(typeof platform.minimizeWindow, "function");
+  assert.equal(typeof platform.closeWindow, "function");
+  assert.equal(typeof platform.openNewWindow, "function");
+
+  await assert.rejects(platform.focusWindow("win-1"), (err) => {
+    assert.equal(err.name, "PlatformNotImplementedError");
+    assert.equal(err.code, "PLATFORM_NOT_IMPLEMENTED");
+    assert.equal(err.platform, "fallback");
+    assert.equal(err.member, "focusWindow");
+    return true;
+  });
+  await assert.rejects(platform.minimizeWindow("win-1"), (err) => {
+    assert.equal(err.code, "PLATFORM_NOT_IMPLEMENTED");
+    assert.equal(err.platform, "fallback");
+    assert.equal(err.member, "minimizeWindow");
+    return true;
+  });
+  await assert.rejects(platform.closeWindow("win-1"), (err) => {
+    assert.equal(err.code, "PLATFORM_NOT_IMPLEMENTED");
+    assert.equal(err.platform, "fallback");
+    assert.equal(err.member, "closeWindow");
+    return true;
+  });
+  await assert.rejects(platform.openNewWindow("App"), (err) => {
+    assert.equal(err.code, "PLATFORM_NOT_IMPLEMENTED");
+    assert.equal(err.platform, "fallback");
+    assert.equal(err.member, "openNewWindow");
+    return true;
+  });
+});
+
 // Critério 1 discriminante para PLAT-02: sem esta asserção de referência, um
 // win32Platform() que devolvesse qualquer função (inclusive um novo stub
 // notImplemented) passaria nos testes de forma/contrato acima do mesmo

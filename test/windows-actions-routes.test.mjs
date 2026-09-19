@@ -85,6 +85,8 @@ test("PLAT-12 routes: POST /api/windows/:id/focus mapeia WINDOW_NOT_FOUND para 4
     assert.equal(res500.status, 500);
     assert.equal(body500.ok, false);
     assert.equal(body500.code, "FOCUS_RESTRICTED");
+    assert.equal(body500.error, "Não foi possível trazer a janela para frente");
+    assert.doesNotMatch(body500.error, /nova instância/i);
   } finally {
     await close();
   }
@@ -256,6 +258,80 @@ test("PLAT-12 routes: rota de janela sob plataforma não suportada (ex.: darwin 
     assert.equal(res.status, 501);
     assert.equal(body.ok, false);
     assert.equal(body.code, "PLATFORM_NOT_IMPLEMENTED");
+  } finally {
+    await close();
+  }
+});
+
+test("PLAT-12/MJ3 routes: provedor que não possui os membros de janela (typeof guard) responde 501 nas 4 rotas", async () => {
+  // Provedor que não implementa nenhum dos 4 membros novos (ex.: formato pré-Phase 14)
+  const legacyPlatform = {
+    listInstalledApps: async () => [],
+    listAppProcesses: async () => [],
+    activateApp: async () => {},
+    openWebsite: async () => {},
+    iconService: { getIconPng: async () => null },
+  };
+
+  const { port, close } = await startServer({
+    port: 0,
+    platform: legacyPlatform,
+  });
+
+  try {
+    const rFocus = await fetch(`http://127.0.0.1:${port}/api/windows/w1/focus`, { method: "POST" });
+    const bFocus = await rFocus.json();
+    assert.equal(rFocus.status, 501);
+    assert.equal(bFocus.code, "PLATFORM_NOT_IMPLEMENTED");
+
+    const rMin = await fetch(`http://127.0.0.1:${port}/api/windows/w1/minimize`, { method: "POST" });
+    const bMin = await rMin.json();
+    assert.equal(rMin.status, 501);
+    assert.equal(bMin.code, "PLATFORM_NOT_IMPLEMENTED");
+
+    const rClose = await fetch(`http://127.0.0.1:${port}/api/windows/w1/close`, { method: "POST" });
+    const bClose = await rClose.json();
+    assert.equal(rClose.status, 501);
+    assert.equal(bClose.code, "PLATFORM_NOT_IMPLEMENTED");
+
+    const rOpen = await fetch(`http://127.0.0.1:${port}/api/apps/TestApp/open-new-window`, { method: "POST" });
+    const bOpen = await rOpen.json();
+    assert.equal(rOpen.status, 501);
+    assert.equal(bOpen.code, "PLATFORM_NOT_IMPLEMENTED");
+  } finally {
+    await close();
+  }
+});
+
+test("PLAT-12/MJ3 routes: provedor fallback responde 501 nas 4 rotas via erro tipado", async () => {
+  const { createPlatform } = await import("../platform/index.js");
+  const fallback = createPlatform("fallback");
+
+  const { port, close } = await startServer({
+    port: 0,
+    platform: fallback,
+  });
+
+  try {
+    const rFocus = await fetch(`http://127.0.0.1:${port}/api/windows/w1/focus`, { method: "POST" });
+    const bFocus = await rFocus.json();
+    assert.equal(rFocus.status, 501);
+    assert.equal(bFocus.code, "PLATFORM_NOT_IMPLEMENTED");
+
+    const rMin = await fetch(`http://127.0.0.1:${port}/api/windows/w1/minimize`, { method: "POST" });
+    const bMin = await rMin.json();
+    assert.equal(rMin.status, 501);
+    assert.equal(bMin.code, "PLATFORM_NOT_IMPLEMENTED");
+
+    const rClose = await fetch(`http://127.0.0.1:${port}/api/windows/w1/close`, { method: "POST" });
+    const bClose = await rClose.json();
+    assert.equal(rClose.status, 501);
+    assert.equal(bClose.code, "PLATFORM_NOT_IMPLEMENTED");
+
+    const rOpen = await fetch(`http://127.0.0.1:${port}/api/apps/TestApp/open-new-window`, { method: "POST" });
+    const bOpen = await rOpen.json();
+    assert.equal(rOpen.status, 501);
+    assert.equal(bOpen.code, "PLATFORM_NOT_IMPLEMENTED");
   } finally {
     await close();
   }

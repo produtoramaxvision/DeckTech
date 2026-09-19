@@ -376,7 +376,7 @@ export function matchRunningProcesses(processes, catalogApps, { tracker = defaul
       title,
       monitor,
       state,
-      type: state,
+      type: "Foreground",
       pid,
       hwnd,
     };

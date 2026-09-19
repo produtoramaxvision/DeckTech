@@ -140,9 +140,32 @@ function win32Platform(deps = {}) {
   };
 }
 
+/**
+ * Contrato de fallback (Phase 14 critério 6): responde aos 9 membros do
+ * contrato de plataforma. Para sistemas sem provider nativo (ex.: Linux em
+ * desenvolvimento), os 4 métodos de controle de janela devolvem o erro
+ * tipado PlatformNotImplementedError — nunca undefined is not a function.
+ */
+export function fallbackPlatform(deps = {}) {
+  const platformName = "fallback";
+  const { makeIconService = realIconService } = deps;
+  return {
+    listInstalledApps,
+    listAppProcesses,
+    activateApp,
+    openWebsite,
+    iconService: makeIconService(),
+    focusWindow: notImplemented("focusWindow", platformName),
+    minimizeWindow: notImplemented("minimizeWindow", platformName),
+    closeWindow: notImplemented("closeWindow", platformName),
+    openNewWindow: notImplemented("openNewWindow", platformName),
+  };
+}
+
 const PLATFORM_FACTORIES = {
   darwin: darwinPlatform,
   win32: win32Platform,
+  fallback: fallbackPlatform,
 };
 
 /**

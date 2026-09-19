@@ -404,7 +404,7 @@ function defaultPlatform() {
     return createPlatform();
   } catch (err) {
     if (err && err.code === "PLATFORM_NOT_IMPLEMENTED") {
-      return { listInstalledApps, listAppProcesses, activateApp, openWebsite, iconService: realIconService() };
+      return createPlatform("fallback");
     }
     throw err;
   }
@@ -1063,6 +1063,11 @@ export function makeApp(deps = {}) {
           if (code === "WINDOW_NOT_FOUND") {
             res.writeHead(404, JSON_HEADERS);
             res.end(JSON.stringify({ ok: false, code, error: "Janela não encontrada" }));
+            return;
+          }
+          if (code === "FOCUS_RESTRICTED") {
+            res.writeHead(500, JSON_HEADERS);
+            res.end(JSON.stringify({ ok: false, code, error: "Não foi possível trazer a janela para frente" }));
             return;
           }
           if (code === "PLATFORM_NOT_IMPLEMENTED") {
