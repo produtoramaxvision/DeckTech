@@ -40,7 +40,11 @@ const swJsPath = fileURLToPath(new URL("../public/sw.js", import.meta.url));
 
 // A hand-typed cache-busting literal in this codebase's history always
 // looked like "dokke-v" followed by digits (dokke-v22, dokke-v24, ...).
-const HAND_TYPED_LITERAL = /dokke-v\d+/;
+// Depois do bump pra "decktech-v25" a regex antiga (/dokke-v\d+/) deixaria de
+// guardar qualquer coisa: um literal "decktech-v25" digitado a mao em sw.js ou
+// index.html passaria batido, que e o MESMO defeito com outro nome. Cobre as
+// duas marcas.
+const HAND_TYPED_LITERAL = /(?:dokke|decktech)-v\d+/i;
 
 test("FIX-08: public/sw.js's CACHE constant is the shared placeholder, not a hand-typed literal", async () => {
   const sw = await readFile(swJsPath, "utf8");

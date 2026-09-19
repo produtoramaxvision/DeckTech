@@ -8,6 +8,9 @@ import { startServer } from "../server.js";
 // (= GRID.pageSize * GRID.maxPageCount), not retyped against it. Mutating
 // GRID there breaks this file too, alongside test/mac-app-slides-ui.test.mjs.
 import { GRID } from "../design/section7-fixture.mjs";
+// Mesma razao do GRID acima: o token de cache e afirmado A PARTIR da sua
+// fonte unica (sw-cache-version.js), nunca retipado como literal.
+import { SW_CACHE_VERSION } from "../sw-cache-version.js";
 
 test("GET / serve as 2 telas (apps + apps abertos) liquid glass", async () => {
   const { port, close } = await startServer(0);
@@ -524,7 +527,14 @@ test("GET /sw.js retorna service worker com cache-first", async () => {
     assert.equal(r.status, 200);
     const js = await r.text();
     assert.match(js, /caches\.open/, "sw.js deve usar Cache API");
-    assert.match(js, /dokke-v24/, "service worker deve invalidar o cache antigo da UI");
+    // FIX-08 existe pra que o token de cache tenha UMA fonte. Este teste
+    // retipava o literal "dokke-v24" aqui, que e a mesma deriva com outro
+    // nome: bumpar sw-cache-version.js quebrava este arquivo sem que nada
+    // estivesse errado no produto. Agora ele afirma CONTRA a constante.
+    assert.ok(js.includes(SW_CACHE_VERSION),
+      `service worker deve carregar o token substituido (${SW_CACHE_VERSION}), nao o placeholder cru`);
+    assert.doesNotMatch(js, /__SW_CACHE_VERSION__/,
+      "o placeholder tem que ter sido substituido por server.js antes de chegar ao cliente");
     assert.match(js, /icon-192-dark\.png/, "service worker deve precachear o favicon escuro");
     assert.match(js, /url\.pathname === "\/sw\.js"/, "service worker não deve cachear a própria atualização");
     assert.match(js, /cache-first|caches\.match/, "sw.js deve ter strategy cache-first");
