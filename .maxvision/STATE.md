@@ -129,6 +129,15 @@ Nenhum.
   uma decisao documentada exige evidencia, nao preferencia.
 
 
+- **[SEM DONO] Uma falha de suíte observada e NÃO identificada.** Em 2026-09-19, numa execução
+  concorrente com a lane p14, `node --test` reportou `pass 643 / fail 1`. Eu não capturei a saída
+  daquela execução, então **não sei qual teste foi**. Quatro execuções desde então deram
+  `644 / 0`, incluindo uma deliberadamente sob a mesma carga da lane. Registrado aqui em vez de
+  descartado: não posso afirmar que está corrigido nem que era ruído. Se reaparecer, capturar a
+  saída inteira em arquivo ANTES de qualquer outra coisa. Classe provável: mesma família do
+  PLAT-07 (`windows-theme-appearance`), que era sensível a carga até o handshake `READY` de
+  `d341fdb` — mas isso é hipótese, não medição.
+
 - **[Fase 15] Escala tipográfica do cliente PWA abaixo do mínimo legível.** Cinco regras de
   `public/index.html` usam `font-size: 11px` — `.robscard .os:537`, `.sheet .srow .pin:659`,
   `.up-banner .up-download:739`, `:773` e `.login-card .lfoot:793`. Todas herdadas do Dokke,
