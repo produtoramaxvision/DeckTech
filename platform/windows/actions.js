@@ -16,14 +16,41 @@
 // receives the Phase 2 typed error, not a generic 500") back into an
 // opaque, uncopied 500.
 //
-// PRD §15 / ADR reviewer finding still open at the start of this task:
-// `SetForegroundWindow` is restricted when the calling process does not
-// hold the foreground — a real, legitimate Windows behavior (see
-// `focusWindowByPid` below), not a bug to work around with
-// AttachThreadInput or similar foreground-lock bypasses. The accepted
-// fallback is opening a new instance and surfacing FOCUS_RESTRICTED so the
-// client can tell that apart from "the app isn't installed" — never a
-// generic 500.
+// PRD §15 / PLAT-05 decision record:
+// Originally, this file considered SetForegroundWindow restrictions as legitimate
+// Windows behavior not to be worked around with AttachThreadInput without evidence,
+// preferring the fallback of opening a new instance and surfacing FOCUS_RESTRICTED.
+//
+// That decision was REOPENED on 2026-09-18 when the first real end-to-end test
+// (Galaxy S10e over LAN) demonstrated that tapping an open app constantly returned
+// FOCUS_RESTRICTED (0/5 activations in a cold run) and opened a new instance instead
+// of bringing the existing window forward, breaking the product's core promise.
+//
+// The evidence now exists from two independent runs of the measurement harness
+// (tools/fg-harness.mjs, results in tools/fg-results.json) on this
+// machine against throwaway windows, discarding trivial passes:
+//
+//                 worker run    second run
+//     plain          0/10          1/10      <- what production did previously
+//     switch         0/10          1/10
+//     alt           10/10          8/10
+//     attach        10/10         10/10      <- AttachThreadInput
+//     persistent     0/10          0/10      <- long-lived helper process
+//
+// attach achieved 20/20 (100% success across both runs). When split by incumbent,
+// attach beat a third-party window (explorer, scrcpy) 2/2, while alt lost both (0/2,
+// only succeeding against sibling targets). persistent at 0/20 proved this is an
+// API issue rather than a process-lifetime issue.
+//
+// Therefore, the previous decision was overturned by empirical measurement:
+// AttachThreadInput (attaching the calling thread's input queue to the foreground
+// window's thread and target thread, restoring if iconic with ShowWindow(SW_RESTORE),
+// calling SetForegroundWindow, and detaching) is adopted as the primary focus mechanism.
+//
+// FOCUS_RESTRICTED must still exist and still be reachable when focus genuinely fails
+// (process gone, no window, or foreground confirmation failing despite the attach sequence).
+// The typed error and the "opened new instance" fallback are preserved for those cases,
+// stopping them from being the common path.
 //
 // ANY failure to confirm focus (process gone, no window, PowerShell itself
 // failing, the API call returning false, the foreground window not
@@ -234,13 +261,13 @@ export function clearRunningProcessesCache() {
 // activateApp (PLAT-05, metade 2)
 // --------------------------------------------------------------------
 
-// Observação, não decisão binária: chama SetForegroundWindow e então
-// RELÊ GetForegroundWindow — a prova de que a janela virou de fato o
-// foreground, não só o retorno BOOL da API (que a própria doc do Win32
-// documenta como podendo ser TRUE mesmo quando o sistema só piscou o botão
-// da taskbar em vez de trazer a janela pra frente). `becameForeground`
-// abaixo é o único campo que `focusWindowByPid` trata como sucesso.
-const PS_FOCUS_SCRIPT = `
+// Observação, não decisão binária: anexa a fila de input da thread chamadora
+// à thread da janela em foreground e à thread da janela alvo (AttachThreadInput),
+// restaura com ShowWindow(SW_RESTORE) se estiver minimizada/icônica, chama
+// SetForegroundWindow, desanexa e então RELÊ GetForegroundWindow — a prova de
+// que a janela virou de fato o foreground. `becameForeground` abaixo é o único
+// campo que `focusWindowByPid` trata como sucesso.
+export const PS_FOCUS_SCRIPT = `
 param(
   [Parameter(Mandatory = $true)][int]$TargetPid,
   [Parameter(Mandatory = $true)][string]$OutFile
@@ -249,6 +276,11 @@ $ErrorActionPreference = 'Stop'
 $sig = @"
 [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
 [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+[DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+[DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+[DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
 "@
 $native = Add-Type -MemberDefinition $sig -Name "DokkeFocus$([guid]::NewGuid().ToString('N'))" -Namespace Win32Functions -PassThru
 
@@ -260,8 +292,40 @@ try {
   $result.handle = $handle.ToInt64()
   if ($handle -ne [IntPtr]::Zero) {
     $result.hadWindow = $true
-    $result.foregroundHandleBefore = $native::GetForegroundWindow().ToInt64()
+    $fgBefore = $native::GetForegroundWindow()
+    $result.foregroundHandleBefore = $fgBefore.ToInt64()
+
+    $curThread = $native::GetCurrentThreadId()
+    $fgPid = 0
+    $fgThread = $native::GetWindowThreadProcessId($fgBefore, [ref]$fgPid)
+    $tgtPid = 0
+    $tgtThread = $native::GetWindowThreadProcessId($handle, [ref]$tgtPid)
+
+    $attachedFg = $false
+    if ($fgThread -ne 0 -and $fgThread -ne $curThread) {
+      $attachedFg = $native::AttachThreadInput($curThread, $fgThread, $true)
+    }
+    $attachedTgt = $false
+    if ($tgtThread -ne 0 -and $tgtThread -ne $curThread) {
+      $attachedTgt = $native::AttachThreadInput($curThread, $tgtThread, $true)
+    }
+
+    $SW_RESTORE = 9
+    if ($native::IsIconic($handle)) {
+      $native::ShowWindow($handle, $SW_RESTORE) | Out-Null
+    }
+
+    $result.attachedFg = $attachedFg
+    $result.attachedTgt = $attachedTgt
     $result.setForegroundReturn = $native::SetForegroundWindow($handle)
+
+    if ($attachedTgt) {
+      $native::AttachThreadInput($curThread, $tgtThread, $false) | Out-Null
+    }
+    if ($attachedFg) {
+      $native::AttachThreadInput($curThread, $fgThread, $false) | Out-Null
+    }
+
     Start-Sleep -Milliseconds 150
     $fgAfter = $native::GetForegroundWindow()
     $result.foregroundHandleAfter = $fgAfter.ToInt64()

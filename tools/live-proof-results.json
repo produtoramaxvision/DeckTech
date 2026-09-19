@@ -1,0 +1,185 @@
+{
+  "timestamp": "2026-09-19T04:20:26.372Z",
+  "criterion": "Phase 14 Success Criterion 1: Cold activation of background Firefox",
+  "app": "Firefox",
+  "pid": 48912,
+  "hwnd": 57674252,
+  "totalAttempts": 10,
+  "successes": 8,
+  "successRate": "80.0%",
+  "explanation": "Failures occurred during cold activation; see individual trial records.",
+  "trials": [
+    {
+      "attempt": 1,
+      "target": "Firefox",
+      "targetPid": 48912,
+      "targetHwnd": 57674252,
+      "fgBeforeHwnd": 152700446,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 57674252,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 2497,
+      "explanation": null
+    },
+    {
+      "attempt": 2,
+      "target": "Firefox",
+      "targetPid": 48912,
+      "targetHwnd": 57674252,
+      "fgBeforeHwnd": 152700446,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 57674252,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 794,
+      "explanation": null
+    },
+    {
+      "attempt": 3,
+      "target": "Firefox",
+      "targetPid": 48912,
+      "targetHwnd": 57674252,
+      "fgBeforeHwnd": 152700446,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 57674252,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 731,
+      "explanation": null
+    },
+    {
+      "attempt": 4,
+      "target": "Firefox",
+      "targetPid": 48912,
+      "targetHwnd": 57674252,
+      "fgBeforeHwnd": 152700446,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 57674252,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 867,
+      "explanation": null
+    },
+    {
+      "attempt": 5,
+      "target": "Firefox",
+      "targetPid": 48912,
+      "targetHwnd": 57674252,
+      "fgBeforeHwnd": 152700446,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 57674252,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 813,
+      "explanation": null
+    },
+    {
+      "attempt": 6,
+      "target": "Firefox",
+      "targetPid": 48912,
+      "targetHwnd": 57674252,
+      "fgBeforeHwnd": 152700446,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 57674252,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 719,
+      "explanation": null
+    },
+    {
+      "attempt": 7,
+      "target": "Firefox",
+      "targetPid": 48912,
+      "targetHwnd": 57674252,
+      "fgBeforeHwnd": 152700446,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 57674252,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 764,
+      "explanation": null
+    },
+    {
+      "attempt": 8,
+      "target": "Firefox",
+      "targetPid": 48912,
+      "targetHwnd": 57674252,
+      "fgBeforeHwnd": 152700446,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 57674252,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 815,
+      "explanation": null
+    },
+    {
+      "attempt": 9,
+      "target": "Firefox",
+      "targetPid": 48912,
+      "targetHwnd": 57674252,
+      "fgBeforeHwnd": 152700446,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 152700446,
+      "fgAfterName": "charmap",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": false,
+      "elapsedMs": 919,
+      "explanation": "Activation failed: expected HWND 57674252 (Firefox), but GetForegroundWindow returned HWND 152700446 (\"charmap\"). API status: 200, response: {\"ok\":true}."
+    },
+    {
+      "attempt": 10,
+      "target": "Firefox",
+      "targetPid": 48912,
+      "targetHwnd": 57674252,
+      "fgBeforeHwnd": 152700446,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 152700446,
+      "fgAfterName": "charmap",
+      "apiStatus": 500,
+      "apiResponse": {
+        "ok": false,
+        "code": "FOCUS_RESTRICTED",
+        "error": "Não consegui trazer o app pra frente — abri uma nova instância"
+      },
+      "becameForeground": false,
+      "elapsedMs": 657,
+      "explanation": "Activation failed: expected HWND 57674252 (Firefox), but GetForegroundWindow returned HWND 152700446 (\"charmap\"). API status: 500, response: {\"ok\":false,\"code\":\"FOCUS_RESTRICTED\",\"error\":\"Não consegui trazer o app pra frente — abri uma nova instância\"}."
+    }
+  ]
+}

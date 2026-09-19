@@ -129,6 +129,36 @@ Nenhum.
   uma decisao documentada exige evidencia, nao preferencia.
 
 
+- **[Fase 14, ABERTO] A ativação funciona, mas NÃO é 100%, e uma das falhas é o servidor
+  mentindo.** PLAT-05 saiu de 0/5 (medido em 2026-09-18) para algo entre 80% e 100%, o que fecha
+  a fase, mas não fecha a questão. Três medições nesta máquina:
+
+  | execução | alvo | incumbente | taxa |
+  |---|---|---|---|
+  | worker da p14 | Firefox | charmap | 10/10 |
+  | minha, pela rota HTTP | Firefox, Chrome, OBS | outro app real | 9/9 |
+  | `tools/live-proof.mjs` pós-merge | Firefox | charmap | **8/10** |
+
+  As duas falhas da terceira execução são de naturezas **diferentes**:
+
+  - **#10 está correta.** `apiStatus 500`, `FOCUS_RESTRICTED`. O mecanismo falhou e o erro tipado
+    disparou como devia.
+  - **#9 é um defeito.** `apiStatus 200`, `{"ok":true}`, e `GetForegroundWindow` devolvendo
+    `charmap` logo depois. O servidor RELÊ o foreground 150ms após o `SetForegroundWindow`
+    (`focusWindowByPid`) e concluiu sucesso; algo retomou o foreground depois disso. O cliente
+    recebeu "deu certo" numa ativação que não pegou — pior que uma falha honesta, porque a UI
+    não tem como saber.
+
+  Descartado por inspeção: não é contaminação do harness. `focusDistractor` em
+  `tools/live-proof.mjs:69` usa AttachThreadInput (não o `SetForegroundWindow` puro), é
+  aguardado com `await execFileP`, tem 250ms de assentamento e um guarda que LANÇA se o alvo
+  ainda estiver em foreground antes da tentativa.
+
+  **Não sei o que retoma o foreground em #9.** Falta medir. O critério de sucesso da Fase 14 diz
+  que taxa abaixo de 100% é resultado válido *se vier com a explicação medida de quando falha* —
+  essa explicação não existe ainda. Próximo passo: instrumentar a janela entre o re-read do
+  servidor e a leitura do cliente, em vez de aumentar o `setTimeout` até o número ficar bonito.
+
 - **[SEM DONO] Uma falha de suíte observada e NÃO identificada.** Em 2026-09-19, numa execução
   concorrente com a lane p14, `node --test` reportou `pass 643 / fail 1`. Eu não capturei a saída
   daquela execução, então **não sei qual teste foi**. Quatro execuções desde então deram
