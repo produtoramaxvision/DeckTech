@@ -115,8 +115,10 @@ Nenhum.
   `ForegroundLockTimeout` ja esta em `0`. Numa bateria fria de 6 tentativas, 0 de 5 ativacoes
   reais funcionaram (a 6a "passou" so porque o alvo ja era o foreground).
 
-  O efeito pro usuario e pior que "nao focou": o fallback do PRD §15 abre uma instancia nova, e a
-  maquina acumulou 15 processos `firefox.exe`.
+  O efeito pro usuario e pior que "nao focou": o fallback do PRD §15 abre uma instancia nova.
+  (Escrevi antes que isso acumulou 15 `firefox.exe` -- ERRADO, e a contagem desmente: 1 processo
+  principal + 14 de conteudo, que e o normal do Firefox. Nao ha medida do antes, entao nao ha
+  claim sobre acumulo. O defeito nao precisa dele.)
 
   **NAO validado:** qual alternativa corrige. Medi `SwitchToThisWindow`, o truque do ALT e
   `AttachThreadInput` em tres harnesses e os resultados se contradizem (o mesmo `plain` deu 0/5
@@ -126,6 +128,13 @@ Nenhum.
   comentario de `platform/windows/actions.js:20-37` rejeitou o bypass DE PROPOSITO, e reverter
   uma decisao documentada exige evidencia, nao preferencia.
 
+
+- **[SEM FASE] Strings `Dokke` de runtime sem dono.** `server.js:1349` imprime
+  `Dokke ouvindo em http://127.0.0.1:3000` no boot de um produto chamado DeckTech. Conferido:
+  BRAND-01 cobre so as 4 superficies de auto-update, BRAND-03/04/05/11/12 cobrem hashes de icone,
+  testes, imports de `auth.js`, atribuicao e o check de versao -- nenhum cobre texto de log. Nao e
+  falha da Fase 1, e requisito que nunca foi escrito. `server.js:519` e `:962` continuam `Dokke`
+  DE PROPOSITO (dual-accept do WIRE-01, nao mexer). `server.js:1163-1164` e da Fase 4 (BRAND-02).
 
 - **[Fase 11] APK DeckTech não pode atualizar o APK Dokke in-place.** Verificado:
   `applicationId = "com.dokke.app"` (`android/app/build.gradle:35`) e a guarda
