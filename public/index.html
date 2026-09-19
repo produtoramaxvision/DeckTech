@@ -794,7 +794,11 @@
   /* A linha de origem fica acima e mais apagada: a decisao D2 exige que a
      atribuicao ao autor original continue VISIVEL, e o usuario pediu que a
      ultima linha do cartao seja a do DeckTech. As duas coisas cabem. */
-  .login-card .lfoot-origin{ margin-top:14px; margin-bottom:0; font-size:10px; opacity:.72; }
+  /* Herda os 11px de .lfoot de proposito: a hierarquia entre as duas linhas
+     vem de opacity, nao de encolher texto abaixo do que ja era o menor do
+     arquivo. 10px aqui deixava a linha de ORIGEM menos legivel que tudo em
+     volta, e a D2 pede que ela seja visivel, nao apenas presente. */
+  .login-card .lfoot-origin{ margin-top:14px; margin-bottom:0; opacity:.72; }
   .login-card .lfoot-origin + .lfoot{ margin-top:2px; }
   .login-card .lfoot-link{ color:var(--ink-2); text-decoration:underline; text-underline-offset:2px; }
   .login-card .lfoot-link:hover, .login-card .lfoot-link:focus-visible{ color:var(--ink-1); }

@@ -129,6 +129,65 @@ Nenhum.
   uma decisao documentada exige evidencia, nao preferencia.
 
 
+- **[Fase 14, ABERTO] A ativação funciona, mas NÃO é 100%, e uma das falhas é o servidor
+  mentindo.** PLAT-05 saiu de 0/5 (medido em 2026-09-18) para algo entre 80% e 100%, o que fecha
+  a fase, mas não fecha a questão. Três medições nesta máquina:
+
+  | execução | alvo | incumbente | taxa |
+  |---|---|---|---|
+  | worker da p14 | Firefox | charmap | 10/10 |
+  | minha, pela rota HTTP | Firefox, Chrome, OBS | outro app real | 9/9 |
+  | `tools/live-proof.mjs` pós-merge | Firefox | charmap | **8/10** |
+
+  As duas falhas da terceira execução são de naturezas **diferentes**:
+
+  - **#10 está correta.** `apiStatus 500`, `FOCUS_RESTRICTED`. O mecanismo falhou e o erro tipado
+    disparou como devia.
+  - **#9 é um defeito.** `apiStatus 200`, `{"ok":true}`, e `GetForegroundWindow` devolvendo
+    `charmap` logo depois. O servidor RELÊ o foreground 150ms após o `SetForegroundWindow`
+    (`focusWindowByPid`) e concluiu sucesso; algo retomou o foreground depois disso. O cliente
+    recebeu "deu certo" numa ativação que não pegou — pior que uma falha honesta, porque a UI
+    não tem como saber.
+
+  Descartado por inspeção: não é contaminação do harness. `focusDistractor` em
+  `tools/live-proof.mjs:69` usa AttachThreadInput (não o `SetForegroundWindow` puro), é
+  aguardado com `await execFileP`, tem 250ms de assentamento e um guarda que LANÇA se o alvo
+  ainda estiver em foreground antes da tentativa.
+
+  **Não sei o que retoma o foreground em #9.** Falta medir. O critério de sucesso da Fase 14 diz
+  que taxa abaixo de 100% é resultado válido *se vier com a explicação medida de quando falha* —
+  essa explicação não existe ainda. Próximo passo: instrumentar a janela entre o re-read do
+  servidor e a leitura do cliente, em vez de aumentar o `setTimeout` até o número ficar bonito.
+
+- **[SEM DONO] Uma falha de suíte observada e NÃO identificada.** Em 2026-09-19, numa execução
+  concorrente com a lane p14, `node --test` reportou `pass 643 / fail 1`. Eu não capturei a saída
+  daquela execução, então **não sei qual teste foi**. Quatro execuções desde então deram
+  `644 / 0`, incluindo uma deliberadamente sob a mesma carga da lane. Registrado aqui em vez de
+  descartado: não posso afirmar que está corrigido nem que era ruído. Se reaparecer, capturar a
+  saída inteira em arquivo ANTES de qualquer outra coisa. Classe provável: mesma família do
+  PLAT-07 (`windows-theme-appearance`), que era sensível a carga até o handshake `READY` de
+  `d341fdb` — mas isso é hipótese, não medição.
+
+  **ATUALIZAÇÃO 2026-09-19, causa provável encontrada.** A revisão da p14 (minor m1) apontou que
+  `node --test` descobre QUALQUER `.js/.mjs/.cjs` dentro de um diretório chamado `test` — não só
+  `*.test.mjs`. Eu tinha mergeado a harness de foreground como `test/scratch/fg-harness.mjs`, e
+  o runner **executava** ela a cada rodada. Ela sobrevivia por um autoguarda
+  (`process.execArgv.some(a => a.startsWith("--test"))` → `exit(0)`) e um `exit(0)` sem asserção
+  é reportado como teste que PASSA. Ou seja: a suíte tinha uma linha verde que não verificava
+  nada, e o arquivo cujo trabalho é spawnar janelas descartáveis e roubar o foreground do sistema
+  estava a um `execArgv` frágil de rodar no meio da suíte. Movida pra `tools/`, com
+  `test/test-dir-discovery.test.mjs` travando a categoria inteira. **Não é prova** de que era
+  essa a falha — não capturei a saída — mas é exatamente a forma de defeito que a produz.
+
+- **[Fase 15] Escala tipográfica do cliente PWA abaixo do mínimo legível.** Cinco regras de
+  `public/index.html` usam `font-size: 11px` — `.robscard .os:537`, `.sheet .srow .pin:659`,
+  `.up-banner .up-download:739`, `:773` e `.login-card .lfoot:793`. Todas herdadas do Dokke,
+  nenhuma introduzida aqui. O limiar de legibilidade é 14px pra corpo de texto. Não corrigido
+  agora de propósito: trocar a escala tipográfica do cliente inteiro é mudança de design system,
+  precisa sair dos tokens da Fase 6 (`design/tokens.mjs`) em vez de seis números soltos, e é a
+  Fase 15 que é dona do visual do cliente. Mesma família do achado aberto da Onda 1 sobre o `h2`
+  da galeria em 13px sem tokens de escala. *(sinalizado pelo hook impeccable, 2026-09-19)*
+
 - **[SEM FASE] Strings `Dokke` de runtime sem dono.** `server.js:1349` imprime
   `Dokke ouvindo em http://127.0.0.1:3000` no boot de um produto chamado DeckTech. Conferido:
   BRAND-01 cobre so as 4 superficies de auto-update, BRAND-03/04/05/11/12 cobrem hashes de icone,

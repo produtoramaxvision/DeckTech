@@ -1,4 +1,4 @@
-// test/scratch/fg-harness.mjs
+// tools/fg-harness.mjs
 //
 // FG-PROBE — Non-perturbing measurement of Windows foreground activation.
 //

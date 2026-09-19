@@ -1,4 +1,4 @@
-// test/scratch/live-proof.mjs
+// tools/live-proof.mjs
 // Live end-to-end proof of PLAT-05 window activation via the real server.
 // Phase 14 success criterion 1:
 // "Com o Firefox aberto e em segundo plano, tocar nele pelo celular traz a janela pra frente:
@@ -11,7 +11,8 @@ import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { setTimeout as sleep } from "node:timers/promises";
 import { writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 if (process.execArgv.some((a) => a.startsWith("--test"))) {
   process.exit(0);
@@ -277,7 +278,13 @@ async function main() {
     }
     console.log("===============================================================================\n");
 
-    // Persist results to test/scratch/live-proof-results.json
+    // Persist results next to this script. The old path was
+    // join(process.cwd(), "test", "scratch", ...), which broke twice over:
+    // test/scratch/ no longer exists (the harness moved to tools/ because
+    // node --test was discovering and running it), so writeFileSync would
+    // throw ENOENT; and it depended on cwd, so running the script from any
+    // other directory wrote the results somewhere unrelated. Anchoring on
+    // import.meta.url removes both failure modes.
     const resultsPayload = {
       timestamp: new Date().toISOString(),
       criterion: "Phase 14 Success Criterion 1: Cold activation of background Firefox",
@@ -292,7 +299,7 @@ async function main() {
         : "Failures occurred during cold activation; see individual trial records.",
       trials,
     };
-    const outPath = join(process.cwd(), "test", "scratch", "live-proof-results.json");
+    const outPath = join(dirname(fileURLToPath(import.meta.url)), "live-proof-results.json");
     writeFileSync(outPath, JSON.stringify(resultsPayload, null, 2), "utf8");
     console.log(`Results persisted to ${outPath}\n`);
 

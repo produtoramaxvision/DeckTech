@@ -27,7 +27,7 @@
 // of bringing the existing window forward, breaking the product's core promise.
 //
 // The evidence now exists from two independent runs of the measurement harness
-// (test/scratch/fg-harness.mjs, results in test/scratch/fg-results.json) on this
+// (tools/fg-harness.mjs, results in tools/fg-results.json) on this
 // machine against throwaway windows, discarding trivial passes:
 //
 //                 worker run    second run
