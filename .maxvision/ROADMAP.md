@@ -54,6 +54,8 @@ A Fase 0 conserva o número que REQUIREMENTS.md (`### Fase 0 — Prova técnica`
 - [ ] **Phase 11: Paridade dos companions (Android e macOS)** - Rebrand seguro e os bugs que o hardware real expôs
 - [ ] **Phase 12: Landing DeckTech** - Três plataformas de download e conteúdo verdadeiro
 - [ ] **Phase 13: CI e automação de testes** - A suíte roda sozinha em cada commit, incluindo os testes Android
+- [ ] **Phase 14: Controle de janela** - Um toque no celular foca, minimiza, fecha ou abre nova janela — e o cliente sabe qual é qual
+- [ ] **Phase 15: Cliente PWA — responsividade e gestos** - A tela do celular se adapta à orientação e traduz os quatro gestos em ações
 
 ## Phase Details
 
@@ -177,7 +179,7 @@ os 122 apps reais já medidos.
 **Goal**: PIN, config e sessões vivem em `%LOCALAPPDATA%\DeckTech`, sobrevivem a quem já tinha
 Dokke instalado, e falham alto em vez de em silêncio.
 **Depends on**: Phase 1, Phase 0
-**Requirements**: BRAND-02, PKG-03, FIX-01, FIX-02, FIX-03
+**Requirements**: BRAND-02, BRAND-13, PKG-03, FIX-01, FIX-02, FIX-03
 **Gating por requisito**: a Fase 1 fixa o nome final da marca, que é o diretório de destino da
 migração (BRAND-02). PROOF-05 determina o que FIX-02 precisa cobrir — se `chmod(0o600)` não
 vale em Windows nativo, a ACL explícita ou DPAPI deixa de ser opcional.
@@ -410,6 +412,74 @@ incluindo os testes Android que hoje não rodam em lugar nenhum.
      apertar nada.
 **Validação nesta máquina**: parcial. O YAML é verificável aqui; a execução de fato (em especial
 o step de Gradle do TEST-05) só se prova num runner com SDK Android.
+**Plans**: TBD
+
+### Phase 14: Controle de janela
+**Goal**: Um toque no celular controla a janela no Windows de verdade — foca, minimiza, fecha ou
+abre uma nova — e o cliente consegue saber, antes do toque, em que estado o app está.
+**Depends on**: Phase 3 (reabre PLAT-05), Phase 2 (erros tipados)
+**Requirements**: PLAT-05 (reaberta), PLAT-11, PLAT-12
+**Por que esta fase existe**: o primeiro teste ponta-a-ponta com hardware real (Galaxy S10e, LAN,
+2026-09-18) chegou até o último passo e parou. O pareamento por PIN, a descoberta na LAN e os
+ícones de 256px funcionaram; tocar num app aberto devolveu
+`FOCUS_RESTRICTED: focus restricted for "Firefox", opened new instance` e a janela não veio pra
+frente. Medido: `setForegroundReturn: false` com handle válido e `ForegroundLockTimeout` já em
+`0`; 0 de 5 ativações reais numa bateria fria. A promessa central do produto — acionar um app do
+Windows pelo celular — não está de pé.
+**Gating por requisito**: PLAT-05 vem primeiro e sozinha. Enquanto focar não funciona, "um toque
+foca e o próximo minimiza" não tem o que alternar. A lane de investigação FG-PROBE
+(worker Gemini 3.8 Flash high, revisor Grok 4.6, worktree `decktech-fg`) produz a medição que
+decide o caminho: a decisão documentada em `platform/windows/actions.js:20-37` rejeitou
+`AttachThreadInput` de propósito, e reverter isso exige evidência, não preferência. PLAT-11 pode
+correr em paralelo com PLAT-05 — ela não depende do foco funcionar, só de conseguir LER quem está
+em foco. PLAT-12 depende das duas.
+**Success Criteria** (what must be TRUE):
+  1. Com o Firefox aberto e em segundo plano, tocar nele pelo celular traz a janela pra frente:
+     `GetForegroundWindow()` passa a devolver o handle do Firefox. Medido numa bateria de no
+     mínimo 10 tentativas frias, com o alvo nunca sendo o foreground anterior, e a taxa de
+     sucesso registrada. Uma taxa abaixo de 100% é resultado válido **se** vier com a explicação
+     medida de quando falha.
+  2. `listAppProcesses` distingue pelo menos três estados por processo — em foco, com janela em
+     segundo plano, minimizado — e nenhum deles é literal no código.
+  3. `minimizeApp` minimiza a janela e `listAppProcesses` passa a reportar o estado novo.
+  4. `closeApp` fecha o app; um app com trabalho não salvo que abre o próprio diálogo de
+     confirmação **não** é morto à força, e o cliente recebe erro tipado em vez de um 500.
+  5. `activateApp` com modo explícito de nova instância abre uma janela nova **sem** passar pelo
+     caminho de erro — hoje instância nova só existe como fallback de `FOCUS_RESTRICTED`.
+  6. Os três providers do contrato (`darwin`, `win32`, fallback) respondem aos métodos novos ou
+     devolvem o erro tipado `notImplemented` da Fase 2 — nenhum `undefined is not a function`.
+**Validação nesta máquina**: integral para win32. O caminho macOS é verificável só por leitura —
+`mac/Sources` não compila em Windows 11.
+**Plans**: TBD
+
+### Phase 15: Cliente PWA — responsividade e gestos
+**Goal**: A tela do celular se adapta à orientação em que o aparelho está e traduz os quatro
+gestos nas quatro ações da Fase 14, dizendo ao usuário o que cada toque vai fazer antes dele
+tocar.
+**Depends on**: Phase 14
+**Requirements**: UI-13 (entregue), UI-14, OBS-03
+**Por que esta fase existe**: UI-01 a UI-12 são todas do chrome do Electron — sidebar, geometria
+da área de caption, bridge `window.DeckTechWindows`. O layout e os gestos do **cliente PWA** não
+tinham requisito nem fase; o roadmap só dizia que a PWA não podia regredir. Os dois achados do
+teste real de 2026-09-18 caíram exatamente nesse vão. UI-13 foi entregue em `5ff25f8` antes desta
+fase existir, e está marcada como entregue em vez de reescrita como pendente.
+**Success Criteria** (what must be TRUE):
+  1. Em retrato, com mais apps abertos do que cabem numa linha, nenhum cartão fica fora da
+     largura da tela e o eixo de toque acompanha o eixo de rolagem. **Já verdadeiro** — travado
+     por `test/ui.test.mjs` (UI-13), com o caminho landscape medido byte-a-byte igual.
+  2. Um toque num app que está em segundo plano o traz pra frente; um toque no app que **já**
+     está em foco o minimiza. O cartão mostra em qual dos dois estados o app está **antes** do
+     toque.
+  3. Um toque duplo abre uma janela nova, e isso não dispara o caminho de erro.
+  4. Um toque longo pede confirmação antes de fechar, no mesmo padrão que
+     `test/ui.test.mjs:198` já usa pra remoção de fixo. Confirmar fecha; cancelar não fecha.
+  5. Os quatro gestos não se atropelam: um toque não vira toque duplo, um arrasto do deck não
+     vira toque, e o toque longo não dispara durante a rolagem. Verificado com Playwright contra
+     DOM real, não por leitura de código.
+  6. Com o OBS aberto e o servidor WebSocket dele desligado, a mensagem diz isso — não
+     "abra o OBS". Com nenhuma senha configurada, diz isso. São causas diferentes e hoje o
+     servidor responde `connected: false` para as duas.
+**Validação nesta máquina**: integral. Playwright roda aqui e o S10e está na LAN.
 **Plans**: TBD
 
 ---

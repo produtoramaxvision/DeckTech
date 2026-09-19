@@ -64,6 +64,22 @@ zero de bytes; e 7 de 7 tasks do plano TDD herdado sobrevivem contra 4 de 7.
 - [ ] **OBS-01**: Logging estruturado no core. Hoje `server.js` tem 7 chamadas `console.*` e `apps.js`, `auth.js`, `config.js` e `actions.js` tem **zero** — sem logger, sem nivel, sem sink. Instrumentar entrada, saida e cada ramo significativo dos caminhos que hoje falham em silencio: `mkdirSync` engolindo erro (`server.js:935`, Q30), a cadeia de icone morrendo sem ruido (W1) e falha de foco virando 500 generico (W3). **Nunca gravar o PIN nem o cookie de sessao.** **Atencao de escopo:** `apps.js`, `auth.js`, `config.js` e `actions.js` sao core compartilhado, nao codigo Windows. Instrumentar esses arquivos altera tambem o caminho macOS e Android. O efeito no macOS **nao e validavel nesta maquina** (sem Xcode) — mesma marca que a Fase 11 carrega. Manter a instrumentacao neutra de plataforma e verificar a nao-regressao do Android por TEST-07, em hardware real. *(D17)*
 - [ ] **PLAT-09**: Cache de ícone persistente entre reinicializações, com warm em ociosidade e invalidação correta quando o app de origem é atualizado ou desinstalado. Hoje são 43,2 ms por ícone × 122 apps = 5,3 s medidos a cada scan. O PRD §10 já exige ícones assíncronos e cacheáveis; isso é cumprir o requisito por inteiro. *(E1, aceito 2026-09-17)*
 - [ ] **PLAT-10**: Parser binário de `.lnk` em Node, **condicional ao resultado de PROOF-03**. Hoje resolver 149 atalhos via COM custa 2395 ms medidos (~16 ms cada). Se PROOF-03 confirmar o ganho, ship; se não confirmar, registrar a medição e manter o COM. *(E2, aceito 2026-09-17)*
+- [ ] **PLAT-11**: **Estado real de foreground por processo.** `platform/windows/actions.js:162` escreve
+`type: "Foreground"` como literal para TODO processo com janela, copiando o formato que o macOS
+recebe do `lsappinfo`. O campo então significa "tem janela", não "está em foco", e o cliente não
+consegue distinguir os dois. Sem essa distinção o modelo de toque de UI-14 é impossível: um toque
+que alterna entre focar e minimizar precisa ler o estado atual. Precisa também de um valor para
+"minimizado", que hoje não existe em nenhum lugar do contrato. *(achado no teste ponta-a-ponta de
+2026-09-18)*
+- [ ] **PLAT-12**: **Ações de janela além de ativar.** O contrato de `platform/index.js` expõe
+`listInstalledApps`, `listAppProcesses`, `activateApp`, `openWebsite` e `iconService` — e nada
+mais. Não há como minimizar, fechar, nem pedir explicitamente uma instância nova. Hoje uma
+instância nova é o *fallback de erro* de `activateApp` (PRD §15), não uma intenção que o usuário
+possa expressar. Este requisito adiciona `minimizeApp`, `closeApp` e um modo explícito de
+`activateApp` para nova instância, nas três plataformas do contrato, com os erros tipados da
+Fase 2. **Fechar um app é destrutivo e pode perder trabalho não salvo** — o requisito inclui
+confirmação no cliente, não só a chamada. *(achado no teste ponta-a-ponta de 2026-09-18)*
+
 
 ### Shell Electron
 
@@ -76,6 +92,16 @@ zero de bytes; e 7 de 7 tasks do plano TDD herdado sobrevivem contra 4 de 7.
 - [ ] **SHELL-07**: Corrigir o overload de `opts.root` entre raiz estática e `pinRoot`. Se o shell passar `opts.root` apontando para o diretório servido, `GET /.j5-pin` entrega o PIN sem auth. *(W13)*
 - [ ] **SHELL-08**: Detectar bloqueio do Windows Firewall na primeira execução e oferecer criar a regra, em vez de deixar o usuário com um erro. O PRD §15 já nomeia o Firewall como bloqueador provável de UDP 3001 e HTTP. Complementa FIX-06, que explica a causa; aqui o app resolve. A criação da regra exige elevação UAC, então o fluxo precisa de consentimento explícito e caminho de recusa que não quebre o app. *(E4, aceito 2026-09-17)*
 - [ ] **OBS-02**: Sink de log em arquivo rotativo em `%LOCALAPPDATA%\DeckTech\logs`, com politica de retencao declarada, e acao na bandeja que abre a pasta. Sem isso o stdout do `utilityProcess` nao chega a lugar nenhum que o usuario alcance, e um bug reportado tres semanas depois nao tem artefato para pedir. *(D17)*
+- [ ] **OBS-03**: **Diagnóstico honesto do OBS e superfície de configuração.** O cartão mostra
+"OBS offline" e o drawer diz "abra o OBS para liberar as cenas". Medido em 2026-09-18 com o OBS
+Studio ABERTO: a mensagem estava errada nas duas pontas. As causas reais eram outras duas, ambas
+válidas ao mesmo tempo — `obs-ws.js:20` devolve `null` sem nem tentar conectar quando
+`OBS_WS_PASSWORD` não está definida, e nada escutava na porta 4455 porque o servidor WebSocket do
+OBS estava desligado. O servidor também não distingue os dois casos: `server.js:1077,1084,1105`
+respondem `connected: false` para qualquer um. Este requisito faz o servidor reportar a causa e o
+cliente dizer qual é, e dá ao usuário um lugar para configurar a senha que não seja variável de
+ambiente. *(achado no teste ponta-a-ponta de 2026-09-18)*
+
 
 ### UI desktop
 
@@ -91,6 +117,23 @@ zero de bytes; e 7 de 7 tasks do plano TDD herdado sobrevivem contra 4 de 7.
 - [ ] **UI-10**: Estados de carregando, vazio, offline, erro e sucesso, todos acionáveis.
 - [ ] **UI-11**: Validação por Playwright `_electron` contra DOM real, não regex sobre fonte.
 - [ ] **UI-12**: Harness de screenshot golden com **baseline capturada do Dokke real**, não inventada. A primeira captura já existe: `.maxvision/research/baseline-pwa-landscape.png`, feita em 2026-09-17 com `node server.js` rodando no Windows sem modificação, viewport 844×390 — mostra o grid 4×2 landscape, os tiles squircle, o ember de fundo e os 5 page dots. Tolerância percentual calibrada contra 3 builds consecutivas antes de virar trava, porque ClearType, escala de DPI e sombra de janela do Windows produzem diferença de pixel sem mudança de design. O chrome do desktop (sidebar, área de caption) **não tem baseline capturável nesta máquina** — o app macOS não compila aqui, então essa parte depende de aprovação única de um render. *(E6, aceito 2026-09-17)*
+- [x] **UI-13**: **Responsividade da tela "Apps abertos" no cliente PWA.** A fila horizontal de
+altura travada (`.deck`) é o dock do Dokke e está certa numa tela larga. Em retrato, medido num
+viewport 390x844 com 6 apps abertos, dava 6 cartões em 1 linha, 2 fora da tela, e 479px mortos
+abaixo. Em retrato a mesma marcação vira grade que embrulha, ancorada no topo, sem tocar o
+caminho landscape (a baseline de UI-12 continua byte-a-byte a mesma). **Entregue em `5ff25f8`**,
+antes de existir fase dona — a fase foi escrita depois para não deixar a entrega sem
+rastreabilidade. *(achado no teste ponta-a-ponta de 2026-09-18)*
+- [ ] **UI-14**: **Modelo de toque do cliente PWA.** Hoje só existe um gesto: um toque chama
+`activateApp`. O modelo pedido tem quatro:
+  - **um toque** — foca/restaura a janela; se ela **já** está em foco, minimiza (alterna)
+  - **toque duplo** — abre uma instância nova, que hoje só acontece como fallback de erro
+  - **toque longo** — fecha o app, **com confirmação** (o toque longo já existe no cliente para
+    confirmar remoção de fixo em `test/ui.test.mjs:198`, então o padrão de confirmação é o mesmo)
+  - o estado atual de cada app precisa ser **visível** no cartão antes do toque, senão o usuário
+    não sabe o que o próximo toque vai fazer
+  Depende de PLAT-11 (ler estado) e PLAT-12 (as ações existirem). *(pedido do usuário, 2026-09-18)*
+
 
 ### Design system
 
@@ -131,6 +174,13 @@ zero de bytes; e 7 de 7 tasks do plano TDD herdado sobrevivem contra 4 de 7.
   A PWA **não** é ponto de acoplamento: `public/index.html:2251` valida só `r.data.ok === true`, nunca o campo `service` — verificado.
   O ramo legado nasce com **data de remoção declarada em comentário no código**, não "algum dia". Teste obrigatório: um cliente sem header recebe o corpo legado byte a byte e o regex ancorado do Android casa; um cliente com header recebe DeckTech. Os dois provados por asserção que falha se o ramo sumir.
 - [ ] **BRAND-12**: Reapontar o check de versao para o DeckTech **e mante-lo desligado por flag ate a primeira release existir**. `server.js:90,97,98` apontam hoje para `felipenalves/Dokke/releases/latest` e o asset `dokke.apk`; `gh release list --repo produtoramaxvision/DeckTech` retorna vazio, entao so reapontar manda o updater para um endereco sem releases. A RF-10 do PRD diz que atualizacao automatica silenciosa nao e requisito de MVP. Religar a flag e etapa da primeira release, registrada como tal. *(D18)*
+- [ ] **BRAND-13**: **Strings `Dokke` de runtime.** `server.js:1349` imprime
+`Dokke ouvindo em http://127.0.0.1:3000` no boot de um produto chamado DeckTech. Nenhum requisito
+da Fase 1 cobria texto de log: BRAND-01 cobre as 4 superfícies de auto-update e
+BRAND-03/04/05/11/12 cobrem hashes de ícone, testes, imports de `auth.js`, atribuição e o check de
+versão. `server.js:519` e `:962` continuam `Dokke` **de propósito** (dual-accept do WIRE-01, não
+mexer); `server.js:1163-1164` é BRAND-02, da Fase 4. *(achado em 2026-09-18)*
+
 
 ### Testes e CI
 
@@ -209,11 +259,11 @@ Preenchido pelo roadmap.
 | PLAT-02 | Fase 3 | Concluída |
 | PLAT-03 | Fase 3 | Concluída |
 | PLAT-04 | Fase 3 | Concluída |
-| PLAT-05 | Fase 3 | **REABERTA** — ativação não traz janela pra frente (ver STATE.md, Blockers) |
 | PLAT-07 | Fase 3 | Concluída |
 | PLAT-09 | Fase 3 | Concluída |
 | PLAT-10 | Fase 3 | Concluída |
 | BRAND-02 | Fase 4 | Pendente |
+| BRAND-13 | Fase 4 | Pendente |
 | PKG-03 | Fase 4 | Pendente |
 | FIX-01 | Fase 4 | Pendente |
 | FIX-02 | Fase 4 | Pendente |
@@ -267,8 +317,19 @@ Preenchido pelo roadmap.
 | TEST-05 | Fase 13 | Pendente |
 | TEST-06 | Fase 13 | Pendente |
 | TEST-07 | Fase 13 | Pendente |
+| PLAT-05 | Fase 3 → Fase 14 | **REABERTA** — não traz a janela pra frente |
+| PLAT-11 | Fase 14 | Pendente |
+| PLAT-12 | Fase 14 | Pendente |
+| UI-13 | Fase 15 | **Concluída** em `5ff25f8` — entregue antes de a Fase 15 existir |
+| UI-14 | Fase 15 | Pendente |
+| OBS-03 | Fase 15 | Pendente |
 
-Distribuição por fase: 0→8, 1→7, 2→4, 3→7, 4→5, 5→9, 6→8, 7→5, 8→4, 9→4, 10→5, 11→6, 12→3, 13→5. Total 80. Fechadas: 0, 1, 2, 3, 6 = 34 requisitos.
+Total de requisitos únicos: 86 em 16 fases. Fechados: Fases 0, 1, 2, 3 e 6 = 34,
+mais UI-13, entregue antes de a Fase 15 existir. PLAT-05 conta como fechada na Fase 3 e
+REABERTA na Fase 14 — aparece uma vez só, com as duas fases na mesma linha.
+Esta tabela é gerada do ROADMAP, então as duas não podem divergir em silêncio.
+mais UI-13 entregue fora de fase.
+A tabela é gerada do ROADMAP, então as duas não podem divergir em silêncio.
 A tabela ficava com 67 linhas: BRAND-12, OBS-01, OBS-02, PLAT-09, PLAT-10, PROOF-06, PROOF-07,
 PROOF-08, SHELL-08, TEST-06, TEST-07, UI-12 e WIRE-01 entraram depois dela e nunca foram
 adicionados. Agora ela é gerada do ROADMAP, então as duas não podem divergir de novo.
