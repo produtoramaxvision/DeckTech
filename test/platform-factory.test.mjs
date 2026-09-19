@@ -145,11 +145,14 @@ test("PLAT-12: darwin tem degradação explicitamente declarada (PlatformNotImpl
   await assert.rejects(platform.openNewWindow("App"), PlatformNotImplementedError);
 });
 
-test("PLAT-11: darwin listAppProcesses devolve janelas com id, title, monitor e state definidos (degradação declarada, sem undefined)", async () => {
+test("PLAT-11: darwin listAppProcesses devolve janelas com id, title, monitor e state definidos (degradação declarada, honesta: background, sem falso focused)", async () => {
+  // apps.js#listAppProcesses entrega apenas type="Foreground" para regular apps.
+  // A degradação honesta relata 'background' por padrão para não reivindicar foco
+  // falso em múltiplos apps simultaneamente (Finding M1).
   const platform = createPlatform("darwin", {
     listAppProcesses: async () => [
       { name: "Safari", pid: 1234, type: "Foreground" },
-      { name: "Notes", pid: 5678, type: "Background" },
+      { name: "Notes", pid: 5678, type: "Foreground" },
     ],
   });
   const windows = await platform.listAppProcesses();
@@ -159,7 +162,7 @@ test("PLAT-11: darwin listAppProcesses devolve janelas com id, title, monitor e 
     name: "Safari",
     title: "Safari",
     monitor: 0,
-    state: "focused",
+    state: "background",
     type: "Foreground",
     pid: 1234,
     degraded: true,
@@ -170,7 +173,7 @@ test("PLAT-11: darwin listAppProcesses devolve janelas com id, title, monitor e 
     title: "Notes",
     monitor: 0,
     state: "background",
-    type: "Background",
+    type: "Foreground",
     pid: 5678,
     degraded: true,
   });
@@ -180,7 +183,22 @@ test("PLAT-11: darwin listAppProcesses devolve janelas com id, title, monitor e 
     assert.notEqual(w.title, undefined);
     assert.notEqual(w.monitor, undefined);
     assert.notEqual(w.state, undefined);
+    assert.equal(w.state, "background");
   }
+});
+
+test("PLAT-11: darwin listAppProcesses com getFrontmostApp marca apenas o app frontmost como focused", async () => {
+  const platform = createPlatform("darwin", {
+    listAppProcesses: async () => [
+      { name: "Safari", pid: 1234, type: "Foreground" },
+      { name: "Notes", pid: 5678, type: "Foreground" },
+    ],
+    getFrontmostApp: async () => 1234,
+  });
+  const windows = await platform.listAppProcesses();
+  assert.equal(windows.length, 2);
+  assert.equal(windows[0].state, "focused");
+  assert.equal(windows[1].state, "background");
 });
 
 test("PLAT-12/MJ3: fallback platform devolve os 9 membros e degradação declarada (Phase 14 critério 6)", async () => {

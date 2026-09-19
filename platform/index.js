@@ -55,23 +55,43 @@ function notImplemented(member, platformName) {
  * Como o host Windows não compila fontes Swift/macOS (mac/Sources) e não
  * executa CGWindowListCopyWindowInfo, os provedores darwin e fallback declaram
  * degradação estrutural explícita: cada processo é projetado como uma janela
- * com id estável, monitor 0, título derivado do app e estado ("focused" / "background"),
- * garantindo que os campos do contrato PLAT-11 (id, title, monitor, state) nunca
- * sejam undefined.
+ * com id estável, monitor 0, título derivado do app e estado ("background" por
+ * padrão para honestidade na degradação, sem alegar falsamente foco quando
+ * o provider de janela não existe), garantindo que os campos do contrato
+ * PLAT-11 (id, title, monitor, state) nunca sejam undefined.
+ * Opcionalmente aceita `getFrontmost` para marcar apenas a janela/app em foco real.
  */
-export function makeDarwinListAppProcesses(rawList = listAppProcesses) {
+export function makeDarwinListAppProcesses(rawList = listAppProcesses, getFrontmost = null) {
   return async function darwinListAppProcesses(opts) {
     const list = await rawList(opts);
-    return (list ?? []).map(a => ({
-      id: `darwin-${a.pid}`,
-      name: a.name,
-      title: a.title ?? a.name,
-      monitor: Number(a.monitor ?? 0),
-      state: a.state ?? (a.type === "Foreground" ? "focused" : "background"),
-      type: a.type ?? "Foreground",
-      pid: a.pid,
-      degraded: true,
-    }));
+    let front = null;
+    if (typeof getFrontmost === "function") {
+      try {
+        front = await getFrontmost();
+      } catch {
+        front = null;
+      }
+    }
+    return (list ?? []).map(a => {
+      let state = a.state;
+      if (!state) {
+        if (front != null && (a.pid === front || a.name === front)) {
+          state = "focused";
+        } else {
+          state = "background";
+        }
+      }
+      return {
+        id: `darwin-${a.pid}`,
+        name: a.name,
+        title: a.title ?? a.name,
+        monitor: Number(a.monitor ?? 0),
+        state,
+        type: a.type ?? "Foreground",
+        pid: a.pid,
+        degraded: true,
+      };
+    });
   };
 }
 
@@ -89,10 +109,11 @@ function darwinPlatform(deps = {}) {
     makeIconService = realIconService,
     resolveMacIconHelper: resolveHelper = resolveMacIconHelper,
     listAppProcesses: rawListAppProcesses = listAppProcesses,
+    getFrontmostApp = null,
   } = deps;
   return {
     listInstalledApps,
-    listAppProcesses: makeDarwinListAppProcesses(rawListAppProcesses),
+    listAppProcesses: makeDarwinListAppProcesses(rawListAppProcesses, getFrontmostApp),
     activateApp,
     openWebsite,
     iconService: makeIconService({ iconHelper: resolveHelper() }),
@@ -178,10 +199,11 @@ export function fallbackPlatform(deps = {}) {
   const {
     makeIconService = realIconService,
     listAppProcesses: rawListAppProcesses = listAppProcesses,
+    getFrontmostApp = null,
   } = deps;
   return {
     listInstalledApps,
-    listAppProcesses: makeDarwinListAppProcesses(rawListAppProcesses),
+    listAppProcesses: makeDarwinListAppProcesses(rawListAppProcesses, getFrontmostApp),
     activateApp,
     openWebsite,
     iconService: makeIconService(),
