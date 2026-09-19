@@ -187,19 +187,37 @@ Preenchido pelo roadmap.
 
 | REQ-ID | Fase | Status |
 |---|---|---|
-| PROOF-01 | Fase 0 | Pendente |
-| PROOF-02 | Fase 0 | Pendente |
-| PROOF-03 | Fase 0 | Pendente |
-| PROOF-04 | Fase 0 | Pendente |
-| PROOF-05 | Fase 0 | Pendente |
-| PLAT-01 | Fase 2 | Pendente |
-| PLAT-02 | Fase 3 | Pendente |
-| PLAT-03 | Fase 3 | Pendente |
-| PLAT-04 | Fase 3 | Pendente |
-| PLAT-05 | Fase 3 | Pendente |
-| PLAT-06 | Fase 2 | Pendente |
-| PLAT-07 | Fase 3 | Pendente |
-| PLAT-08 | Fase 2 | Pendente |
+| PROOF-01 | Fase 0 | Concluída |
+| PROOF-02 | Fase 0 | Concluída |
+| PROOF-03 | Fase 0 | Concluída |
+| PROOF-04 | Fase 0 | Concluída |
+| PROOF-05 | Fase 0 | Concluída — executada, não implementada (ver STATE.md, Fase 0) |
+| PROOF-06 | Fase 0 | Concluída |
+| PROOF-07 | Fase 0 | Concluída |
+| PROOF-08 | Fase 0 | Concluída |
+| BRAND-01 | Fase 1 | Concluída |
+| BRAND-03 | Fase 1 | Concluída |
+| BRAND-04 | Fase 1 | Concluída |
+| BRAND-05 | Fase 1 | Concluída |
+| BRAND-11 | Fase 1 | Concluída |
+| BRAND-12 | Fase 1 | Concluída |
+| WIRE-01 | Fase 1 | Concluída |
+| PLAT-01 | Fase 2 | Concluída |
+| PLAT-06 | Fase 2 | Concluída com achado aberto — `onStatusChange` não dispara em `FOCUS_RESTRICTED` |
+| PLAT-08 | Fase 2 | Concluída |
+| OBS-01 | Fase 2 | Concluída |
+| PLAT-02 | Fase 3 | Concluída |
+| PLAT-03 | Fase 3 | Concluída |
+| PLAT-04 | Fase 3 | Concluída |
+| PLAT-05 | Fase 3 | **REABERTA** — ativação não traz janela pra frente (ver STATE.md, Blockers) |
+| PLAT-07 | Fase 3 | Concluída |
+| PLAT-09 | Fase 3 | Concluída |
+| PLAT-10 | Fase 3 | Concluída |
+| BRAND-02 | Fase 4 | Pendente |
+| PKG-03 | Fase 4 | Pendente |
+| FIX-01 | Fase 4 | Pendente |
+| FIX-02 | Fase 4 | Pendente |
+| FIX-03 | Fase 4 | Pendente |
 | SHELL-01 | Fase 5 | Pendente |
 | SHELL-02 | Fase 5 | Pendente |
 | SHELL-03 | Fase 5 | Pendente |
@@ -207,57 +225,54 @@ Preenchido pelo roadmap.
 | SHELL-05 | Fase 5 | Pendente |
 | SHELL-06 | Fase 5 | Pendente |
 | SHELL-07 | Fase 5 | Pendente |
+| SHELL-08 | Fase 5 | Pendente |
+| OBS-02 | Fase 5 | Pendente |
+| DES-01 | Fase 6 | Concluída |
+| DES-02 | Fase 6 | Concluída |
+| DES-03 | Fase 6 | Concluída |
+| DES-04 | Fase 6 | Concluída |
+| DES-05 | Fase 6 | Concluída |
+| DES-06 | Fase 6 | Concluída — entregável é o registro de não-amostragem (sem render macOS claro) |
+| FIX-08 | Fase 6 | Concluída |
+| TEST-01 | Fase 6 | Concluída |
 | UI-01 | Fase 7 | Pendente |
+| UI-07 | Fase 7 | Pendente |
+| UI-08 | Fase 7 | Pendente |
+| UI-11 | Fase 7 | Pendente |
+| UI-12 | Fase 7 | Pendente |
 | UI-02 | Fase 8 | Pendente |
 | UI-03 | Fase 8 | Pendente |
 | UI-04 | Fase 8 | Pendente |
 | UI-05 | Fase 8 | Pendente |
 | UI-06 | Fase 9 | Pendente |
-| UI-07 | Fase 7 | Pendente |
-| UI-08 | Fase 7 | Pendente |
 | UI-09 | Fase 9 | Pendente |
 | UI-10 | Fase 9 | Pendente |
-| UI-11 | Fase 7 | Pendente |
-| DES-01 | Fase 6 | Pendente |
-| DES-02 | Fase 6 | Pendente |
-| DES-03 | Fase 6 | Pendente |
-| DES-04 | Fase 6 | Pendente |
-| DES-05 | Fase 6 | Pendente |
-| DES-06 | Fase 6 | Pendente |
+| TEST-02 | Fase 9 | Pendente |
 | PKG-01 | Fase 10 | Pendente |
 | PKG-02 | Fase 10 | Pendente |
-| PKG-03 | Fase 4 | Pendente |
 | PKG-04 | Fase 10 | Pendente |
 | PKG-05 | Fase 10 | Pendente |
 | PKG-06 | Fase 10 | Pendente |
-| BRAND-01 | Fase 1 | Pendente |
-| BRAND-02 | Fase 4 | Pendente |
-| BRAND-03 | Fase 1 | Pendente |
-| BRAND-04 | Fase 1 | Pendente |
-| BRAND-05 | Fase 1 | Pendente |
-| BRAND-06 | Fase 12 | Pendente |
-| BRAND-07 | Fase 12 | Pendente |
 | BRAND-08 | Fase 11 | Pendente |
 | BRAND-09 | Fase 11 | Pendente |
-| BRAND-10 | Fase 12 | Pendente |
-| BRAND-11 | Fase 1 | Pendente |
-| TEST-01 | Fase 6 | Pendente |
-| TEST-02 | Fase 9 | Pendente |
-| TEST-03 | Fase 13 | Pendente |
-| TEST-04 | Fase 13 | Pendente |
-| TEST-05 | Fase 13 | Pendente |
-| FIX-01 | Fase 4 | Pendente |
-| FIX-02 | Fase 4 | Pendente |
-| FIX-03 | Fase 4 | Pendente |
 | FIX-04 | Fase 11 | Pendente |
 | FIX-05 | Fase 11 | Pendente |
 | FIX-06 | Fase 11 | Pendente |
 | FIX-07 | Fase 11 | Pendente |
-| FIX-08 | Fase 6 | Pendente |
+| BRAND-06 | Fase 12 | Pendente |
+| BRAND-07 | Fase 12 | Pendente |
+| BRAND-10 | Fase 12 | Pendente |
+| TEST-03 | Fase 13 | Pendente |
+| TEST-04 | Fase 13 | Pendente |
+| TEST-05 | Fase 13 | Pendente |
+| TEST-06 | Fase 13 | Pendente |
+| TEST-07 | Fase 13 | Pendente |
 
-**Cobertura: 67 / 67 requisitos v1 mapeados.** Nenhum órfão, nenhum requisito em duas fases.
-Distribuição por fase: 0→5, 1→5, 2→3, 3→5, 4→5, 5→7, 6→8, 7→4, 8→4, 9→4, 10→5, 11→6, 12→3, 13→3.
+Distribuição por fase: 0→8, 1→7, 2→4, 3→7, 4→5, 5→9, 6→8, 7→5, 8→4, 9→4, 10→5, 11→6, 12→3, 13→5. Total 80. Fechadas: 0, 1, 2, 3, 6 = 34 requisitos.
+A tabela ficava com 67 linhas: BRAND-12, OBS-01, OBS-02, PLAT-09, PLAT-10, PROOF-06, PROOF-07,
+PROOF-08, SHELL-08, TEST-06, TEST-07, UI-12 e WIRE-01 entraram depois dela e nunca foram
+adicionados. Agora ela é gerada do ROADMAP, então as duas não podem divergir de novo.
 
-Os itens de §v2 (WIRE-01, PWA-01, SEC-01..04, MAC-01/02, PERF-01, LAND-01) **não** aparecem nesta
+Os itens de §v2 (PWA-01, SEC-01..04, MAC-01/02, PERF-01, LAND-01) **não** aparecem nesta
 tabela: estão fora do v1 por decisão registrada e não têm fase atribuída.
 
