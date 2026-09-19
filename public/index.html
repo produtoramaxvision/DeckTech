@@ -461,6 +461,56 @@
     clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
   }
   .dcard.front .dname{ opacity: 1; }
+  /* ---- retrato: a fila vira grade que embrulha ----------------------
+     O deck e uma FILA horizontal de altura fixa (`.deck` acima): certo
+     numa tela larga, que e onde o Dokke original vive. Em retrato ele
+     deixava 3 icones numa faixa no meio da tela com centenas de pixels
+     mortos em cima e embaixo, porque `.rstage` centraliza verticalmente e
+     `.deck` trava a altura em ate 300px.
+
+     Em retrato a mesma marcacao vira uma grade que embrulha, ancorada no
+     topo do palco. Nada aqui toca o caminho landscape: o bloco e
+     `(orientation: portrait)` puro, entao a baseline de UI-12
+     (.maxvision/research/baseline-pwa-landscape.png, 844x390) continua
+     byte-a-byte a mesma.
+
+     `@media (orientation: ...)` e a convencao ja usada neste arquivo
+     (ver o bloco landscape do launchpad mais abaixo); container queries
+     resolveriam o mesmo, mas o deck ocupa a regiao inteira do viewport,
+     entao a orientacao do viewport E o sinal correto, e misturar as duas
+     convencoes no mesmo arquivo custa mais do que ganha. */
+  @media (orientation: portrait){
+    .rstage{ justify-content: flex-start; }
+    .deck{
+      height: auto; min-height: 0; max-height: none;
+      align-items: flex-start;
+      overflow-x: hidden; overflow-y: auto;
+      /* pan-y em vez de pan-x: em retrato o eixo de rolagem inverteu. */
+      touch-action: pan-y;
+      overscroll-behavior-y: contain; overscroll-behavior-x: auto;
+      padding-top: 10px;
+    }
+    .deck-inner{
+      flex-wrap: wrap;
+      align-items: flex-start; align-content: flex-start;
+      justify-content: center;
+      row-gap: min(4vmin, 18px);
+      height: auto; min-width: 0;
+    }
+    .deck-group{
+      /* `flex: 0 0 auto` (regra base) faz o grupo medir max-content, entao
+         ele nunca fica estreito e os filhos nunca embrulham -- medido: 6
+         cartoes em 1 linha e 2 fora da tela. Em retrato o grupo passa a
+         ocupar a linha inteira e a ser limitado por ela, que e o que
+         permite o wrap acontecer. */
+      flex: 1 1 100%; max-width: 100%; min-width: 0;
+      flex-wrap: wrap;
+      align-items: flex-start; justify-content: center;
+      height: auto;
+      row-gap: min(4vmin, 18px);
+    }
+  }
+
   .rempty{
     margin: auto;
     color: var(--ink-3); font-size: 13px; text-align: center;

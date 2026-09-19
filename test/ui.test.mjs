@@ -767,3 +767,82 @@ test("landscape touch mantém o slide centralizado sem girar o pager", async () 
     await close();
   }
 });
+
+// UI-13: a tela "Apps abertos" é uma FILA horizontal de altura travada
+// (`.deck` em public/index.html). Numa tela larga isso é o dock do Dokke e
+// está certo. Em retrato, medido num 390x844 com 6 apps abertos, dava 6
+// cartões em 1 linha, 2 deles fora da tela, e 479px mortos abaixo da fila
+// porque `.rstage` centraliza verticalmente. O bloco
+// `@media (orientation: portrait)` transforma a MESMA marcação numa grade
+// que embrulha, ancorada no topo.
+//
+// Este teste mede geometria real no navegador, não texto de CSS: contar
+// `linhas` por `getBoundingClientRect().top` é o que distingue "embrulhou"
+// de "só mudou uma propriedade".
+async function measureDeck(port, width, height) {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width, height }, isMobile: true, hasTouch: true });
+    await page.goto(`http://127.0.0.1:${port}/`);
+    await page.waitForFunction(() => document.querySelectorAll("#screenRecents .dcard").length >= 6, null, { timeout: 20000 });
+    return await page.evaluate(() => {
+      const stage = document.querySelector("#screenRecents .rstage");
+      const deck = document.querySelector("#screenRecents .deck");
+      const cards = [...document.querySelectorAll("#screenRecents .dcard")];
+      const s = stage.getBoundingClientRect(), d = deck.getBoundingClientRect();
+      return {
+        cards: cards.length,
+        // arredonda pra 10px: dois cartões da mesma linha podem diferir
+        // um pixel por causa do arredondamento de layout.
+        rows: new Set(cards.map((c) => Math.round(c.getBoundingClientRect().top / 10))).size,
+        deadBelow: Math.round(s.bottom - d.bottom),
+        offscreen: cards.filter((c) => c.getBoundingClientRect().right > window.innerWidth + 1).length,
+        overflowX: getComputedStyle(deck).overflowX,
+        touchAction: getComputedStyle(deck).touchAction,
+      };
+    });
+  } finally {
+    await browser.close();
+  }
+}
+
+async function serverWithSixRunningApps() {
+  const running = ["Google Chrome", "Firefox", "OBS Studio", "Warp", "Spotify", "Notepad"]
+    .map((name, i) => ({ name, pid: 1000 + i, type: "Foreground" }));
+  return startServer({
+    port: 0,
+    obs: null,
+    config: { schemaVersion: 2, revision: 0, pieces: [], pinned: [] },
+    appTools: {
+      listInstalledApps: async () => running.map((r) => ({ name: r.name, path: r.name, icon: false })),
+      listAppProcesses: async () => running,
+    },
+  });
+}
+
+test("UI-13: em retrato a fila de apps abertos embrulha em grade e nenhum cartão fica fora da tela", async () => {
+  const { port, close } = await serverWithSixRunningApps();
+  try {
+    const m = await measureDeck(port, 390, 844);
+    assert.equal(m.cards, 6, "os 6 apps abertos deveriam render 6 cartões");
+    assert.ok(m.rows >= 2, `6 cartões em 390px de largura têm que ocupar 2 linhas ou mais, vieram em ${m.rows}`);
+    assert.equal(m.offscreen, 0, "nenhum cartão pode ficar fora da largura da tela em retrato");
+    assert.equal(m.overflowX, "hidden", "em retrato não existe rolagem horizontal — o eixo é vertical");
+    assert.equal(m.touchAction, "pan-y", "o eixo de toque tem que acompanhar o eixo de rolagem");
+    assert.ok(m.deadBelow < 200, `espaço morto abaixo da grade deveria ser pequeno, veio ${m.deadBelow}px`);
+  } finally {
+    await close();
+  }
+});
+
+test("UI-13: em paisagem a fila continua um scroller horizontal de uma linha — a baseline de UI-12 não muda", async () => {
+  const { port, close } = await serverWithSixRunningApps();
+  try {
+    const m = await measureDeck(port, 844, 390);
+    assert.equal(m.rows, 1, "paisagem é o dock do Dokke: uma linha só");
+    assert.equal(m.overflowX, "auto", "paisagem rola na horizontal");
+    assert.equal(m.touchAction, "pan-x", "paisagem panoramiza na horizontal");
+  } finally {
+    await close();
+  }
+});
