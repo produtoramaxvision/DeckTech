@@ -224,6 +224,29 @@ versão. `server.js:519` e `:962` continuam `Dokke` **de propósito** (dual-acce
 mexer); `server.js:1163-1164` é BRAND-02, da Fase 4. *(achado em 2026-09-18)*
 
 
+- [x] **BRAND-14**: **Strings de marca do cliente PWA.** `public/index.html` é a tela que o
+usuário vê no celular e dizia "Conectar ao Dokke", "Conecte o aparelho ao seu **Mac**" e
+"Dokke by Felipe Natanael" — num produto chamado DeckTech cujo diferencial é o host Windows.
+BRAND-11 cobria `LICENSE`, `README` e `docs/src/main.js`; BRAND-01 cobria as quatro superfícies
+de auto-update. Nenhum dos dois olhava o cliente.
+
+Entregue: título, cartão de login e avisos de update passam a dizer DeckTech nos dois idiomas;
+"Mac" vira "computador" porque o host é Windows; o rodapé é `DeckTech by Produtora MaxVision`
+com link pra `https://www.produtoramaxvision.com.br` (`target="_blank" rel="noopener noreferrer"`),
+com a linha de origem preservada e **visível** logo acima dela — a D2 exige isso e a última linha
+do cartão continua sendo a do DeckTech, como pedido.
+
+**Achado dentro deste requisito: existe uma QUINTA superfície de update que BRAND-01 não listou.**
+`public/index.html:3152,3161` tinha dois fallbacks hardcoded pra
+`felipenalves/Dokke/releases/latest`. Hoje estão inertes porque `ENABLE_VERSION_CHECK=false`
+(`server.js:89`) faz `rel` vir vazio, mas no dia em que BRAND-12 ligasse a flag um `rel.apkUrl`
+ausente mandava o celular baixar o APK do **Dokke upstream** por cima do DeckTech. Repontados.
+
+**Não renomear `window.DokkeAndroid`** (`public/index.html:1070,1109,1587,3100+`): é o nome da
+bridge injetada pelo APK já instalado no aparelho. Renomear quebra o APK em campo — mesmo
+espírito do dual-accept do WIRE-01. UI-08 adiciona `window.DeckTechWindows` **ao lado**.
+Travado por `test/brand-14-client-strings.test.mjs`. *(achado do usuário, 2026-09-19)*
+
 ### Testes e CI
 
 - [ ] **TEST-01**: Extrair os invariantes do PRD §7 numa fixture compartilhada consumida pelos testes Mac, PWA e Windows. Hoje Mac e PWA codificam os mesmos invariantes em dois dialetos de regex independentes; uma terceira cópia à mão é exatamente o drift que o §7 existe para prevenir. *(W18)*
@@ -306,6 +329,7 @@ Preenchido pelo roadmap.
 | PLAT-10 | Fase 3 | Concluída |
 | BRAND-02 | Fase 4 | Pendente |
 | BRAND-13 | Fase 4 | Pendente |
+| BRAND-14 | Fase 4 | **Concluída** — entregue antes da Fase 4 |
 | PKG-03 | Fase 4 | Pendente |
 | FIX-01 | Fase 4 | Pendente |
 | FIX-02 | Fase 4 | Pendente |
@@ -367,7 +391,7 @@ Preenchido pelo roadmap.
 | OBS-03 | Fase 15 | Pendente |
 | ACT-01 | Fase 16 | Pendente |
 
-Total de requisitos únicos: 87 em 17 fases. Fechados: Fases 0, 1, 2, 3 e 6 = 34,
+Total de requisitos únicos: 88 em 17 fases. Fechados: Fases 0, 1, 2, 3 e 6 = 34,
 mais UI-13, entregue antes de a Fase 15 existir. PLAT-05 conta como fechada na Fase 3 e
 REABERTA na Fase 14 — aparece uma vez só, com as duas fases na mesma linha.
 Esta tabela é gerada do ROADMAP, então as duas não podem divergir em silêncio.

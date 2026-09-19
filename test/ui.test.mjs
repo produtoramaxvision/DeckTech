@@ -20,7 +20,7 @@ test("GET / serve as 2 telas (apps + apps abertos) liquid glass", async () => {
     assert.match(html, /id="screens"/, "html deve ter o wrapper das 2 telas");
     assert.match(html, /id="screenApps"/, "html deve ter a tela apps");
     assert.match(html, /id="screenRecents"/, "html deve ter a tela recentes");
-    assert.match(html, /<title>Dokke<\/title>/, "o título visível do PWA deve usar a marca correta");
+    assert.match(html, /<title>DeckTech<\/title>/, "o título visível do PWA deve usar a marca correta");
     assert.match(
       html,
       /\.login-card\{[\s\S]*background: linear-gradient\(165deg, rgba\(255,255,255,\.18\), rgba\(255,255,255,\.07\) 55%, rgba\(255,255,255,\.12\)\);/,
