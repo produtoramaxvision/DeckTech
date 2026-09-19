@@ -12,6 +12,10 @@ import { makeWindowsIconService } from "./windows/icon.js";
 import {
   listAppProcesses as win32ListAppProcesses,
   activateApp as win32ActivateApp,
+  focusWindow as win32FocusWindow,
+  minimizeWindow as win32MinimizeWindow,
+  closeWindow as win32CloseWindow,
+  openNewWindow as win32OpenNewWindow,
 } from "./windows/actions.js";
 import { createWindowsAppearanceTracker } from "./windows/theme.js";
 
@@ -46,6 +50,59 @@ function notImplemented(member, platformName) {
 }
 
 /**
+ * Adapta a lista de processos por-processo (apps.js) para o contrato por-janela
+ * do PLAT-11 com degradação explicitamente declarada:
+ * Como o host Windows não compila fontes Swift/macOS (mac/Sources) e não
+ * executa CGWindowListCopyWindowInfo, os provedores darwin e fallback declaram
+ * degradação estrutural explícita: cada processo é projetado como uma janela
+ * com id estável, monitor 0, título derivado do app e estado ("background" por
+ * padrão para honestidade na degradação, sem alegar falsamente foco quando
+ * o provider de janela não existe), garantindo que os campos do contrato
+ * PLAT-11 (id, title, monitor, state) nunca sejam undefined.
+ * Opcionalmente aceita `getFrontmost` para marcar apenas a janela/app em foco real.
+ */
+export function makeDarwinListAppProcesses(rawList = listAppProcesses, getFrontmost = null) {
+  const fn = async function darwinListAppProcesses(opts) {
+    const list = await rawList(opts);
+    let front = null;
+    if (typeof getFrontmost === "function") {
+      try {
+        front = await getFrontmost();
+      } catch {
+        front = null;
+      }
+    }
+    return (list ?? []).map(a => {
+      let state = a.state;
+      if (!state) {
+        if (front != null && (a.pid === front || a.name === front)) {
+          state = "focused";
+        } else {
+          state = "background";
+        }
+      }
+      return {
+        id: `darwin-${a.pid}`,
+        name: a.name,
+        title: a.title ?? a.name,
+        monitor: Number(a.monitor ?? 0),
+        state,
+        type: a.type ?? "Foreground",
+        pid: a.pid,
+        degraded: true,
+      };
+    });
+  };
+  if (typeof rawList?.invalidateCache === "function") {
+    fn.invalidateCache = () => rawList.invalidateCache();
+  }
+  if (typeof rawList?.clearCache === "function") {
+    fn.clearCache = () => rawList.clearCache();
+  }
+  return fn;
+}
+
+/**
  * Contrato macOS: reusa as implementações reais já injetáveis em
  * server.js:295-298 e apps.js:559-573. O iconHelper é resolvido AQUI, de
  * forma explícita, e passado para makeIconService — não fica implícito
@@ -54,16 +111,25 @@ function notImplemented(member, platformName) {
  * passar pela fábrica (ex.: makeApp() hoje).
  */
 function darwinPlatform(deps = {}) {
+  const platformName = "darwin";
   const {
     makeIconService = realIconService,
     resolveMacIconHelper: resolveHelper = resolveMacIconHelper,
+    listAppProcesses: rawListAppProcesses = listAppProcesses,
+    getFrontmostApp = null,
   } = deps;
   return {
     listInstalledApps,
-    listAppProcesses,
+    listAppProcesses: makeDarwinListAppProcesses(rawListAppProcesses, getFrontmostApp),
     activateApp,
     openWebsite,
     iconService: makeIconService({ iconHelper: resolveHelper() }),
+    // PLAT-12: macOS requer equivalente (CGWindowListCopyWindowInfo) ou degradação
+    // explicitamente declarada (PlatformNotImplementedError), nunca undefined is not a function.
+    focusWindow: notImplemented("focusWindow", platformName),
+    minimizeWindow: notImplemented("minimizeWindow", platformName),
+    closeWindow: notImplemented("closeWindow", platformName),
+    openNewWindow: notImplemented("openNewWindow", platformName),
   };
 }
 
@@ -108,47 +174,57 @@ function win32Platform(deps = {}) {
     // segunda API na fábrica. `token` continua passado por referência (não
     // chamado aqui) exatamente como antes.
     resolveWindowsAppearanceTracker = createWindowsAppearanceTracker,
+    focusWindow = win32FocusWindow,
+    minimizeWindow = win32MinimizeWindow,
+    closeWindow = win32CloseWindow,
+    openNewWindow = win32OpenNewWindow,
   } = deps;
   const appearanceTracker = resolveWindowsAppearanceTracker();
   const iconService = makeIconService({ scan: win32ListInstalledApps, appearanceToken: appearanceTracker.token });
-  // Fase 4 (wiring): `appearanceTracker` lazy-starta um powershell.exe
-  // PERSISTENTE (platform/windows/theme.js's startThemeWatcher — sem
-  // .unref(), por design: o app real precisa do watch vivo por toda a
-  // sessão) na PRIMEIRA getIconPng() que passar por ele. Enquanto
-  // createPlatform() não era chamado por ninguém (o próprio bug desta
-  // tarefa), esse watcher nunca nascia fora dos testes dedicados de
-  // platform/windows/theme.js, que sempre o param explicitamente. Wireado
-  // como default de server.js, um server criado (e depois fechado) sem
-  // nunca receber SIGTERM/kill — como `node --test`, que cria um server
-  // novo por teste — deixaria um powershell.exe orfão por teste e travava
-  // o processo inteiro em exit (achado real: test/ui.test.mjs sozinho
-  // nunca retornava depois do fix de wiring, sem nenhum teste FALHANDO —
-  // todos os 16 passavam, só o processo não saía). `iconService.dispose()`
-  // não é membro do contrato de 5 campos de createPlatform() (não mexe em
-  // CONTRACT_MEMBERS/platform-factory.test.mjs) — é um método a mais no
-  // objeto iconService, que server.js#startServer chama em close() só
-  // quando existe (`?.dispose?.()`), então um iconService injetado por
-  // teste (sem esse método) continua um no-op seguro.
   iconService.dispose = () => appearanceTracker.stop();
   return {
     listInstalledApps: win32ListInstalledApps,
     listAppProcesses: win32ListAppProcesses,
     activateApp: win32ActivateApp,
     openWebsite: notImplemented("openWebsite", platformName),
-    // scan reusa a MESMA instância TTL-cacheada de win32ListInstalledApps —
-    // não um segundo scan PowerShell independente (ver comentário de topo
-    // de platform/windows/icon.js sobre o double-layer de TTL, que já
-    // existe em apps.js/realIconService pro macOS). listAppProcesses e
-    // activateApp (platform/windows/actions.js) seguem a mesma regra: suas
-    // próprias instâncias default já resolvem `resolveApps` para
-    // win32ListInstalledApps sem precisar de injeção aqui.
     iconService,
+    focusWindow,
+    minimizeWindow,
+    closeWindow,
+    openNewWindow,
+  };
+}
+
+/**
+ * Contrato de fallback (Phase 14 critério 6): responde aos 9 membros do
+ * contrato de plataforma. Para sistemas sem provider nativo (ex.: Linux em
+ * desenvolvimento), os 4 métodos de controle de janela devolvem o erro
+ * tipado PlatformNotImplementedError — nunca undefined is not a function.
+ */
+export function fallbackPlatform(deps = {}) {
+  const platformName = "fallback";
+  const {
+    makeIconService = realIconService,
+    listAppProcesses: rawListAppProcesses = listAppProcesses,
+    getFrontmostApp = null,
+  } = deps;
+  return {
+    listInstalledApps,
+    listAppProcesses: makeDarwinListAppProcesses(rawListAppProcesses, getFrontmostApp),
+    activateApp,
+    openWebsite,
+    iconService: makeIconService(),
+    focusWindow: notImplemented("focusWindow", platformName),
+    minimizeWindow: notImplemented("minimizeWindow", platformName),
+    closeWindow: notImplemented("closeWindow", platformName),
+    openNewWindow: notImplemented("openNewWindow", platformName),
   };
 }
 
 const PLATFORM_FACTORIES = {
   darwin: darwinPlatform,
   win32: win32Platform,
+  fallback: fallbackPlatform,
 };
 
 /**

@@ -79,24 +79,130 @@ const execFileAsync = promisify(execFile);
 export const RUNNING_TTL_MS = 1500;
 
 // --------------------------------------------------------------------
-// listAppProcesses (PLAT-05, metade 1)
+// listAppProcesses (PLAT-05 / PLAT-11: enumeração por janela)
 // --------------------------------------------------------------------
 
 // Escreve em ARQUIVO UTF-8 sem BOM, nunca em stdout — mesma decisão (e mesmo
 // motivo) de platform/windows/apps.js's PS_SCRIPT: o console do PowerShell
 // numa máquina pt-BR corrompe títulos de janela acentuados capturados via
-// child_process pipe (medido nesta máquina: "Moderação" virou "Modera??o"
-// ao passar por stdout; ver discrimination_proof da tarefa). `MainWindowTitle
-// -ne ''` é o mesmo filtro "só apps em primeiro plano" que listAppProcesses
-// do macOS já aplica (lsappinfo type="Foreground") — um processo sem janela
-// visível não é um "app rodando" pro propósito desta lista.
-const PS_LIST_PROCESSES_SCRIPT = `
+// child_process pipe.
+//
+// PLAT-11: EnumWindows enumera todas as janelas de topo visíveis com título
+// e extrai pid, hwnd, monitor (MonitorFromWindow), min (IsIconic), isFg
+// (GetForegroundWindow), title e o caminho do processo (QueryFullProcessImageName).
+export const PS_LIST_PROCESSES_SCRIPT = `
 param(
   [Parameter(Mandatory = $true)][string]$OutFile
 )
 $ErrorActionPreference = 'Stop'
-$procs = Get-Process | Where-Object { $_.MainWindowTitle -ne '' } | Select-Object Id, ProcessName, MainWindowTitle, Path
-$json = $procs | ConvertTo-Json -Depth 4 -Compress
+
+$code = @"
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Runtime.InteropServices;
+
+public class WindowEntry {
+    public int pid;
+    public long hwnd;
+    public long mon;
+    public bool min;
+    public bool isFg;
+    public string title;
+    public string path;
+}
+
+public static class WindowScanner {
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowTextLength(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    [DllImport("user32.dll")] public static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint dwFlags);
+    [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern IntPtr OpenProcess(uint processAccess, bool bInheritHandle, uint processId);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    public static extern bool QueryFullProcessImageName(IntPtr hProcess, uint dwFlags, StringBuilder lpExeName, ref uint lpdwSize);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool CloseHandle(IntPtr hObject);
+
+    private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
+    public static List<WindowEntry> Scan() {
+        var list = new List<WindowEntry>();
+        IntPtr fg = GetForegroundWindow();
+        var pathCache = new Dictionary<uint, string>();
+
+        EnumWindows((hWnd, lParam) => {
+            if (IsWindowVisible(hWnd)) {
+                int len = GetWindowTextLength(hWnd);
+                if (len > 0) {
+                    var sb = new StringBuilder(len + 1);
+                    GetWindowText(hWnd, sb, sb.Capacity);
+                    uint procId = 0;
+                    GetWindowThreadProcessId(hWnd, out procId);
+
+                    string path = null;
+                    if (!pathCache.TryGetValue(procId, out path)) {
+                        IntPtr hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, procId);
+                        if (hProc != IntPtr.Zero) {
+                            try {
+                                var pathBuf = new StringBuilder(1024);
+                                uint size = (uint)pathBuf.Capacity;
+                                if (QueryFullProcessImageName(hProc, 0, pathBuf, ref size)) {
+                                    path = pathBuf.ToString();
+                                }
+                            } finally {
+                                CloseHandle(hProc);
+                            }
+                        }
+                        pathCache[procId] = path;
+                    }
+
+                    IntPtr mon = MonitorFromWindow(hWnd, 2);
+                    bool min = IsIconic(hWnd);
+                    list.Add(new WindowEntry {
+                        pid = (int)procId,
+                        hwnd = hWnd.ToInt64(),
+                        mon = mon.ToInt64(),
+                        min = min,
+                        isFg = (hWnd == fg),
+                        title = sb.ToString(),
+                        path = path
+                    });
+                }
+            }
+            return true;
+        }, IntPtr.Zero);
+        return list;
+    }
+}
+"@
+
+if (-not ([System.Management.Automation.PSTypeName]'WindowScanner').Type) {
+  Add-Type -TypeDefinition $code
+}
+
+$wins = [WindowScanner]::Scan()
+$list = foreach ($w in $wins) {
+  [PSCustomObject]@{
+    Id = $w.pid
+    hwnd = $w.hwnd
+    mon = $w.mon
+    min = $w.min
+    isFg = $w.isFg
+    title = $w.title
+    Path = $w.path
+  }
+}
+$json = $list | ConvertTo-Json -Depth 4 -Compress
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($OutFile, $json, $utf8NoBom)
 `;
@@ -146,48 +252,137 @@ function normalizeExePath(p) {
 }
 
 /**
- * Casa processos rodando (Id/ProcessName/MainWindowTitle/Path, do coletor
- * PowerShell) com o catálogo de apps instalados (PLAT-02) — POR CAMINHO DO
- * EXECUTÁVEL, nunca por nome de processo ou título de janela. É a mesma
- * decisão de identidade que o macOS já toma (canonicalAppNameFromBundlePath
- * em apps.js): o `name` devolvido aqui precisa ser exatamente o `.name` do
- * catálogo (PLAT-02) pra "app já aberto" bater com o piece fixado na UI
- * (public/index.html: `state.running.find(a => a.name === name)`) — não um
- * nome derivado do processo, que raramente coincide (ex.: processo
- * "chrome.exe" vs. catálogo "Google Chrome").
- *
- * GAP CONHECIDO, não escondido: apps `kind: "uwp"` no catálogo carregam o
- * AUMID como identidade (PLAT-02/ADR-0002), não um caminho de executável —
- * `Get-Process`, por outro lado, só expõe o caminho do host process real
- * (ex.: a Calculadora empacotada roda como
- * `...\WindowsApps\Microsoft.WindowsCalculator_.../CalculatorApp.exe`, uma
- * string que não é e não deriva do AUMID). Casar processo UWP rodando ao
- * catálogo exigiria uma segunda fonte (PackageFullName por PID via
- * `Get-Process | Get-AppPackage` ou equivalente) que PLAT-05 não pede e que
- * fica fora de escopo aqui — ver unresolved[] da tarefa. Um app UWP nunca
- * aparece como "rodando" nesta lista; ele continua ativável (via
- * `activateApp`, que resolve o AUMID direto do catálogo, não desta lista).
- * @param {Array<{Id?: number, ProcessName?: string, MainWindowTitle?: string, Path?: string}>} processes
- * @param {Array<{name: string, path?: string, kind?: string}>} catalogApps
+ * Rastreador de janelas em memória com prevenção de reciclagem de HWND (PLAT-11).
+ * O Windows pode reciclar valores de HWND quando uma janela fecha e outra abre.
+ * Para garantir estabilidade enquanto a janela existe e invalidar imediatamente
+ * quando ela fecha (nunca apontando para a janela errada depois que a original fecha),
+ * este tracker associa a cada janela uma identidade estável `win-${pid}-${hwnd}-${seq}`
+ * que só permanece válida enquanto o par (hwnd, pid) continua ativo no sistema.
  */
-export function matchRunningProcesses(processes, catalogApps) {
+export function createWindowTracker() {
+  const byId = new Map();
+  const hwndToId = new Map();
+  let counter = 0;
+
+  function getOrCreateId(hwnd, pid) {
+    const existingId = hwndToId.get(hwnd);
+    if (existingId) {
+      const existing = byId.get(existingId);
+      if (existing && existing.pid === pid) {
+        return existingId;
+      }
+      byId.delete(existingId);
+      hwndToId.delete(hwnd);
+    }
+    const id = `win-${pid}-${hwnd}-${++counter}`;
+    hwndToId.set(hwnd, id);
+    byId.set(id, { id, hwnd, pid });
+    return id;
+  }
+
+  function register(windowInfo) {
+    const { id, hwnd, pid } = windowInfo;
+    byId.set(id, windowInfo);
+    hwndToId.set(hwnd, id);
+  }
+
+  function get(id) {
+    return byId.get(id) ?? null;
+  }
+
+  function remove(id) {
+    const w = byId.get(id);
+    if (w) {
+      hwndToId.delete(w.hwnd);
+      byId.delete(id);
+    }
+  }
+
+  function sweep(activeIds) {
+    const activeSet = new Set(activeIds);
+    for (const [id, w] of byId.entries()) {
+      if (!activeSet.has(id)) {
+        hwndToId.delete(w.hwnd);
+        byId.delete(id);
+      }
+    }
+  }
+
+  function clear() {
+    byId.clear();
+    hwndToId.clear();
+  }
+
+  return { getOrCreateId, register, get, remove, sweep, clear, byId, hwndToId };
+}
+
+export const defaultWindowTracker = createWindowTracker();
+
+/**
+ * Casa janelas rodando (PLAT-11) com o catálogo de apps instalados (PLAT-02) —
+ * POR CAMINHO DO EXECUTÁVEL, nunca por nome de processo ou título de janela.
+ *
+ * Ao contrário do antigo comportamento que deduplicava por PID (`seenPid.add(pid)`),
+ * PLAT-11 preserva CADA JANELA individualmente. Dois navegadores ou janelas de um
+ * mesmo app em dois monitores geram dois cartões com seus respectivos títulos,
+ * monitores e estados.
+ *
+ * Estados possíveis (PLAT-11):
+ * - "focused": janela ativa em primeiro plano (hwnd === GetForegroundWindow())
+ * - "minimized": janela minimizada / icônica (IsIconic(hwnd) === true)
+ * - "background": janela visível em segundo plano
+ *
+ * @param {Array<{Id?: number, pid?: number, hwnd?: number, MainWindowTitle?: string, title?: string, Path?: string, path?: string, mon?: number, min?: boolean, isFg?: boolean, state?: string}>} processes
+ * @param {Array<{name: string, path?: string, kind?: string}>} catalogApps
+ * @param {{tracker?: ReturnType<typeof createWindowTracker>}} [options]
+ */
+export function matchRunningProcesses(processes, catalogApps, { tracker = defaultWindowTracker } = {}) {
   const byPath = new Map();
   for (const app of catalogApps ?? []) {
     if (app?.kind === "win32" && app?.path) {
       byPath.set(normalizeExePath(app.path), app.name);
     }
   }
-  const seenPid = new Set();
+  const seenHwnd = new Set();
   const result = [];
   for (const p of processes ?? []) {
-    const pid = Number(p?.Id);
+    const pid = Number(p?.pid ?? p?.Id);
     if (!Number.isInteger(pid) || pid <= 0) continue;
-    if (seenPid.has(pid)) continue;
-    const name = p?.Path ? byPath.get(normalizeExePath(p.Path)) : undefined;
-    if (!name) continue; // processo com janela mas fora do catálogo (ou UWP — ver comentário acima): não é um app ativável por nome
-    seenPid.add(pid);
-    result.push({ name, pid, type: "Foreground" });
+    const rawPath = p?.Path ?? p?.path;
+    const name = rawPath ? byPath.get(normalizeExePath(rawPath)) : undefined;
+    if (!name) continue;
+
+    const hwnd = Number(p?.hwnd ?? p?.Id);
+    if (seenHwnd.has(hwnd)) continue;
+    seenHwnd.add(hwnd);
+
+    let state;
+    if (p?.min === true || p?.isIconic === true || p?.state === "minimized") {
+      state = "minimized";
+    } else if (p?.isFg === true || p?.isForeground === true || p?.state === "focused") {
+      state = "focused";
+    } else {
+      state = "background";
+    }
+
+    const id = p?.id ?? tracker.getOrCreateId(hwnd, pid);
+    const title = String(p?.title ?? p?.MainWindowTitle ?? "");
+    const monitor = Number(p?.mon ?? p?.monitor ?? 0);
+
+    const entry = {
+      id,
+      name,
+      title,
+      monitor,
+      state,
+      type: "Foreground",
+      pid,
+      hwnd,
+    };
+    tracker.register(entry);
+    result.push(entry);
   }
+  tracker.sweep(result.map((r) => r.id));
   return result;
 }
 
@@ -196,14 +391,11 @@ export function matchRunningProcesses(processes, catalogApps) {
  * platform/windows/apps.js): deps injetáveis permitem exercitar a
  * composição inteira sem PowerShell real — CI roda em ubuntu-latest.
  * Nunca lança: qualquer falha (PowerShell, catálogo, parse) vira `[]` com
- * log de warn — mesmo contrato de `listAppProcesses` do macOS (apps.js),
- * que já é consumido por rotas com o próprio `.catch(() => running: [])`
- * (server.js) e pelo status feed (`try { running = await listProcesses() }
- * catch {}`) — este provider mantém essa garantia em vez de introduzir uma
- * plataforma que quebra o padrão só por ser nova.
+ * log de warn — mesmo contrato de `listAppProcesses` do macOS (apps.js).
  * @param {{
  *   collect?: (opts: {signal?: AbortSignal}) => Promise<Array<any>>,
  *   resolveApps?: (opts?: {signal?: AbortSignal}) => Promise<Array<any>>,
+ *   tracker?: ReturnType<typeof createWindowTracker>,
  *   ttlMs?: number,
  *   now?: () => number,
  *   log?: typeof defaultLog,
@@ -213,37 +405,58 @@ export function makeListAppProcesses(deps = {}) {
   const {
     collect = runPowerShellListProcesses,
     resolveApps = defaultResolveApps,
+    tracker = defaultWindowTracker,
     ttlMs = RUNNING_TTL_MS,
     now = Date.now,
     log = defaultLog,
   } = deps;
+  let cacheSeq = 0;
   let cache = { at: 0, value: null, promise: null };
 
   async function run(opts) {
     const [processes, apps] = await Promise.all([collect(opts), resolveApps(opts)]);
-    return matchRunningProcesses(processes, apps);
+    return matchRunningProcesses(processes, apps, { tracker });
   }
 
   async function listAppProcesses(opts = {}) {
     const t = now();
     if (cache.value && t - cache.at < ttlMs) return cache.value;
     if (cache.promise) return cache.promise;
-    cache.promise = run(opts)
+    const seq = ++cacheSeq;
+    const p = run(opts)
       .then((value) => {
-        cache = { at: now(), value, promise: null };
+        if (cacheSeq === seq) {
+          cache = { at: now(), value, promise: null };
+        }
         return value;
       })
       .catch((err) => {
-        cache.promise = null;
+        if (cacheSeq === seq) {
+          cache.promise = null;
+        }
         log.warn("windows.actions.list_processes_failed", { message: err?.message ?? String(err) });
         return [];
       });
-    return cache.promise;
+    cache.promise = p;
+    return p;
   }
+
+  /**
+   * Invalida apenas o cache em memória da listagem de processos,
+   * forçando nova coleta na próxima chamada, SEM limpar o window tracker.
+   * Usado após ações de janela (focus, minimize, close, openNewWindow, activate)
+   * para que o próximo status push ou GET /api/apps veja o estado novo imediatamente.
+   */
+  listAppProcesses.invalidateCache = () => {
+    cacheSeq++;
+    cache = { at: 0, value: null, promise: null };
+  };
 
   /** Só testes / hot-reload — mesmo nome/forma de apps.js#clearInstalledAppsCache. */
   listAppProcesses.clearCache = () => {
+    cacheSeq++;
     cache = { at: 0, value: null, promise: null };
+    tracker.clear();
   };
 
   return listAppProcesses;
@@ -252,9 +465,18 @@ export function makeListAppProcesses(deps = {}) {
 /** Instância padrão, ligada às dependências reais — o que platform/index.js consome. */
 export const listAppProcesses = makeListAppProcesses();
 
+/** Invalida apenas o cache de processos rodando sem tocar no tracker. */
+export function invalidateRunningProcessesCache() {
+  listAppProcesses.invalidateCache();
+}
+
 /** Só testes / hot-reload. */
-export function clearRunningProcessesCache() {
-  listAppProcesses.clearCache();
+export function clearRunningProcessesCache({ preserveTracker = false } = {}) {
+  if (preserveTracker) {
+    listAppProcesses.invalidateCache();
+  } else {
+    listAppProcesses.clearCache();
+  }
 }
 
 // --------------------------------------------------------------------
@@ -454,6 +676,7 @@ export function makeActivateApp(deps = {}) {
     resolveApps = defaultResolveApps,
     focusPid = focusWindowByPid,
     launch = launchAppEntry,
+    invalidateCache = () => listAppProcesses.invalidateCache(),
     log = defaultLog,
   } = deps;
 
@@ -486,17 +709,28 @@ export function makeActivateApp(deps = {}) {
       } catch (err) {
         log.debug("windows.actions.focus_attempt_failed", { pid, message: err?.message ?? String(err) });
       }
-      if (observation?.becameForeground === true) return; // sucesso: janela existente veio pra frente
+      if (observation?.becameForeground === true) {
+        if (typeof invalidateCache === "function") {
+          try { invalidateCache(); } catch {}
+        }
+        return; // sucesso: janela existente veio pra frente
+      }
       // Qualquer outro resultado (processo sumiu, sem janela, API chamada
       // mas o foreground não mudou, ou o próprio PowerShell falhou) — PRD
       // §15: abre nova instância e sinaliza FOCUS_RESTRICTED. Igual a
       // actions.js#focusApp no macOS: o fallback bem-sucedido não engole o
       // erro, ele propaga DEPOIS do open.
       await launch(entry);
+      if (typeof invalidateCache === "function") {
+        try { invalidateCache(); } catch {}
+      }
       throw new ActionError("FOCUS_RESTRICTED", `focus restricted for "${name}", opened new instance`);
     }
 
     await launch(entry);
+    if (typeof invalidateCache === "function") {
+      try { invalidateCache(); } catch {}
+    }
   }
 
   return activateApp;
@@ -504,3 +738,390 @@ export function makeActivateApp(deps = {}) {
 
 /** Instância padrão, ligada às dependências reais — o que platform/index.js consome. */
 export const activateApp = makeActivateApp();
+
+// --------------------------------------------------------------------
+// PLAT-12 — Ações de janela endereçadas por janela (e openNewWindow por app)
+// --------------------------------------------------------------------
+
+export const PS_FOCUS_WINDOW_SCRIPT = `
+param(
+  [Parameter(Mandatory = $true)][long]$TargetHwnd,
+  [Parameter(Mandatory = $true)][int]$ExpectedPid,
+  [Parameter(Mandatory = $true)][string]$OutFile
+)
+$ErrorActionPreference = 'Stop'
+$sig = @"
+[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+[DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+[DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+[DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
+[DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hWnd);
+"@
+$native = Add-Type -MemberDefinition $sig -Name "DokkeFocusWin$([guid]::NewGuid().ToString('N'))" -Namespace Win32Functions -PassThru
+
+$result = [ordered]@{ notFound = $false; becameForeground = $false; setForegroundReturn = $false }
+try {
+  $handle = [IntPtr]$TargetHwnd
+  if (-not $native::IsWindow($handle)) {
+    $result.notFound = $true
+  } else {
+    $actualPid = [uint32]0
+    $native::GetWindowThreadProcessId($handle, [ref]$actualPid) | Out-Null
+    if ($actualPid -ne $ExpectedPid) {
+      $result.notFound = $true
+    } else {
+      $fgBefore = $native::GetForegroundWindow()
+      $result.foregroundHandleBefore = $fgBefore.ToInt64()
+
+      $curThread = $native::GetCurrentThreadId()
+      $fgPid = 0
+      $fgThread = $native::GetWindowThreadProcessId($fgBefore, [ref]$fgPid)
+      $tgtPid = 0
+      $tgtThread = $native::GetWindowThreadProcessId($handle, [ref]$tgtPid)
+
+      $attachedFg = $false
+      if ($fgThread -ne 0 -and $fgThread -ne $curThread) {
+        $attachedFg = $native::AttachThreadInput($curThread, $fgThread, $true)
+      }
+      $attachedTgt = $false
+      if ($tgtThread -ne 0 -and $tgtThread -ne $curThread) {
+        $attachedTgt = $native::AttachThreadInput($curThread, $tgtThread, $true)
+      }
+
+      $SW_RESTORE = 9
+      if ($native::IsIconic($handle)) {
+        $native::ShowWindow($handle, $SW_RESTORE) | Out-Null
+      }
+
+      $result.attachedFg = $attachedFg
+      $result.attachedTgt = $attachedTgt
+      $result.setForegroundReturn = $native::SetForegroundWindow($handle)
+
+      if ($attachedTgt) {
+        $native::AttachThreadInput($curThread, $tgtThread, $false) | Out-Null
+      }
+      if ($attachedFg) {
+        $native::AttachThreadInput($curThread, $fgThread, $false) | Out-Null
+      }
+
+      Start-Sleep -Milliseconds 150
+      $fgAfter = $native::GetForegroundWindow()
+      $result.foregroundHandleAfter = $fgAfter.ToInt64()
+      $result.becameForeground = ($fgAfter -eq $handle)
+    }
+  }
+} catch {
+  $result.error = $_.Exception.Message
+}
+$json = $result | ConvertTo-Json -Compress
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($OutFile, $json, $utf8NoBom)
+`;
+
+export async function runPowerShellFocusWindow(hwnd, expectedPid, opts = {}) {
+  const { signal, exec = execFileAsync } = opts;
+  if (process.platform !== "win32") {
+    throw new Error(`Windows window focus requires win32, got "${process.platform}"`);
+  }
+  const workDir = mkdtempSync(join(tmpdir(), "decktech-plat12-focus-"));
+  const scriptPath = join(workDir, "focus.ps1");
+  const outPath = join(workDir, "focus.json");
+  writeFileSync(scriptPath, PS_FOCUS_WINDOW_SCRIPT, "utf8");
+  try {
+    await exec(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptPath,
+        "-TargetHwnd", String(hwnd), "-ExpectedPid", String(expectedPid), "-OutFile", outPath],
+      { signal, maxBuffer: 4 * 1024 * 1024 },
+    );
+    return JSON.parse(readFileSync(outPath, "utf8"));
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+}
+
+export function makeFocusWindow(deps = {}) {
+  const {
+    tracker = defaultWindowTracker,
+    focusHwnd = runPowerShellFocusWindow,
+    invalidateCache = () => listAppProcesses.invalidateCache(),
+    log = defaultLog,
+  } = deps;
+
+  return async function focusWindow(target, opts = {}) {
+    const windowId = typeof target === "object" && target !== null ? target.id : String(target);
+    const win = tracker.get(windowId);
+    if (!win) {
+      throw new ActionError("WINDOW_NOT_FOUND", `window "${windowId}" not found`);
+    }
+    let obs;
+    try {
+      obs = await focusHwnd(win.hwnd, win.pid, opts);
+    } catch (err) {
+      log.warn("windows.actions.focus_window_failed", { windowId, message: err?.message ?? String(err) });
+      throw new ActionError("FOCUS_RESTRICTED", `focus restricted for window "${windowId}"`);
+    }
+    if (obs?.notFound) {
+      tracker.remove(windowId);
+      throw new ActionError("WINDOW_NOT_FOUND", `window "${windowId}" not found or closed`);
+    }
+    if (obs?.becameForeground !== true) {
+      throw new ActionError("FOCUS_RESTRICTED", `focus restricted for window "${windowId}"`);
+    }
+    if (typeof invalidateCache === "function") {
+      try { invalidateCache(); } catch {}
+    }
+    return { ok: true };
+  };
+}
+
+export const focusWindow = makeFocusWindow();
+
+export const PS_MINIMIZE_WINDOW_SCRIPT = `
+param(
+  [Parameter(Mandatory = $true)][long]$TargetHwnd,
+  [Parameter(Mandatory = $true)][int]$ExpectedPid,
+  [Parameter(Mandatory = $true)][string]$OutFile
+)
+$ErrorActionPreference = 'Stop'
+$sig = @"
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+[DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
+[DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hWnd);
+[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+"@
+$native = Add-Type -MemberDefinition $sig -Name "DokkeMinWin$([guid]::NewGuid().ToString('N'))" -Namespace Win32Functions -PassThru
+
+$result = [ordered]@{ notFound = $false; minimized = $false }
+try {
+  $handle = [IntPtr]$TargetHwnd
+  if (-not $native::IsWindow($handle)) {
+    $result.notFound = $true
+  } else {
+    $actualPid = [uint32]0
+    $native::GetWindowThreadProcessId($handle, [ref]$actualPid) | Out-Null
+    if ($actualPid -ne $ExpectedPid) {
+      $result.notFound = $true
+    } else {
+      $SW_MINIMIZE = 6
+      $native::ShowWindow($handle, $SW_MINIMIZE) | Out-Null
+      Start-Sleep -Milliseconds 100
+      $result.minimized = $native::IsIconic($handle)
+    }
+  }
+} catch {
+  $result.error = $_.Exception.Message
+}
+$json = $result | ConvertTo-Json -Compress
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($OutFile, $json, $utf8NoBom)
+`;
+
+export async function runPowerShellMinimizeWindow(hwnd, expectedPid, opts = {}) {
+  const { signal, exec = execFileAsync } = opts;
+  if (process.platform !== "win32") {
+    throw new Error(`Windows window minimize requires win32, got "${process.platform}"`);
+  }
+  const workDir = mkdtempSync(join(tmpdir(), "decktech-plat12-min-"));
+  const scriptPath = join(workDir, "min.ps1");
+  const outPath = join(workDir, "min.json");
+  writeFileSync(scriptPath, PS_MINIMIZE_WINDOW_SCRIPT, "utf8");
+  try {
+    await exec(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptPath,
+        "-TargetHwnd", String(hwnd), "-ExpectedPid", String(expectedPid), "-OutFile", outPath],
+      { signal, maxBuffer: 4 * 1024 * 1024 },
+    );
+    return JSON.parse(readFileSync(outPath, "utf8"));
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+}
+
+export function makeMinimizeWindow(deps = {}) {
+  const {
+    tracker = defaultWindowTracker,
+    minimizeHwnd = runPowerShellMinimizeWindow,
+    invalidateCache = () => listAppProcesses.invalidateCache(),
+    log = defaultLog,
+  } = deps;
+
+  return async function minimizeWindow(target, opts = {}) {
+    const windowId = typeof target === "object" && target !== null ? target.id : String(target);
+    const win = tracker.get(windowId);
+    if (!win) {
+      throw new ActionError("WINDOW_NOT_FOUND", `window "${windowId}" not found`);
+    }
+    let obs;
+    try {
+      obs = await minimizeHwnd(win.hwnd, win.pid, opts);
+    } catch (err) {
+      log.warn("windows.actions.minimize_window_failed", { windowId, message: err?.message ?? String(err) });
+      throw new ActionError("MINIMIZE_FAILED", `failed to minimize window "${windowId}"`);
+    }
+    if (obs?.notFound) {
+      tracker.remove(windowId);
+      throw new ActionError("WINDOW_NOT_FOUND", `window "${windowId}" not found or closed`);
+    }
+    if (obs?.minimized !== true) {
+      throw new ActionError("MINIMIZE_FAILED", `failed to minimize window "${windowId}"`);
+    }
+    if (typeof invalidateCache === "function") {
+      try { invalidateCache(); } catch {}
+    }
+    return { ok: true };
+  };
+}
+
+export const minimizeWindow = makeMinimizeWindow();
+
+// PLAT-12: Fechar é destrutivo. Manda WM_CLOSE e deixa o app abrir seu próprio diálogo.
+// NUNCA Stop-Process -Force.
+export const PS_CLOSE_WINDOW_SCRIPT = `
+param(
+  [Parameter(Mandatory = $true)][long]$TargetHwnd,
+  [Parameter(Mandatory = $true)][int]$ExpectedPid,
+  [Parameter(Mandatory = $true)][string]$OutFile
+)
+$ErrorActionPreference = 'Stop'
+$sig = @"
+[DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+[DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hWnd);
+[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+"@
+$native = Add-Type -MemberDefinition $sig -Name "DokkeCloseWin$([guid]::NewGuid().ToString('N'))" -Namespace Win32Functions -PassThru
+
+$result = [ordered]@{ notFound = $false; closed = $false }
+try {
+  $handle = [IntPtr]$TargetHwnd
+  if (-not $native::IsWindow($handle)) {
+    $result.notFound = $true
+  } else {
+    $actualPid = [uint32]0
+    $native::GetWindowThreadProcessId($handle, [ref]$actualPid) | Out-Null
+    if ($actualPid -ne $ExpectedPid) {
+      $result.notFound = $true
+    } else {
+      $WM_CLOSE = 0x0010
+      $native::PostMessage($handle, $WM_CLOSE, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
+      $sw = [System.Diagnostics.Stopwatch]::StartNew()
+      $closed = $false
+      while ($sw.ElapsedMilliseconds -lt 2000) {
+        if (-not $native::IsWindow($handle)) {
+          $closed = $true
+          break
+        }
+        Start-Sleep -Milliseconds 50
+      }
+      $result.closed = $closed
+    }
+  }
+} catch {
+  $result.error = $_.Exception.Message
+}
+$json = $result | ConvertTo-Json -Compress
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($OutFile, $json, $utf8NoBom)
+`;
+
+export async function runPowerShellCloseWindow(hwnd, expectedPid, opts = {}) {
+  const { signal, exec = execFileAsync } = opts;
+  if (process.platform !== "win32") {
+    throw new Error(`Windows window close requires win32, got "${process.platform}"`);
+  }
+  const workDir = mkdtempSync(join(tmpdir(), "decktech-plat12-close-"));
+  const scriptPath = join(workDir, "close.ps1");
+  const outPath = join(workDir, "close.json");
+  writeFileSync(scriptPath, PS_CLOSE_WINDOW_SCRIPT, "utf8");
+  try {
+    await exec(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptPath,
+        "-TargetHwnd", String(hwnd), "-ExpectedPid", String(expectedPid), "-OutFile", outPath],
+      { signal, maxBuffer: 4 * 1024 * 1024 },
+    );
+    return JSON.parse(readFileSync(outPath, "utf8"));
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
+}
+
+export function makeCloseWindow(deps = {}) {
+  const {
+    tracker = defaultWindowTracker,
+    closeHwnd = runPowerShellCloseWindow,
+    invalidateCache = () => listAppProcesses.invalidateCache(),
+    log = defaultLog,
+  } = deps;
+
+  return async function closeWindow(target, opts = {}) {
+    const windowId = typeof target === "object" && target !== null ? target.id : String(target);
+    const win = tracker.get(windowId);
+    if (!win) {
+      throw new ActionError("WINDOW_NOT_FOUND", `window "${windowId}" not found`);
+    }
+    let obs;
+    try {
+      obs = await closeHwnd(win.hwnd, win.pid, opts);
+    } catch (err) {
+      log.warn("windows.actions.close_window_failed", { windowId, message: err?.message ?? String(err) });
+      throw new ActionError("CLOSE_FAILED", `failed to close window "${windowId}"`);
+    }
+    if (obs?.notFound) {
+      tracker.remove(windowId);
+      throw new ActionError("WINDOW_NOT_FOUND", `window "${windowId}" not found or closed`);
+    }
+    if (obs?.closed !== true) {
+      // O app não fechou (ex.: diálogo de confirmação/salvar aberto).
+      // NUNCA matar com Stop-Process -Force: o cliente recebe erro tipado.
+      throw new ActionError("CLOSE_FAILED", `window "${windowId}" did not close`);
+    }
+    tracker.remove(windowId);
+    if (typeof invalidateCache === "function") {
+      try { invalidateCache(); } catch {}
+    }
+    return { ok: true };
+  };
+}
+
+export const closeWindow = makeCloseWindow();
+
+export function makeOpenNewWindow(deps = {}) {
+  const {
+    resolveApps = defaultResolveApps,
+    launch = launchAppEntry,
+    invalidateCache = () => listAppProcesses.invalidateCache(),
+    log = defaultLog,
+  } = deps;
+
+  return async function openNewWindow(target, opts = {}) {
+    const name = typeof target === "object" && target !== null ? (target.name ?? target.app) : String(target);
+    let apps;
+    try {
+      apps = await resolveApps(opts);
+    } catch (err) {
+      log.warn("windows.actions.open_new_window.resolve_failed", { name, message: err?.message ?? String(err) });
+      throw new ActionError("LAUNCH_FAILED", `could not resolve app catalog while opening "${name}"`);
+    }
+    const entry = (apps ?? []).find((a) => a?.name === name) ?? null;
+    if (!entry) {
+      throw new ActionError("APP_NOT_FOUND", `app not found in Windows catalog: "${name}"`);
+    }
+    try {
+      await launch(entry);
+    } catch (err) {
+      if (err instanceof ActionError) throw err;
+      throw new ActionError("LAUNCH_FAILED", `launch failed for "${name}"`);
+    }
+    if (typeof invalidateCache === "function") {
+      try { invalidateCache(); } catch {}
+    }
+    return { ok: true };
+  };
+}
+
+export const openNewWindow = makeOpenNewWindow();

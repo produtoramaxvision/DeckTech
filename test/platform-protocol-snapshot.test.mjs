@@ -84,6 +84,10 @@ const EXPECTED_ROUTES = [
   { kind: "dynamic", pattern: "/^\\/api\\/config\\/pieces\\/([^/]+)$/", method: "DELETE" },
   { kind: "dynamic", pattern: "/^\\/api\\/pieces\\/([^/]+)\\/open$/", method: "POST" },
   { kind: "dynamic", pattern: "/^\\/api\\/apps\\/([^/]+)\\/activate$/", method: "*" },
+  { kind: "dynamic", pattern: "/^\\/api\\/windows\\/([^/]+)\\/focus$/", method: "POST" },
+  { kind: "dynamic", pattern: "/^\\/api\\/windows\\/([^/]+)\\/minimize$/", method: "POST" },
+  { kind: "dynamic", pattern: "/^\\/api\\/windows\\/([^/]+)\\/close$/", method: "POST" },
+  { kind: "dynamic", pattern: "/^\\/api\\/apps\\/([^/]+)\\/open-new-window$/", method: "POST" },
   { kind: "dynamic", pattern: "/^\\/api\\/apps\\/([^/]+)\\/icon$/", method: "*" },
 ];
 

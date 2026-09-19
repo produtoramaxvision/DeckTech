@@ -9,10 +9,24 @@ import { makeWindowsIconService, WIN_ICON_MAX_PX } from "../platform/windows/ico
 import {
   listAppProcesses as win32ListAppProcesses,
   activateApp as win32ActivateApp,
+  focusWindow as win32FocusWindow,
+  minimizeWindow as win32MinimizeWindow,
+  closeWindow as win32CloseWindow,
+  openNewWindow as win32OpenNewWindow,
 } from "../platform/windows/actions.js";
 import { createWindowsAppearanceTracker } from "../platform/windows/theme.js";
 
-const CONTRACT_MEMBERS = ["listInstalledApps", "listAppProcesses", "activateApp", "openWebsite", "iconService"];
+const CONTRACT_MEMBERS = [
+  "listInstalledApps",
+  "listAppProcesses",
+  "activateApp",
+  "openWebsite",
+  "iconService",
+  "focusWindow",
+  "minimizeWindow",
+  "closeWindow",
+  "openNewWindow",
+];
 
 test("PLAT-01: darwin devolve os 5 membros do contrato quando chamado explicitamente", () => {
   const platform = createPlatform("darwin");
@@ -109,6 +123,121 @@ test("PLAT-05: win32 listAppProcesses/activateApp são os providers reais de pla
   assert.equal(platform.activateApp, win32ActivateApp);
   assert.equal(typeof platform.listAppProcesses, "function");
   assert.equal(typeof platform.activateApp, "function");
+});
+
+test("PLAT-12: win32 focusWindow/minimizeWindow/closeWindow/openNewWindow são os providers reais de platform/windows/actions.js", () => {
+  const platform = createPlatform("win32");
+  assert.equal(platform.focusWindow, win32FocusWindow);
+  assert.equal(platform.minimizeWindow, win32MinimizeWindow);
+  assert.equal(platform.closeWindow, win32CloseWindow);
+  assert.equal(platform.openNewWindow, win32OpenNewWindow);
+  assert.equal(typeof platform.focusWindow, "function");
+  assert.equal(typeof platform.minimizeWindow, "function");
+  assert.equal(typeof platform.closeWindow, "function");
+  assert.equal(typeof platform.openNewWindow, "function");
+});
+
+test("PLAT-12: darwin tem degradação explicitamente declarada (PlatformNotImplementedError) em focusWindow/minimizeWindow/closeWindow/openNewWindow", async () => {
+  const platform = createPlatform("darwin");
+  await assert.rejects(platform.focusWindow("win-1"), PlatformNotImplementedError);
+  await assert.rejects(platform.minimizeWindow("win-1"), PlatformNotImplementedError);
+  await assert.rejects(platform.closeWindow("win-1"), PlatformNotImplementedError);
+  await assert.rejects(platform.openNewWindow("App"), PlatformNotImplementedError);
+});
+
+test("PLAT-11: darwin listAppProcesses devolve janelas com id, title, monitor e state definidos (degradação declarada, honesta: background, sem falso focused)", async () => {
+  // apps.js#listAppProcesses entrega apenas type="Foreground" para regular apps.
+  // A degradação honesta relata 'background' por padrão para não reivindicar foco
+  // falso em múltiplos apps simultaneamente (Finding M1).
+  const platform = createPlatform("darwin", {
+    listAppProcesses: async () => [
+      { name: "Safari", pid: 1234, type: "Foreground" },
+      { name: "Notes", pid: 5678, type: "Foreground" },
+    ],
+  });
+  const windows = await platform.listAppProcesses();
+  assert.equal(windows.length, 2);
+  assert.deepEqual(windows[0], {
+    id: "darwin-1234",
+    name: "Safari",
+    title: "Safari",
+    monitor: 0,
+    state: "background",
+    type: "Foreground",
+    pid: 1234,
+    degraded: true,
+  });
+  assert.deepEqual(windows[1], {
+    id: "darwin-5678",
+    name: "Notes",
+    title: "Notes",
+    monitor: 0,
+    state: "background",
+    type: "Foreground",
+    pid: 5678,
+    degraded: true,
+  });
+  for (const w of windows) {
+    assert.notEqual(w.id, undefined);
+    assert.notEqual(w.name, undefined);
+    assert.notEqual(w.title, undefined);
+    assert.notEqual(w.monitor, undefined);
+    assert.notEqual(w.state, undefined);
+    assert.equal(w.state, "background");
+  }
+});
+
+test("PLAT-11: darwin listAppProcesses com getFrontmostApp marca apenas o app frontmost como focused", async () => {
+  const platform = createPlatform("darwin", {
+    listAppProcesses: async () => [
+      { name: "Safari", pid: 1234, type: "Foreground" },
+      { name: "Notes", pid: 5678, type: "Foreground" },
+    ],
+    getFrontmostApp: async () => 1234,
+  });
+  const windows = await platform.listAppProcesses();
+  assert.equal(windows.length, 2);
+  assert.equal(windows[0].state, "focused");
+  assert.equal(windows[1].state, "background");
+});
+
+test("PLAT-12/MJ3: fallback platform devolve os 9 membros e degradação declarada (Phase 14 critério 6)", async () => {
+  const platform = createPlatform("fallback");
+  assert.deepEqual(Object.keys(platform).sort(), [...CONTRACT_MEMBERS].sort());
+  for (const member of CONTRACT_MEMBERS) {
+    assert.notEqual(platform[member], undefined, `membro ausente: ${member}`);
+  }
+  // Nenhum dos métodos é undefined nem lança TypeError "is not a function"
+  assert.equal(typeof platform.focusWindow, "function");
+  assert.equal(typeof platform.minimizeWindow, "function");
+  assert.equal(typeof platform.closeWindow, "function");
+  assert.equal(typeof platform.openNewWindow, "function");
+
+  await assert.rejects(platform.focusWindow("win-1"), (err) => {
+    assert.equal(err.name, "PlatformNotImplementedError");
+    assert.equal(err.code, "PLATFORM_NOT_IMPLEMENTED");
+    assert.equal(err.platform, "fallback");
+    assert.equal(err.member, "focusWindow");
+    return true;
+  });
+  await assert.rejects(platform.minimizeWindow("win-1"), (err) => {
+    assert.equal(err.code, "PLATFORM_NOT_IMPLEMENTED");
+    assert.equal(err.platform, "fallback");
+    assert.equal(err.member, "minimizeWindow");
+    return true;
+  });
+  await assert.rejects(platform.closeWindow("win-1"), (err) => {
+    assert.equal(err.code, "PLATFORM_NOT_IMPLEMENTED");
+    assert.equal(err.platform, "fallback");
+    assert.equal(err.member, "closeWindow");
+    return true;
+  });
+  await assert.rejects(platform.openNewWindow("App"), (err) => {
+    assert.equal(err.code, "PLATFORM_NOT_IMPLEMENTED");
+    assert.equal(err.platform, "fallback");
+    assert.equal(err.member, "openNewWindow");
+    return true;
+  });
 });
 
 // Critério 1 discriminante para PLAT-02: sem esta asserção de referência, um
