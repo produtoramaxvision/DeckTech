@@ -324,28 +324,28 @@ test("PLAT-05 regression: focusWindowByPid exige e executa a sequência AttachTh
     "script deve declarar a API Win32 AttachThreadInput",
   );
 
-  // 2. Anexo da thread do foreground e da thread do alvo
+  // 2. Anexo da thread do foreground e da thread do alvo (não contornado por $false)
   assert.match(
     capturedScript,
-    /\$native::AttachThreadInput\(\$curThread,\s*\$fgThread,\s*\$true\)/,
-    "script deve anexar a thread da janela em foreground via AttachThreadInput",
+    /if\s*\(\$fgThread\s*-ne\s*0\s*-and\s*\$fgThread\s*-ne\s*\$curThread\)\s*\{\s*\$attachedFg\s*=\s*\$native::AttachThreadInput\(\$curThread,\s*\$fgThread,\s*\$true\)/,
+    "script deve anexar a thread da janela em foreground via AttachThreadInput sem bypass ($false)",
   );
   assert.match(
     capturedScript,
-    /\$native::AttachThreadInput\(\$curThread,\s*\$tgtThread,\s*\$true\)/,
-    "script deve anexar a thread da janela alvo via AttachThreadInput",
+    /if\s*\(\$tgtThread\s*-ne\s*0\s*-and\s*\$tgtThread\s*-ne\s*\$curThread\)\s*\{\s*\$attachedTgt\s*=\s*\$native::AttachThreadInput\(\$curThread,\s*\$tgtThread,\s*\$true\)/,
+    "script deve anexar a thread da janela alvo via AttachThreadInput sem bypass ($false)",
   );
 
-  // 3. Restauração de janela minimizada/icônica
+  // 3. Restauração de janela minimizada/icônica com SW_RESTORE = 9 (nunca 6 / SW_MINIMIZE)
   assert.match(
     capturedScript,
-    /\$native::IsIconic\(\$handle\)/,
-    "script deve verificar IsIconic na janela alvo",
+    /\$SW_RESTORE\s*=\s*9(?!\d)/,
+    "SW_RESTORE deve ser 9 (SW_RESTORE), nunca 6 (SW_MINIMIZE)",
   );
   assert.match(
     capturedScript,
-    /\$native::ShowWindow\(\$handle,\s*\$SW_RESTORE\)/,
-    "script deve restaurar janela icônica com ShowWindow(SW_RESTORE)",
+    /if\s*\(\$native::IsIconic\(\$handle\)\)\s*\{\s*\$native::ShowWindow\(\$handle,\s*\$SW_RESTORE\)/,
+    "script deve verificar IsIconic na janela alvo (sem -not) e restaurar com ShowWindow($handle, $SW_RESTORE)",
   );
 
   // 4. Chamada de SetForegroundWindow entre o attach e o detach
@@ -493,16 +493,72 @@ test("PLAT-05 (real): focusWindowByPid observa GetForegroundWindow contra um pro
     assert.equal(observation.hadProcess, true);
     assert.equal(observation.hadWindow, true);
     assert.equal(observation.handle, targetHandle);
-    assert.equal(typeof observation.setForegroundReturn, "boolean");
-    assert.equal(typeof observation.becameForeground, "boolean");
-    // Consistência interna: becameForeground só pode ser true quando o
-    // handle final observado é EXATAMENTE o handle do alvo — a mesma
-    // verificação que faz a classificação em makeActivateApp discriminar
-    // de um retorno bruto TRUE que não moveu o foreground de verdade.
-    assert.equal(observation.becameForeground, observation.foregroundHandleAfter === targetHandle);
+    assert.equal(observation.setForegroundReturn, true);
+    assert.equal(observation.becameForeground, true, "focusWindowByPid deve trazer a janela alvo para o foreground");
+    assert.equal(observation.foregroundHandleAfter, targetHandle, "handle do foreground final deve ser o handle da janela alvo");
 
     t.diagnostic(`focusWindowByPid round-trip: ${elapsedMs}ms (inclui spawn do powershell.exe + Add-Type compile + 150ms sleep do script)`);
     t.diagnostic(`observação medida (real, não simulada): ${JSON.stringify(observation)}`);
+  } finally {
+    if (distractorPid) await killPid(distractorPid);
+    if (targetPid) await killPid(targetPid);
+  }
+});
+
+async function minimizeWindow(hwnd) {
+  await execFileP("powershell.exe", [
+    "-NoProfile", "-NonInteractive", "-Command",
+    `$sig = @"
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+"@
+$w = Add-Type -MemberDefinition $sig -Name "Win32Min$([guid]::NewGuid().ToString('N'))" -PassThru
+$w::ShowWindow([IntPtr]${hwnd}, 6) | Out-Null
+`,
+  ]);
+}
+
+async function isWindowIconic(hwnd) {
+  const { stdout } = await execFileP("powershell.exe", [
+    "-NoProfile", "-NonInteractive", "-Command",
+    `$sig = @"
+[DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
+"@
+$w = Add-Type -MemberDefinition $sig -Name "Win32Iconic$([guid]::NewGuid().ToString('N'))" -PassThru
+$w::IsIconic([IntPtr]${hwnd})
+`,
+  ]);
+  return stdout.trim().toLowerCase() === "true";
+}
+
+test("PLAT-05 (real): focusWindowByPid restaura janela minimizada/icônica com ShowWindow(SW_RESTORE) e traz para o foreground", win32Only, async (t) => {
+  let targetPid = null;
+  let distractorPid = null;
+  try {
+    targetPid = await launchGuiProcess(CHARMAP);
+    const targetHandle = await waitForMainWindowHandle(targetPid);
+
+    // Empurra o foco para outra janela (distrator)
+    distractorPid = await launchGuiProcess(CHARMAP);
+    await waitForMainWindowHandle(distractorPid);
+
+    // Minimiza a janela alvo e confirma que ela ficou icônica
+    await minimizeWindow(targetHandle);
+    assert.equal(await isWindowIconic(targetHandle), true, "janela alvo deve estar icônica/minimizada antes do foco");
+
+    const t0 = Date.now();
+    const observation = await focusWindowByPid(targetPid);
+    const elapsedMs = Date.now() - t0;
+
+    assert.equal(observation.hadProcess, true);
+    assert.equal(observation.hadWindow, true);
+    assert.equal(observation.handle, targetHandle);
+    assert.equal(observation.setForegroundReturn, true);
+    assert.equal(observation.becameForeground, true, "janela minimizada deve vir para o foreground");
+    assert.equal(observation.foregroundHandleAfter, targetHandle);
+    assert.equal(await isWindowIconic(targetHandle), false, "janela alvo não deve mais estar icônica/minimizada após o foco");
+
+    t.diagnostic(`focusWindowByPid (minimized) round-trip: ${elapsedMs}ms`);
+    t.diagnostic(`observação medida (minimized): ${JSON.stringify(observation)}`);
   } finally {
     if (distractorPid) await killPid(distractorPid);
     if (targetPid) await killPid(targetPid);
