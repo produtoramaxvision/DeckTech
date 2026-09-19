@@ -13,6 +13,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
+import { readFileSync, writeFileSync } from "node:fs";
 import { spawn, execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -25,6 +26,7 @@ import {
   launchAppEntry,
   runPowerShellListProcesses,
   focusWindowByPid,
+  PS_FOCUS_SCRIPT,
   RUNNING_TTL_MS,
 } from "../platform/windows/actions.js";
 import { ActionError } from "../actions.js";
@@ -279,6 +281,84 @@ test("PLAT-05: activateApp com kind uwp lança via explorer.exe shell:AppsFolder
   assert.equal(calls.length, 1);
   assert.equal(calls[0].cmd, "explorer.exe");
   assert.deepEqual(calls[0].args, ["shell:AppsFolder\\Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"]);
+});
+
+// ---------------------------------------------------------------------
+// PLAT-05 regression: sequência AttachThreadInput + ShowWindow(SW_RESTORE)
+// ---------------------------------------------------------------------
+
+test("PLAT-05 regression: focusWindowByPid exige e executa a sequência AttachThreadInput e ShowWindow(SW_RESTORE)", async () => {
+  let capturedScript = null;
+  const fakeExec = async (cmd, args) => {
+    const fileIdx = args.indexOf("-File");
+    assert.ok(fileIdx !== -1, "powershell deve ser chamado com -File");
+    const scriptPath = args[fileIdx + 1];
+    capturedScript = readFileSync(scriptPath, "utf8");
+
+    const outIdx = args.indexOf("-OutFile");
+    assert.ok(outIdx !== -1, "powershell deve ser chamado com -OutFile");
+    const outPath = args[outIdx + 1];
+    writeFileSync(
+      outPath,
+      JSON.stringify({
+        hadProcess: true,
+        hadWindow: true,
+        becameForeground: true,
+        handle: 1234,
+        foregroundHandleBefore: 5678,
+        setForegroundReturn: true,
+        foregroundHandleAfter: 1234,
+      }),
+      "utf8",
+    );
+  };
+
+  const observation = await focusWindowByPid(1234, { exec: fakeExec });
+  assert.equal(observation.becameForeground, true);
+  assert.ok(capturedScript, "script deve ter sido gerado e executado");
+
+  // 1. Declaração do AttachThreadInput
+  assert.match(
+    capturedScript,
+    /\[DllImport\("user32\.dll"\)\]\s+public\s+static\s+extern\s+bool\s+AttachThreadInput\(/,
+    "script deve declarar a API Win32 AttachThreadInput",
+  );
+
+  // 2. Anexo da thread do foreground e da thread do alvo
+  assert.match(
+    capturedScript,
+    /\$native::AttachThreadInput\(\$curThread,\s*\$fgThread,\s*\$true\)/,
+    "script deve anexar a thread da janela em foreground via AttachThreadInput",
+  );
+  assert.match(
+    capturedScript,
+    /\$native::AttachThreadInput\(\$curThread,\s*\$tgtThread,\s*\$true\)/,
+    "script deve anexar a thread da janela alvo via AttachThreadInput",
+  );
+
+  // 3. Restauração de janela minimizada/icônica
+  assert.match(
+    capturedScript,
+    /\$native::IsIconic\(\$handle\)/,
+    "script deve verificar IsIconic na janela alvo",
+  );
+  assert.match(
+    capturedScript,
+    /\$native::ShowWindow\(\$handle,\s*\$SW_RESTORE\)/,
+    "script deve restaurar janela icônica com ShowWindow(SW_RESTORE)",
+  );
+
+  // 4. Chamada de SetForegroundWindow entre o attach e o detach
+  const attachIdx = capturedScript.indexOf("$native::AttachThreadInput($curThread, $fgThread, $true)");
+  const setFgIdx = capturedScript.indexOf("$native::SetForegroundWindow($handle)");
+  const detachFgIdx = capturedScript.indexOf("$native::AttachThreadInput($curThread, $fgThread, $false)");
+  assert.ok(attachIdx !== -1, "chamada de AttachThreadInput($true) deve estar presente");
+  assert.ok(setFgIdx !== -1, "chamada de SetForegroundWindow deve estar presente");
+  assert.ok(detachFgIdx !== -1, "chamada de AttachThreadInput($false) deve estar presente");
+  assert.ok(
+    attachIdx < setFgIdx && setFgIdx < detachFgIdx,
+    "SetForegroundWindow deve ser chamado entre AttachThreadInput($true) e AttachThreadInput($false)",
+  );
 });
 
 // ---------------------------------------------------------------------
