@@ -129,6 +129,15 @@ Nenhum.
   uma decisao documentada exige evidencia, nao preferencia.
 
 
+- **[Fase 15] Escala tipográfica do cliente PWA abaixo do mínimo legível.** Cinco regras de
+  `public/index.html` usam `font-size: 11px` — `.robscard .os:537`, `.sheet .srow .pin:659`,
+  `.up-banner .up-download:739`, `:773` e `.login-card .lfoot:793`. Todas herdadas do Dokke,
+  nenhuma introduzida aqui. O limiar de legibilidade é 14px pra corpo de texto. Não corrigido
+  agora de propósito: trocar a escala tipográfica do cliente inteiro é mudança de design system,
+  precisa sair dos tokens da Fase 6 (`design/tokens.mjs`) em vez de seis números soltos, e é a
+  Fase 15 que é dona do visual do cliente. Mesma família do achado aberto da Onda 1 sobre o `h2`
+  da galeria em 13px sem tokens de escala. *(sinalizado pelo hook impeccable, 2026-09-19)*
+
 - **[SEM FASE] Strings `Dokke` de runtime sem dono.** `server.js:1349` imprime
   `Dokke ouvindo em http://127.0.0.1:3000` no boot de um produto chamado DeckTech. Conferido:
   BRAND-01 cobre so as 4 superficies de auto-update, BRAND-03/04/05/11/12 cobrem hashes de icone,
