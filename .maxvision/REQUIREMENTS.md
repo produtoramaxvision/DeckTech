@@ -64,23 +64,43 @@ zero de bytes; e 7 de 7 tasks do plano TDD herdado sobrevivem contra 4 de 7.
 - [ ] **OBS-01**: Logging estruturado no core. Hoje `server.js` tem 7 chamadas `console.*` e `apps.js`, `auth.js`, `config.js` e `actions.js` tem **zero** — sem logger, sem nivel, sem sink. Instrumentar entrada, saida e cada ramo significativo dos caminhos que hoje falham em silencio: `mkdirSync` engolindo erro (`server.js:935`, Q30), a cadeia de icone morrendo sem ruido (W1) e falha de foco virando 500 generico (W3). **Nunca gravar o PIN nem o cookie de sessao.** **Atencao de escopo:** `apps.js`, `auth.js`, `config.js` e `actions.js` sao core compartilhado, nao codigo Windows. Instrumentar esses arquivos altera tambem o caminho macOS e Android. O efeito no macOS **nao e validavel nesta maquina** (sem Xcode) — mesma marca que a Fase 11 carrega. Manter a instrumentacao neutra de plataforma e verificar a nao-regressao do Android por TEST-07, em hardware real. *(D17)*
 - [ ] **PLAT-09**: Cache de ícone persistente entre reinicializações, com warm em ociosidade e invalidação correta quando o app de origem é atualizado ou desinstalado. Hoje são 43,2 ms por ícone × 122 apps = 5,3 s medidos a cada scan. O PRD §10 já exige ícones assíncronos e cacheáveis; isso é cumprir o requisito por inteiro. *(E1, aceito 2026-09-17)*
 - [ ] **PLAT-10**: Parser binário de `.lnk` em Node, **condicional ao resultado de PROOF-03**. Hoje resolver 149 atalhos via COM custa 2395 ms medidos (~16 ms cada). Se PROOF-03 confirmar o ganho, ship; se não confirmar, registrar a medição e manter o COM. *(E2, aceito 2026-09-17)*
-- [ ] **PLAT-11**: **Estado real de foreground por processo.** `platform/windows/actions.js:162` escreve
-`type: "Foreground"` como literal para TODO processo com janela, copiando o formato que o macOS
-recebe do `lsappinfo`. O campo então significa "tem janela", não "está em foco", e o cliente não
-consegue distinguir os dois. Sem essa distinção o modelo de toque de UI-14 é impossível: um toque
-que alterna entre focar e minimizar precisa ler o estado atual. Precisa também de um valor para
-"minimizado", que hoje não existe em nenhum lugar do contrato. *(achado no teste ponta-a-ponta de
-2026-09-18)*
-- [ ] **PLAT-12**: **Ações de janela além de ativar.** O contrato de `platform/index.js` expõe
-`listInstalledApps`, `listAppProcesses`, `activateApp`, `openWebsite` e `iconService` — e nada
-mais. Não há como minimizar, fechar, nem pedir explicitamente uma instância nova. Hoje uma
-instância nova é o *fallback de erro* de `activateApp` (PRD §15), não uma intenção que o usuário
-possa expressar. Este requisito adiciona `minimizeApp`, `closeApp` e um modo explícito de
-`activateApp` para nova instância, nas três plataformas do contrato, com os erros tipados da
-Fase 2. **Fechar um app é destrutivo e pode perder trabalho não salvo** — o requisito inclui
-confirmação no cliente, não só a chamada. *(achado no teste ponta-a-ponta de 2026-09-18)*
+- [ ] **PLAT-11**: **Enumeração por JANELA, não por processo.**
+`platform/windows/actions.js:162` deduplica por PID (`seenPid.add(pid)`) e escreve
+`type: "Foreground"` como literal. Duas consequências, ambas medidas em 2026-09-19:
+o campo significa "tem janela" e não "está em foco"; e um app com duas janelas em dois
+monitores aparece **uma vez só**, porque é um processo só.
 
+O usuário tem dois monitores e quer tratar cada janela como um botão próprio: a janela do
+Firefox do monitor 1 e a do monitor 2 são coisas diferentes, cada uma com suas abas, e um
+toque tem que agir **naquela** janela. Isso não é possível com PID.
 
+Os dados existem e foram verificados nesta máquina via `EnumWindows` — cada janela visível
+com título devolve `pid`, `hwnd`, `MonitorFromWindow`, `IsIconic` e o título:
+
+    42120 | hwnd 2232068 | mon 65539 | min False | 9Router — Mozilla Firefox
+    10868 | hwnd 133676  | mon 65539 | min False | (75) WhatsApp - Google Chrome
+
+O contrato passa a devolver uma entrada por janela com: identidade estável (`hwnd`), app de
+origem, título, monitor, e estado em **três** valores — em foco / segundo plano / minimizada.
+O `hwnd` é reciclável pelo Windows, então a identidade exposta ao cliente precisa sobreviver a
+isso sem apontar pra janela errada depois que a original fecha. O macOS precisa do equivalente
+(`CGWindowListCopyWindowInfo`) ou de degradação declarada — não de um `undefined`.
+*(revisado 2026-09-19 a pedido do usuário; antes dizia "por processo")*
+- [ ] **PLAT-12**: **Ações de janela, endereçadas por janela.** O contrato de
+`platform/index.js` expõe `listInstalledApps`, `listAppProcesses`, `activateApp`,
+`openWebsite` e `iconService` — e nada mais. Não há minimizar, não há fechar, e "instância
+nova" só existe como *fallback de erro* de `activateApp` (PRD §15), nunca como intenção.
+
+Adiciona `focusWindow`, `minimizeWindow`, `closeWindow` e `openNewWindow`, os três primeiros
+endereçados pela identidade de janela de PLAT-11 e **não** por nome de app — focar "Firefox"
+é ambíguo quando existem duas janelas dele; focar *aquela* janela não é. Erros tipados da
+Fase 2 nos quatro. `openNewWindow` continua por app, porque uma janela que ainda não existe
+não tem identidade.
+
+**Fechar é destrutivo e pode perder trabalho não salvo.** Nunca `Stop-Process -Force`: manda
+`WM_CLOSE`, deixa o app abrir o próprio diálogo de "salvar?", e se ele não fechar, o cliente
+recebe erro tipado em vez de um app morto. A confirmação no cliente é UI-14.
+*(revisado 2026-09-19: era por nome de app)*
 ### Shell Electron
 
 - [ ] **SHELL-01**: Processo principal com single instance, janela principal e ciclo de vida do servidor via `utilityProcess.fork`.
@@ -103,6 +123,25 @@ cliente dizer qual é, e dá ao usuário um lugar para configurar a senha que n�
 ambiente. *(achado no teste ponta-a-ponta de 2026-09-18)*
 
 
+- [ ] **ACT-01**: **Costura de extensão de ações — o que torna o DeckTech um Stream Deck.**
+Hoje o dock tem exatamente **dois** tipos de peça: `"app"` e `"website"`
+(`server.js:723,786,939`; `public/index.html:1342,1428,1608`). O OBS existe, mas como uma
+gaveta separada, não como botão do dock — então não dá pra pôr "cena 03 · Tela cheia" ao lado
+do Firefox, que é o comportamento que define um Stream Deck.
+
+Adicionar um tipo hoje custa edição em pelo menos seis lugares: validação no servidor, rota de
+criação, `publicCfg`, o renderizador do cliente, o despachante de toque e o seletor. Este
+requisito troca isso por um **registro**: um tipo novo passa a ser um módulo que declara como
+se valida, como se renderiza, o que faz ao ser acionado e se tem estado ao vivo.
+
+Inclui a migração de `schemaVersion` e o caminho de cliente antigo — `server.js:483` já tem
+`MIXED_PIECES_REQUIRES_NEW_CLIENT` pra configuração mista, e o tipo novo tem que passar por ele
+em vez de quebrar um cliente que não conhece o tipo.
+
+**Quais ações entram é decisão D20, não deste requisito.** ACT-01 entrega a costura mais UM
+tipo de prova (`obs-scene`), porque uma costura sem segundo consumidor não é costura, é um
+`if`. *(pedido do usuário, 2026-09-19)*
+
 ### UI desktop
 
 - [ ] **UI-01**: Sidebar com **Slots** e **Conectar**, item selecionado com o tratamento visual do Mac.
@@ -124,17 +163,20 @@ abaixo. Em retrato a mesma marcação vira grade que embrulha, ancorada no topo,
 caminho landscape (a baseline de UI-12 continua byte-a-byte a mesma). **Entregue em `5ff25f8`**,
 antes de existir fase dona — a fase foi escrita depois para não deixar a entrega sem
 rastreabilidade. *(achado no teste ponta-a-ponta de 2026-09-18)*
-- [ ] **UI-14**: **Modelo de toque do cliente PWA.** Hoje só existe um gesto: um toque chama
-`activateApp`. O modelo pedido tem quatro:
-  - **um toque** — foca/restaura a janela; se ela **já** está em foco, minimiza (alterna)
-  - **toque duplo** — abre uma instância nova, que hoje só acontece como fallback de erro
-  - **toque longo** — fecha o app, **com confirmação** (o toque longo já existe no cliente para
-    confirmar remoção de fixo em `test/ui.test.mjs:198`, então o padrão de confirmação é o mesmo)
-  - o estado atual de cada app precisa ser **visível** no cartão antes do toque, senão o usuário
-    não sabe o que o próximo toque vai fazer
-  Depende de PLAT-11 (ler estado) e PLAT-12 (as ações existirem). *(pedido do usuário, 2026-09-18)*
-
-
+- [ ] **UI-14**: **Modelo de toque do cliente PWA, um cartão por JANELA.** Hoje só existe um
+gesto: um toque chama `activateApp` por nome. Passa a ser:
+  - **um toque** — traz aquela janela pra frente; se ela **já** está em foco, minimiza (alterna)
+  - **toque duplo** — abre uma janela nova daquele app
+  - **toque longo** — ícone de lixeira **ou** toast de confirmação antes de fechar; confirmar
+    fecha, cancelar não fecha. O padrão de toque longo já existe no cliente pra remoção de fixo
+    (`test/ui.test.mjs:198`) — reaproveitar, não inventar outro
+  - **um cartão por janela**, não por app: duas janelas do Firefox são dois cartões, cada um
+    dizendo de qual monitor é e com qual título, senão o usuário não sabe qual ele vai tocar
+  - o estado (em foco / segundo plano / minimizada) é **visível no cartão antes do toque**
+  - os quatro gestos não podem se atropelar: um toque não vira duplo, arrasto do deck não vira
+    toque, toque longo não dispara durante rolagem
+Depende de PLAT-11 (ler janelas e estados) e PLAT-12 (as ações existirem).
+*(revisado 2026-09-19: era um cartão por app)*
 ### Design system
 
 - [ ] **DES-01**: Declarar os tokens extraídos da pesquisa (63 tokens com proveniência `path:linha` — a enumeração completa do §12 de DESIGN-LANGUAGE.md, transcrita em `design/tokens.mjs`; "50" era uma estimativa anterior à transcrição, ver cabeçalho "COUNT DISCREPANCY" em `design/tokens.mjs`) como fonte única.
@@ -241,7 +283,7 @@ Preenchido pelo roadmap.
 | PROOF-02 | Fase 0 | Concluída |
 | PROOF-03 | Fase 0 | Concluída |
 | PROOF-04 | Fase 0 | Concluída |
-| PROOF-05 | Fase 0 | Concluída — executada, não implementada (ver STATE.md, Fase 0) |
+| PROOF-05 | Fase 0 | Concluída — executada, não implementada |
 | PROOF-06 | Fase 0 | Concluída |
 | PROOF-07 | Fase 0 | Concluída |
 | PROOF-08 | Fase 0 | Concluída |
@@ -282,7 +324,7 @@ Preenchido pelo roadmap.
 | DES-03 | Fase 6 | Concluída |
 | DES-04 | Fase 6 | Concluída |
 | DES-05 | Fase 6 | Concluída |
-| DES-06 | Fase 6 | Concluída — entregável é o registro de não-amostragem (sem render macOS claro) |
+| DES-06 | Fase 6 | Concluída — registro de não-amostragem |
 | FIX-08 | Fase 6 | Concluída |
 | TEST-01 | Fase 6 | Concluída |
 | UI-01 | Fase 7 | Pendente |
@@ -320,11 +362,12 @@ Preenchido pelo roadmap.
 | PLAT-05 | Fase 3 → Fase 14 | **REABERTA** — não traz a janela pra frente |
 | PLAT-11 | Fase 14 | Pendente |
 | PLAT-12 | Fase 14 | Pendente |
-| UI-13 | Fase 15 | **Concluída** em `5ff25f8` — entregue antes de a Fase 15 existir |
+| UI-13 | Fase 15 | **Concluída** em `5ff25f8` |
 | UI-14 | Fase 15 | Pendente |
 | OBS-03 | Fase 15 | Pendente |
+| ACT-01 | Fase 16 | Pendente |
 
-Total de requisitos únicos: 86 em 16 fases. Fechados: Fases 0, 1, 2, 3 e 6 = 34,
+Total de requisitos únicos: 87 em 17 fases. Fechados: Fases 0, 1, 2, 3 e 6 = 34,
 mais UI-13, entregue antes de a Fase 15 existir. PLAT-05 conta como fechada na Fase 3 e
 REABERTA na Fase 14 — aparece uma vez só, com as duas fases na mesma linha.
 Esta tabela é gerada do ROADMAP, então as duas não podem divergir em silêncio.

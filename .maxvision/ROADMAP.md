@@ -56,6 +56,7 @@ A Fase 0 conserva o número que REQUIREMENTS.md (`### Fase 0 — Prova técnica`
 - [ ] **Phase 13: CI e automação de testes** - A suíte roda sozinha em cada commit, incluindo os testes Android
 - [ ] **Phase 14: Controle de janela** - Um toque no celular foca, minimiza, fecha ou abre nova janela — e o cliente sabe qual é qual
 - [ ] **Phase 15: Cliente PWA — responsividade e gestos** - A tela do celular se adapta à orientação e traduz os quatro gestos em ações
+- [ ] **Phase 16: Ações do dock — a costura de Stream Deck** - Um tipo de botão novo é um módulo, não uma edição em seis arquivos
 
 ## Phase Details
 
@@ -480,6 +481,32 @@ fase existir, e está marcada como entregue em vez de reescrita como pendente.
      "abra o OBS". Com nenhuma senha configurada, diz isso. São causas diferentes e hoje o
      servidor responde `connected: false` para as duas.
 **Validação nesta máquina**: integral. Playwright roda aqui e o S10e está na LAN.
+**Plans**: TBD
+
+### Phase 16: Ações do dock — a costura de Stream Deck
+**Goal**: Um tipo de botão novo no dock é um módulo que se registra, não uma edição espalhada
+por seis arquivos — e a primeira prova disso é uma cena do OBS virar botão ao lado do Firefox.
+**Depends on**: Phase 15 (o cliente precisa despachar os gestos antes de despachar ações novas)
+**Requirements**: ACT-01
+**Por que esta fase existe**: o dock tem dois tipos de peça, `"app"` e `"website"`. O OBS já
+está conectado e funcionando (14 cenas reais lidas em 2026-09-19), mas vive numa gaveta
+separada — não dá pra pôr uma cena como botão. Um Stream Deck é exatamente isso: botões
+arbitrários lado a lado. **O catálogo de ações é a decisão D20**; esta fase entrega a costura
+e um tipo de prova, não o catálogo inteiro.
+**Success Criteria** (what must be TRUE):
+  1. Adicionar um tipo de peça novo toca **um** módulo novo mais o registro — não a validação
+     do servidor, a rota, `publicCfg`, o renderizador, o despachante e o seletor, que é o que
+     custa hoje.
+  2. Uma cena do OBS pode ser fixada como botão do dock, aparece ao lado dos apps, e tocá-la
+     troca a cena no OBS de verdade — verificado contra o OBS rodando nesta máquina, não
+     contra mock.
+  3. O botão de cena mostra estado ao vivo: a cena ativa é visivelmente a ativa, e muda quando
+     alguém troca de cena pelo próprio OBS.
+  4. Um cliente que não conhece o tipo novo recebe `MIXED_PIECES_REQUIRES_NEW_CLIENT`
+     (`server.js:483`) em vez de renderizar errado ou quebrar.
+  5. A migração de `schemaVersion` sobe e desce: uma config com o tipo novo lida por um servidor
+     anterior não corrompe a config do usuário.
+**Validação nesta máquina**: integral. OBS Studio conectado, 4455 escutando.
 **Plans**: TBD
 
 ---
