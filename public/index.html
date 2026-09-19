@@ -12,7 +12,7 @@
 <link rel="icon" media="(prefers-color-scheme: light)" type="image/png" href="/icon-192.png">
 <link rel="icon" media="(prefers-color-scheme: dark)" type="image/png" href="/icon-192-dark.png">
 <link rel="apple-touch-icon" href="/icon-192.png">
-  <title>Dokke</title>
+  <title>DeckTech</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -791,6 +791,13 @@
     transition: transform .08s ease, opacity .15s ease; }
   .login-card .btn.connect:active{ transform: scale(.975); opacity:.9; }
   .login-card .lfoot{ margin-top:16px; font-size:11px; color:var(--ink-3); letter-spacing:.02em; }
+  /* A linha de origem fica acima e mais apagada: a decisao D2 exige que a
+     atribuicao ao autor original continue VISIVEL, e o usuario pediu que a
+     ultima linha do cartao seja a do DeckTech. As duas coisas cabem. */
+  .login-card .lfoot-origin{ margin-top:14px; margin-bottom:0; font-size:10px; opacity:.72; }
+  .login-card .lfoot-origin + .lfoot{ margin-top:2px; }
+  .login-card .lfoot-link{ color:var(--ink-2); text-decoration:underline; text-underline-offset:2px; }
+  .login-card .lfoot-link:hover, .login-card .lfoot-link:focus-visible{ color:var(--ink-1); }
 
 </style>
 </head>
@@ -820,17 +827,18 @@
       <div class="lkey" aria-hidden="true">
         <img src="/icon-192.png" alt="" aria-hidden="true" width="54" height="54">
       </div>
-      <h3 id="loginTitle" data-i18n="login.title">Conectar ao Dokke</h3>
-      <div class="body" data-i18n="login.description">Conecte o aparelho ao seu Mac para abrir os apps.</div>
+      <h3 id="loginTitle" data-i18n="login.title">Conectar ao DeckTech</h3>
+      <div class="body" data-i18n="login.description">Conecte o aparelho ao seu computador para abrir os apps.</div>
       <ol class="lsteps">
         <li><span class="lnum">1</span><div><p><span data-i18n="login.step1Prefix">Conecte o Mac e este aparelho à</span> <b data-i18n="login.sameNetwork">mesma rede Wi-Fi</b>.</p></div></li>
-        <li><span class="lnum">2</span><div><p><span data-i18n="login.step2Prefix">No Mac, abra o</span> <b>Dokke</b> <span data-i18n="login.step2Suffix">e escolha os apps que quer usar.</span></p></div></li>
-        <li><span class="lnum">3</span><div><p><span data-i18n="login.step3Prefix">Toque em</span> <b data-i18n="login.generateCode">Gerar novo código</b> <span data-i18n="login.step3Suffix">no Mac e digite o código de 4 dígitos aqui.</span></p></div></li>
+        <li><span class="lnum">2</span><div><p><span data-i18n="login.step2Prefix">No computador, abra o</span> <b>DeckTech</b> <span data-i18n="login.step2Suffix">e escolha os apps que quer usar.</span></p></div></li>
+        <li><span class="lnum">3</span><div><p><span data-i18n="login.step3Prefix">Toque em</span> <b data-i18n="login.generateCode">Gerar novo código</b> <span data-i18n="login.step3Suffix">no computador e digite o código de 4 dígitos aqui.</span></p></div></li>
       </ol>
       <input id="loginPin" inputmode="numeric" autocomplete="one-time-code" maxlength="4" placeholder="••••" aria-label="Código de acesso" data-i18n-aria-label="login.pinLabel">
       <div class="lerr" id="loginErr"></div>
       <button class="btn connect" id="loginGo" data-i18n="login.connect">Conectar</button>
-      <p class="lfoot" data-i18n="footer.brand">Dokke by Felipe Natanael</p>
+      <p class="lfoot lfoot-origin" data-i18n="footer.origin">baseado no Dokke, de Felipe Natanael</p>
+      <p class="lfoot"><span data-i18n="footer.brand">DeckTech by</span> <a class="lfoot-link" href="https://www.produtoramaxvision.com.br" target="_blank" rel="noopener noreferrer">Produtora MaxVision</a></p>
     </div>
   </div>
 
@@ -879,10 +887,10 @@
   const I18N = {
     "pt-BR": {
       "aria.language": "Idioma", "aria.selectLanguage": "Selecionar idioma", "aria.close": "Fechar",
-      "login.title": "Conectar ao Dokke", "login.description": "Conecte o aparelho ao seu Mac para abrir os apps.",
+      "login.title": "Conectar ao DeckTech", "login.description": "Conecte o aparelho ao seu computador para abrir os apps.",
       "login.step1Prefix": "Conecte o Mac e este aparelho à", "login.sameNetwork": "mesma rede Wi-Fi",
-      "login.step2Prefix": "No Mac, abra o", "login.step2Suffix": "e escolha os apps que quer usar.",
-      "login.step3Prefix": "Toque em", "login.generateCode": "Gerar novo código", "login.step3Suffix": "no Mac e digite o código de 4 dígitos aqui.",
+      "login.step2Prefix": "No computador, abra o", "login.step2Suffix": "e escolha os apps que quer usar.",
+      "login.step3Prefix": "Toque em", "login.generateCode": "Gerar novo código", "login.step3Suffix": "no computador e digite o código de 4 dígitos aqui.",
       "login.pinLabel": "Código de acesso", "login.connect": "Conectar", "login.invalidCode": "Código inválido",
       "login.tooMany": "Muitas tentativas — aguarde um pouco.", "login.wrongCode": "Código errado.",
       "dock.openApps": "Apps abertos", "dock.apps": "Apps", "dock.pinned": "Favoritos", "dock.tapToOpen": "Toque em um app para abrir",
@@ -918,14 +926,14 @@
       "obs.unavailable": "OBS indisponível — verifique o WebSocket", "obs.live": "AO VIVO", "obs.connected": "conectado",
       "obs.startRecording": "Gravar", "obs.stopRecording": "Parar", "obs.startLive": "Live", "obs.stopLive": "Parar live", "obs.stopAll": "Encerrar",
       "obs.accessibility": "OBS, {status}",
-      "update.available": "Nova atualização do Dokke", "update.version": "Versão {version} disponível. Escolha quando baixar.",
+      "update.available": "Nova atualização do DeckTech", "update.version": "Versão {version} disponível. Escolha quando baixar.",
       "update.download": "Baixar", "update.reload": "Recarregar", "update.release": "Abrir release", "update.macTitle": "App do Mac desatualizado",
-      "update.macSubtitle": "Nova versão {version} disponível — atualize o Dokke no computador",
-      "update.close": "Fechar aviso", "site": "site", "footer.brand": "Dokke by Felipe Natanael"
+      "update.macSubtitle": "Nova versão {version} disponível — atualize o DeckTech no computador",
+      "update.close": "Fechar aviso", "site": "site", "footer.brand": "DeckTech by", "footer.origin": "baseado no Dokke, de Felipe Natanael"
     },
     en: {
       "aria.language": "Language", "aria.selectLanguage": "Select language", "aria.close": "Close",
-      "login.title": "Connect to Dokke", "login.description": "Connect this device to your Mac to open apps.",
+      "login.title": "Connect to DeckTech", "login.description": "Connect this device to your computer to open apps.",
       "login.step1Prefix": "Connect your Mac and this device to the", "login.sameNetwork": "same Wi-Fi network",
       "login.step2Prefix": "On your Mac, open", "login.step2Suffix": "and choose the apps you want to use.",
       "login.step3Prefix": "Tap", "login.generateCode": "Generate new code", "login.step3Suffix": "on your Mac and enter the 4-digit code here.",
@@ -964,10 +972,10 @@
       "obs.unavailable": "OBS unavailable — check the WebSocket", "obs.live": "LIVE", "obs.connected": "connected",
       "obs.startRecording": "Record", "obs.stopRecording": "Stop", "obs.startLive": "Live", "obs.stopLive": "Stop live", "obs.stopAll": "Stop",
       "obs.accessibility": "OBS, {status}",
-      "update.available": "New Dokke update", "update.version": "Version {version} is available. Choose when to download it.",
+      "update.available": "New DeckTech update", "update.version": "Version {version} is available. Choose when to download it.",
       "update.download": "Download", "update.reload": "Reload", "update.release": "Open release", "update.macTitle": "Mac app is out of date",
-      "update.macSubtitle": "Version {version} is available — update Dokke on your computer",
-      "update.close": "Close notice", "site": "site", "footer.brand": "Dokke by Felipe Natanael"
+      "update.macSubtitle": "Version {version} is available — update DeckTech on your computer",
+      "update.close": "Close notice", "site": "site", "footer.brand": "DeckTech by", "footer.origin": "based on Dokke, by Felipe Natanael"
     }
   };
   function detectLanguage(language = navigator.language){
@@ -3141,7 +3149,18 @@
           if (cmpVer(rel.tag, apkNow) > 0){
             showUpBanner(t("update.available"),
               t("update.version", { version: rel.tag }),
-              rel.apkUrl || "https://github.com/felipenalves/Dokke/releases/latest/download/dokke.apk",
+              // BRAND-01 nomeou QUATRO superficies de update (server.js,
+              // docs/src/main.js, DokkeUpdateManager.swift, MainActivity.kt).
+              // Esta e a QUINTA e passou batido: o fallback do cliente PWA.
+              // Hoje ele esta inerte porque ENABLE_VERSION_CHECK=false
+              // (server.js:89) faz `rel` vir vazio e o guarda acima retorna
+              // antes. Mas no dia em que BRAND-12 ligar a flag pra primeira
+              // release, um `rel.apkUrl` ausente mandava o celular baixar o
+              // APK do Dokke UPSTREAM por cima do DeckTech. O nome do asset
+              // segue `dokke.apk` ate BRAND-08 (Fase 11) renomear em lockstep
+              // com MainActivity.kt e docs/src/main.js — mesma nota que
+              // server.js:113-115 ja carrega.
+              rel.apkUrl || "https://github.com/produtoramaxvision/DeckTech/releases/latest/download/dokke.apk",
               rel.tag);
           }
           return;
@@ -3150,7 +3169,8 @@
         if (rel && rel.tag && cmpVer(rel.tag, v.local.tag) > 0){
           showUpBanner(t("update.macTitle"),
             t("update.macSubtitle", { version: rel.tag }),
-            rel.htmlUrl || "https://github.com/felipenalves/Dokke/releases/latest");
+            // Mesma quinta superficie, outro ramo — ver a nota do apkUrl acima.
+            rel.htmlUrl || "https://github.com/produtoramaxvision/DeckTech/releases/latest");
         }
       })
       .catch(function(){});

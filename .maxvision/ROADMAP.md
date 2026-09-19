@@ -180,7 +180,7 @@ os 122 apps reais já medidos.
 **Goal**: PIN, config e sessões vivem em `%LOCALAPPDATA%\DeckTech`, sobrevivem a quem já tinha
 Dokke instalado, e falham alto em vez de em silêncio.
 **Depends on**: Phase 1, Phase 0
-**Requirements**: BRAND-02, BRAND-13, PKG-03, FIX-01, FIX-02, FIX-03
+**Requirements**: BRAND-02, BRAND-13, BRAND-14, PKG-03, FIX-01, FIX-02, FIX-03
 **Gating por requisito**: a Fase 1 fixa o nome final da marca, que é o diretório de destino da
 migração (BRAND-02). PROOF-05 determina o que FIX-02 precisa cobrir — se `chmod(0o600)` não
 vale em Windows nativo, a ACL explícita ou DPAPI deixa de ser opcional.

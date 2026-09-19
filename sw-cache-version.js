@@ -21,7 +21,12 @@
  *
  * Bump the version in exactly this one place; both files pick it up.
  */
-export const SW_CACHE_VERSION = "dokke-v24";
+// v25: primeiro bump do DeckTech. Dois motivos no mesmo passo — o cartao de
+// login mudou (BRAND-14) e uma UI nova sem bump e exatamente o defeito que
+// este arquivo existe pra impedir; e o proprio token era uma string de marca
+// ("dokke-v24") servida ao cliente. O `activate` de public/sw.js apaga toda
+// chave != CACHE, entao o cache antigo e evictado sozinho na troca.
+export const SW_CACHE_VERSION = "decktech-v25";
 
 /** Literal placeholder that must appear verbatim in public/sw.js and
  *  public/index.html wherever the cache version belongs. */
