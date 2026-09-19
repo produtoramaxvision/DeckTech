@@ -1,9 +1,17 @@
 // test/scratch/live-proof.mjs
 // Live end-to-end proof of PLAT-05 window activation via the real server.
+// Phase 14 success criterion 1:
+// "Com o Firefox aberto e em segundo plano, tocar nele pelo celular traz a janela pra frente:
+//  GetForegroundWindow() passa a devolver o handle do Firefox. Medido numa bateria de no
+//  mínimo 10 tentativas frias, com o alvo nunca sendo o foreground anterior, e a taxa de
+//  sucesso registrada. Uma taxa abaixo de 100% é resultado válido se vier com a explicação
+//  medida de quando falha."
 
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { setTimeout as sleep } from "node:timers/promises";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 if (process.execArgv.some((a) => a.startsWith("--test"))) {
   process.exit(0);
@@ -11,6 +19,7 @@ if (process.execArgv.some((a) => a.startsWith("--test"))) {
 
 const execFileP = promisify(execFile);
 const CHARMAP_PATH = "C:\\Windows\\System32\\charmap.exe";
+const FIREFOX_PATH = "C:\\Program Files\\Mozilla Firefox\\firefox.exe";
 const PORT = 3999;
 
 const trackedPids = new Set();
@@ -56,6 +65,64 @@ $p = Get-Process -Id $pidVal -ErrorAction SilentlyContinue
   return JSON.parse(stdout.trim());
 }
 
+async function focusDistractor(hwnd) {
+  await execFileP("powershell.exe", [
+    "-NoProfile", "-NonInteractive", "-Command",
+    `
+$sig = @"
+[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+[DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+[DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+"@
+$t = Add-Type -MemberDefinition $sig -Name "Win32DistFocus$([guid]::NewGuid().ToString('N'))" -Namespace Win32DistFocus -PassThru
+$handle = [IntPtr]${hwnd}
+$fg = $t::GetForegroundWindow()
+$curThread = $t::GetCurrentThreadId()
+$fgPid = 0; $fgThread = $t::GetWindowThreadProcessId($fg, [ref]$fgPid)
+$tgtPid = 0; $tgtThread = $t::GetWindowThreadProcessId($handle, [ref]$tgtPid)
+$attFg = $false; $attTgt = $false
+if ($fgThread -ne 0 -and $fgThread -ne $curThread) { $attFg = $t::AttachThreadInput($curThread, $fgThread, $true) }
+if ($tgtThread -ne 0 -and $tgtThread -ne $curThread) { $attTgt = $t::AttachThreadInput($curThread, $tgtThread, $true) }
+$t::ShowWindow($handle, 9) | Out-Null
+$t::SetForegroundWindow($handle) | Out-Null
+if ($attTgt) { $t::AttachThreadInput($curThread, $tgtThread, $false) | Out-Null }
+if ($attFg) { $t::AttachThreadInput($curThread, $fgThread, $false) | Out-Null }
+`
+  ]);
+}
+
+async function getOrLaunchFirefox() {
+  const queryFirefox = async () => {
+    const { stdout } = await execFileP("powershell.exe", [
+      "-NoProfile", "-NonInteractive", "-Command",
+      `$p = Get-Process -Name firefox -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1; if ($p) { [PSCustomObject]@{ pid = $p.Id; hwnd = $p.MainWindowHandle.ToInt64(); name = $p.ProcessName } | ConvertTo-Json -Compress } else { "{}" }`
+    ]);
+    return JSON.parse(stdout.trim());
+  };
+
+  let info = await queryFirefox();
+  if (info.pid && info.hwnd) {
+    return info;
+  }
+
+  console.log("  Firefox not running with window; launching Firefox...");
+  const child = spawn(FIREFOX_PATH, [], { detached: true, stdio: "ignore" });
+  child.unref();
+
+  const deadline = Date.now() + 12000;
+  while (Date.now() < deadline) {
+    await sleep(500);
+    info = await queryFirefox();
+    if (info.pid && info.hwnd) {
+      return info;
+    }
+  }
+  throw new Error("Timeout waiting for Firefox main window to appear.");
+}
+
 async function launchThrowawayCharmap(label) {
   const child = spawn(CHARMAP_PATH, [], { detached: true, stdio: "ignore" });
   child.unref();
@@ -82,6 +149,7 @@ async function launchThrowawayCharmap(label) {
 async function main() {
   console.log("===============================================================================");
   console.log("PLAT-05: Real Server End-to-End Window Activation Live Proof");
+  console.log("Phase 14 Success Criterion 1: 10 Cold Attempts on Background Firefox");
   console.log("===============================================================================\n");
 
   // Step 1: Start real server process
@@ -99,7 +167,6 @@ async function main() {
     if (s.includes("ouvindo em") || s.includes("listening")) {
       serverStarted = true;
     }
-    // console.log("[SERVER]", s.trim());
   });
   serverProc.stderr.on("data", (d) => {
     console.error("[SERVER ERR]", d.toString("utf8").trim());
@@ -123,31 +190,34 @@ async function main() {
   console.log(`  Real server is UP on http://127.0.0.1:${PORT} (PID ${serverProc.pid})\n`);
 
   try {
-    // Step 2: Firefox live test
-    console.log("[2/4] Testing live activation of running Firefox...");
-    // Find Firefox process
-    const { stdout: ffStdout } = await execFileP("powershell.exe", [
-      "-NoProfile", "-NonInteractive", "-Command",
-      `$p = Get-Process -Name firefox -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1; if ($p) { [PSCustomObject]@{ pid = $p.Id; hwnd = $p.MainWindowHandle.ToInt64() } | ConvertTo-Json -Compress } else { "{}" }`
-    ]);
-    const ffInfo = JSON.parse(ffStdout.trim());
-    if (!ffInfo.pid || !ffInfo.hwnd) {
-      console.log("  Firefox with window not found; launching throwaway distractor to test.");
-    } else {
-      console.log(`  Firefox detected: PID ${ffInfo.pid}, HWND ${ffInfo.hwnd}`);
+    // Step 2: Ensure Firefox is detected and running with window
+    console.log("[2/4] Detecting Firefox instance...");
+    const ffInfo = await getOrLaunchFirefox();
+    console.log(`  Firefox detected: PID ${ffInfo.pid}, HWND ${ffInfo.hwnd} ("${ffInfo.name}")\n`);
 
-      // Ensure Firefox is in the background by launching a distractor
-      const distractor = await launchThrowawayCharmap("Distractor");
-      console.log(`  Distractor window placed: HWND ${distractor.hwnd} (PID ${distractor.pid})`);
-      await sleep(300);
+    // Step 3: Launch throwaway distractor (charmap) to place in foreground
+    console.log("[3/4] Launching distractor window (charmap.exe)...");
+    const distractor = await launchThrowawayCharmap("Distractor");
+    console.log(`  Distractor window ready: HWND ${distractor.hwnd} (PID ${distractor.pid})\n`);
+
+    // Step 4: Run battery of 10 cold attempts against Firefox
+    console.log("[4/4] Executing Phase 14 battery: 10 cold attempts on background Firefox...");
+    console.log("      (Each trial brings distractor to foreground first; target is NEVER previous foreground)\n");
+
+    const trials = [];
+    let successes = 0;
+
+    for (let attempt = 1; attempt <= 10; attempt++) {
+      // 1. Move distractor to foreground so Firefox is strictly in the background
+      await focusDistractor(distractor.hwnd);
+      await sleep(250);
 
       const fgBefore = await getForegroundInfo();
-      console.log(`  Foreground BEFORE activation: HWND ${fgBefore.hwnd}, PID ${fgBefore.pid}, Name: "${fgBefore.name}"`);
       if (fgBefore.hwnd === ffInfo.hwnd) {
-        console.log("  Firefox was foreground; switching away first...");
+        throw new Error(`Attempt ${attempt}: Target is still in foreground before cold activation attempt!`);
       }
 
-      console.log(`  Calling POST /api/apps/Firefox/activate with pid ${ffInfo.pid}...`);
+      // 2. Call real server API endpoint
       const t0 = Date.now();
       const res = await fetch(`http://127.0.0.1:${PORT}/api/apps/Firefox/activate`, {
         method: "POST",
@@ -156,49 +226,22 @@ async function main() {
       });
       const resJson = await res.json();
       const elapsed = Date.now() - t0;
-      console.log(`  API Response (${res.status}): ${JSON.stringify(resJson)} (${elapsed}ms)`);
 
+      // 3. Confirm whether GetForegroundWindow changed to Firefox
       const fgAfter = await getForegroundInfo();
-      console.log(`  Foreground AFTER activation:  HWND ${fgAfter.hwnd}, PID ${fgAfter.pid}, Name: "${fgAfter.name}"`);
-      const success = (fgAfter.hwnd === ffInfo.hwnd);
-      console.log(`  => RESULT: ${success ? "SUCCESS - Firefox brought to foreground!" : "FAILED"}\n`);
-    }
-
-    // Step 3: 10 Cold Attempts Battery
-    console.log("[3/4] Running battery of 10 cold attempts (target never previous foreground)...");
-    const targetA = await launchThrowawayCharmap("TargetA");
-    const targetB = await launchThrowawayCharmap("TargetB");
-    console.log(`  Target A: HWND ${targetA.hwnd} (PID ${targetA.pid})`);
-    console.log(`  Target B: HWND ${targetB.hwnd} (PID ${targetB.pid})\n`);
-
-    const trials = [];
-    let successes = 0;
-
-    for (let attempt = 1; attempt <= 10; attempt++) {
-      const fgBefore = await getForegroundInfo();
-      let chosenTarget = (fgBefore.hwnd === targetA.hwnd) ? targetB : targetA;
-      if (fgBefore.hwnd === chosenTarget.hwnd) {
-        // Switch to other
-        chosenTarget = (chosenTarget === targetA) ? targetB : targetA;
-      }
-
-      const t0 = Date.now();
-      const res = await fetch(`http://127.0.0.1:${PORT}/api/apps/Character%20Map/activate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pid: chosenTarget.pid }),
-      });
-      const resJson = await res.json();
-      const elapsed = Date.now() - t0;
-
-      const fgAfter = await getForegroundInfo();
-      const pass = (fgAfter.hwnd === chosenTarget.hwnd);
+      const pass = (fgAfter.hwnd === ffInfo.hwnd);
       if (pass) successes++;
+
+      let explanation = null;
+      if (!pass) {
+        explanation = `Activation failed: expected HWND ${ffInfo.hwnd} (Firefox), but GetForegroundWindow returned HWND ${fgAfter.hwnd} ("${fgAfter.name}"). API status: ${res.status}, response: ${JSON.stringify(resJson)}.`;
+      }
 
       trials.push({
         attempt,
-        target: chosenTarget.label,
-        targetHwnd: chosenTarget.hwnd,
+        target: "Firefox",
+        targetPid: ffInfo.pid,
+        targetHwnd: ffInfo.hwnd,
         fgBeforeHwnd: fgBefore.hwnd,
         fgBeforeName: fgBefore.name,
         fgAfterHwnd: fgAfter.hwnd,
@@ -207,23 +250,54 @@ async function main() {
         apiResponse: resJson,
         becameForeground: pass,
         elapsedMs: elapsed,
+        explanation,
       });
 
       console.log(
-        `  Attempt ${String(attempt).padStart(2)}: Target=${chosenTarget.label} (${chosenTarget.hwnd}) | ` +
+        `  Attempt ${String(attempt).padStart(2)}: Target=Firefox (${ffInfo.hwnd}) | ` +
         `fgBefore=${fgBefore.name} (${fgBefore.hwnd}) -> fgAfter=${fgAfter.name} (${fgAfter.hwnd}) | ` +
         `status=${res.status} | [${pass ? "PASS" : "FAIL"}] (${elapsed}ms)`
       );
 
-      await sleep(200);
+      await sleep(250);
     }
 
-    console.log("\n[4/4] Battery Results Summary:");
+    const successRate = (successes / 10) * 100;
+    console.log("\n===============================================================================");
+    console.log("Phase 14 Battery Summary:");
     console.log(`  Total cold attempts: 10`);
-    console.log(`  Successful activations: ${successes} / 10 (${((successes / 10) * 100).toFixed(1)}%)`);
+    console.log(`  Successful activations: ${successes} / 10 (${successRate.toFixed(1)}%)`);
+    if (successes < 10) {
+      console.log("  Measured explanation for failures:");
+      for (const t of trials.filter((t) => !t.becameForeground)) {
+        console.log(`    - Attempt ${t.attempt}: ${t.explanation}`);
+      }
+    } else {
+      console.log("  Measured explanation: 100% success rate achieved via AttachThreadInput sequence (calling thread attached to foreground thread and target thread, restoring iconic windows, and calling SetForegroundWindow).");
+    }
+    console.log("===============================================================================\n");
+
+    // Persist results to test/scratch/live-proof-results.json
+    const resultsPayload = {
+      timestamp: new Date().toISOString(),
+      criterion: "Phase 14 Success Criterion 1: Cold activation of background Firefox",
+      app: "Firefox",
+      pid: ffInfo.pid,
+      hwnd: ffInfo.hwnd,
+      totalAttempts: 10,
+      successes,
+      successRate: `${successRate.toFixed(1)}%`,
+      explanation: successes === 10
+        ? "100.0% success rate achieved via AttachThreadInput sequence (calling thread attached to foreground thread and target thread, restoring iconic windows, and calling SetForegroundWindow)."
+        : "Failures occurred during cold activation; see individual trial records.",
+      trials,
+    };
+    const outPath = join(process.cwd(), "test", "scratch", "live-proof-results.json");
+    writeFileSync(outPath, JSON.stringify(resultsPayload, null, 2), "utf8");
+    console.log(`Results persisted to ${outPath}\n`);
 
   } finally {
-    console.log("\nCleaning up processes and shutting down server...");
+    console.log("Cleaning up processes and shutting down server...");
     await cleanupPids();
     serverProc.kill();
     console.log("Cleanup complete.");

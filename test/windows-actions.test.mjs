@@ -287,6 +287,11 @@ test("PLAT-05: activateApp com kind uwp lança via explorer.exe shell:AppsFolder
 // PLAT-05 regression: sequência AttachThreadInput + ShowWindow(SW_RESTORE)
 // ---------------------------------------------------------------------
 
+/** Remove comentários de bloco (<# ... #>) e comentários de linha (# ...) de scripts PowerShell. */
+function stripPowerShellComments(script) {
+  return script.replace(/<#[\s\S]*?#>/g, "").replace(/(^|[^$])#.*$/gm, "$1");
+}
+
 test("PLAT-05 regression: focusWindowByPid exige e executa a sequência AttachThreadInput e ShowWindow(SW_RESTORE)", async () => {
   let capturedScript = null;
   const fakeExec = async (cmd, args) => {
@@ -306,6 +311,8 @@ test("PLAT-05 regression: focusWindowByPid exige e executa a sequência AttachTh
         becameForeground: true,
         handle: 1234,
         foregroundHandleBefore: 5678,
+        attachedFg: true,
+        attachedTgt: true,
         setForegroundReturn: true,
         foregroundHandleAfter: 1234,
       }),
@@ -315,50 +322,87 @@ test("PLAT-05 regression: focusWindowByPid exige e executa a sequência AttachTh
 
   const observation = await focusWindowByPid(1234, { exec: fakeExec });
   assert.equal(observation.becameForeground, true);
+  assert.equal(observation.attachedFg, true);
+  assert.equal(observation.attachedTgt, true);
   assert.ok(capturedScript, "script deve ter sido gerado e executado");
 
-  // 1. Declaração do AttachThreadInput
+  // Garante que o script NÃO contém chamadas de AttachThreadInput escondidas em comentários (<# ... #>)
+  const cleanScript = stripPowerShellComments(capturedScript);
+
+  // 1. Declaração do AttachThreadInput em código executável
   assert.match(
-    capturedScript,
+    cleanScript,
     /\[DllImport\("user32\.dll"\)\]\s+public\s+static\s+extern\s+bool\s+AttachThreadInput\(/,
-    "script deve declarar a API Win32 AttachThreadInput",
+    "script deve declarar a API Win32 AttachThreadInput em código limpo (não em comentário)",
   );
 
-  // 2. Anexo da thread do foreground e da thread do alvo (não contornado por $false)
+  // 2. Anexo da thread do foreground e da thread do alvo (não contornado por $false e não comentado)
   assert.match(
-    capturedScript,
+    cleanScript,
     /if\s*\(\$fgThread\s*-ne\s*0\s*-and\s*\$fgThread\s*-ne\s*\$curThread\)\s*\{\s*\$attachedFg\s*=\s*\$native::AttachThreadInput\(\$curThread,\s*\$fgThread,\s*\$true\)/,
-    "script deve anexar a thread da janela em foreground via AttachThreadInput sem bypass ($false)",
+    "script deve anexar a thread da janela em foreground via AttachThreadInput sem bypass ($false) e fora de comentários",
   );
   assert.match(
-    capturedScript,
+    cleanScript,
     /if\s*\(\$tgtThread\s*-ne\s*0\s*-and\s*\$tgtThread\s*-ne\s*\$curThread\)\s*\{\s*\$attachedTgt\s*=\s*\$native::AttachThreadInput\(\$curThread,\s*\$tgtThread,\s*\$true\)/,
-    "script deve anexar a thread da janela alvo via AttachThreadInput sem bypass ($false)",
+    "script deve anexar a thread da janela alvo via AttachThreadInput sem bypass ($false) e fora de comentários",
   );
 
   // 3. Restauração de janela minimizada/icônica com SW_RESTORE = 9 (nunca 6 / SW_MINIMIZE)
   assert.match(
-    capturedScript,
+    cleanScript,
     /\$SW_RESTORE\s*=\s*9(?!\d)/,
     "SW_RESTORE deve ser 9 (SW_RESTORE), nunca 6 (SW_MINIMIZE)",
   );
   assert.match(
-    capturedScript,
+    cleanScript,
     /if\s*\(\$native::IsIconic\(\$handle\)\)\s*\{\s*\$native::ShowWindow\(\$handle,\s*\$SW_RESTORE\)/,
     "script deve verificar IsIconic na janela alvo (sem -not) e restaurar com ShowWindow($handle, $SW_RESTORE)",
   );
 
-  // 4. Chamada de SetForegroundWindow entre o attach e o detach
-  const attachIdx = capturedScript.indexOf("$native::AttachThreadInput($curThread, $fgThread, $true)");
-  const setFgIdx = capturedScript.indexOf("$native::SetForegroundWindow($handle)");
-  const detachFgIdx = capturedScript.indexOf("$native::AttachThreadInput($curThread, $fgThread, $false)");
-  assert.ok(attachIdx !== -1, "chamada de AttachThreadInput($true) deve estar presente");
-  assert.ok(setFgIdx !== -1, "chamada de SetForegroundWindow deve estar presente");
-  assert.ok(detachFgIdx !== -1, "chamada de AttachThreadInput($false) deve estar presente");
+  // 4. Chamada de SetForegroundWindow entre o attach e o detach em código limpo
+  const attachIdx = cleanScript.indexOf("$native::AttachThreadInput($curThread, $fgThread, $true)");
+  const setFgIdx = cleanScript.indexOf("$native::SetForegroundWindow($handle)");
+  const detachFgIdx = cleanScript.indexOf("$native::AttachThreadInput($curThread, $fgThread, $false)");
+  assert.ok(attachIdx !== -1, "chamada de AttachThreadInput($true) deve estar presente em código limpo");
+  assert.ok(setFgIdx !== -1, "chamada de SetForegroundWindow deve estar presente em código limpo");
+  assert.ok(detachFgIdx !== -1, "chamada de AttachThreadInput($false) deve estar presente em código limpo");
   assert.ok(
     attachIdx < setFgIdx && setFgIdx < detachFgIdx,
     "SetForegroundWindow deve ser chamado entre AttachThreadInput($true) e AttachThreadInput($false)",
   );
+
+  // 5. Validação com o Language.Parser oficial do PowerShell no Windows (rejeita MUT-C com comentário)
+  if (process.platform === "win32") {
+    const { tmpdir } = await import("node:os");
+    const { mkdtempSync, writeFileSync: writeFileSyncFs, rmSync } = await import("node:fs");
+    const tempDir = mkdtempSync(join(tmpdir(), "decktech-ast-check-"));
+    const scriptFile = join(tempDir, "script.ps1");
+    writeFileSyncFs(scriptFile, capturedScript, "utf8");
+    try {
+      const { stdout } = await execFileP("powershell.exe", [
+        "-NoProfile", "-NonInteractive", "-Command",
+        `
+        $tokens = $null; $errors = $null
+        $content = [System.IO.File]::ReadAllText('${scriptFile.replaceAll("\\", "\\\\")}')
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput($content, [ref]$tokens, [ref]$errors)
+        $codeAttach = ($tokens | Where-Object { $_.Kind -ne "Comment" -and $_.Text -like "*AttachThreadInput*" }).Count
+        $commentAttach = ($tokens | Where-Object { $_.Kind -eq "Comment" -and $_.Text -like "*AttachThreadInput*" }).Count
+        [PSCustomObject]@{
+          parseErrors = $errors.Count
+          codeAttach = $codeAttach
+          commentAttach = $commentAttach
+        } | ConvertTo-Json -Compress
+        `
+      ]);
+      const parserRes = JSON.parse(stdout.trim());
+      assert.equal(parserRes.parseErrors, 0, "script não deve conter erros de sintaxe");
+      assert.equal(parserRes.commentAttach, 0, "nenhuma ocorrência de AttachThreadInput pode estar em comentário (<# ... #>)");
+      assert.ok(parserRes.codeAttach >= 5, "todas as 5 ocorrências de AttachThreadInput (1 declaração + 2 attach + 2 detach) devem ser tokens de código executável");
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  }
 });
 
 // ---------------------------------------------------------------------
@@ -478,12 +522,15 @@ test("PLAT-05 (real): focusWindowByPid observa GetForegroundWindow contra um pro
   try {
     targetPid = await launchGuiProcess(CHARMAP);
     const targetHandle = await waitForMainWindowHandle(targetPid);
-    // empurra o foco pra outro lugar antes de tentar trazer o alvo de volta
-    // — sem isso, o alvo já É o foreground (recém-lançado) e o teste não
-    // exercitaria transição nenhuma.
+    // Empurra o foco para outra janela (distrator) ativando-a de verdade no foreground
+    // antes de tentar trazer o alvo de volta — sem isso, o terminal pai ainda seria o foreground
+    // e o Windows concederia direito de ativação sem exercitar o AttachThreadInput.
     distractorPid = await launchGuiProcess(CHARMAP);
     await waitForMainWindowHandle(distractorPid);
-    await new Promise((r) => setTimeout(r, 300));
+    const distractorObs = await focusWindowByPid(distractorPid);
+    assert.equal(distractorObs.becameForeground, true, "distrator deve ir para o foreground primeiro");
+    assert.equal(distractorObs.attachedFg, true, "foco no distrator deve anexar à thread de foreground");
+    assert.equal(distractorObs.attachedTgt, true, "foco no distrator deve anexar à thread do alvo");
 
     const t0 = Date.now();
     const observation = await focusWindowByPid(targetPid);
@@ -493,6 +540,8 @@ test("PLAT-05 (real): focusWindowByPid observa GetForegroundWindow contra um pro
     assert.equal(observation.hadProcess, true);
     assert.equal(observation.hadWindow, true);
     assert.equal(observation.handle, targetHandle);
+    assert.equal(observation.attachedFg, true, "focusWindowByPid deve ter anexado à thread do foreground ($attachedFg)");
+    assert.equal(observation.attachedTgt, true, "focusWindowByPid deve ter anexado à thread da janela alvo ($attachedTgt)");
     assert.equal(observation.setForegroundReturn, true);
     assert.equal(observation.becameForeground, true, "focusWindowByPid deve trazer a janela alvo para o foreground");
     assert.equal(observation.foregroundHandleAfter, targetHandle, "handle do foreground final deve ser o handle da janela alvo");
@@ -537,9 +586,13 @@ test("PLAT-05 (real): focusWindowByPid restaura janela minimizada/icônica com S
     targetPid = await launchGuiProcess(CHARMAP);
     const targetHandle = await waitForMainWindowHandle(targetPid);
 
-    // Empurra o foco para outra janela (distrator)
+    // Empurra o foco para outra janela (distrator) e garante que ela está em foreground
     distractorPid = await launchGuiProcess(CHARMAP);
     await waitForMainWindowHandle(distractorPid);
+    const distractorObs = await focusWindowByPid(distractorPid);
+    assert.equal(distractorObs.becameForeground, true, "distrator deve estar em foreground antes de testar restauração");
+    assert.equal(distractorObs.attachedFg, true, "deve ter anexado ao foreground");
+    assert.equal(distractorObs.attachedTgt, true, "deve ter anexado ao alvo");
 
     // Minimiza a janela alvo e confirma que ela ficou icônica
     await minimizeWindow(targetHandle);
@@ -552,6 +605,8 @@ test("PLAT-05 (real): focusWindowByPid restaura janela minimizada/icônica com S
     assert.equal(observation.hadProcess, true);
     assert.equal(observation.hadWindow, true);
     assert.equal(observation.handle, targetHandle);
+    assert.equal(observation.attachedFg, true, "focusWindowByPid deve ter anexado ao foreground ($attachedFg)");
+    assert.equal(observation.attachedTgt, true, "focusWindowByPid deve ter anexado ao alvo ($attachedTgt)");
     assert.equal(observation.setForegroundReturn, true);
     assert.equal(observation.becameForeground, true, "janela minimizada deve vir para o foreground");
     assert.equal(observation.foregroundHandleAfter, targetHandle);

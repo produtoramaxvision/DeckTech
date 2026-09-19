@@ -1,0 +1,183 @@
+{
+  "timestamp": "2026-09-19T03:40:20.725Z",
+  "criterion": "Phase 14 Success Criterion 1: Cold activation of background Firefox",
+  "app": "Firefox",
+  "pid": 45508,
+  "hwnd": 5182624,
+  "totalAttempts": 10,
+  "successes": 10,
+  "successRate": "100.0%",
+  "explanation": "100.0% success rate achieved via AttachThreadInput sequence (calling thread attached to foreground thread and target thread, restoring iconic windows, and calling SetForegroundWindow).",
+  "trials": [
+    {
+      "attempt": 1,
+      "target": "Firefox",
+      "targetPid": 45508,
+      "targetHwnd": 5182624,
+      "fgBeforeHwnd": 7869156,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 5182624,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 2085,
+      "explanation": null
+    },
+    {
+      "attempt": 2,
+      "target": "Firefox",
+      "targetPid": 45508,
+      "targetHwnd": 5182624,
+      "fgBeforeHwnd": 7869156,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 5182624,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 717,
+      "explanation": null
+    },
+    {
+      "attempt": 3,
+      "target": "Firefox",
+      "targetPid": 45508,
+      "targetHwnd": 5182624,
+      "fgBeforeHwnd": 7869156,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 5182624,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 739,
+      "explanation": null
+    },
+    {
+      "attempt": 4,
+      "target": "Firefox",
+      "targetPid": 45508,
+      "targetHwnd": 5182624,
+      "fgBeforeHwnd": 7869156,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 5182624,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 697,
+      "explanation": null
+    },
+    {
+      "attempt": 5,
+      "target": "Firefox",
+      "targetPid": 45508,
+      "targetHwnd": 5182624,
+      "fgBeforeHwnd": 7869156,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 5182624,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 699,
+      "explanation": null
+    },
+    {
+      "attempt": 6,
+      "target": "Firefox",
+      "targetPid": 45508,
+      "targetHwnd": 5182624,
+      "fgBeforeHwnd": 7869156,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 5182624,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 671,
+      "explanation": null
+    },
+    {
+      "attempt": 7,
+      "target": "Firefox",
+      "targetPid": 45508,
+      "targetHwnd": 5182624,
+      "fgBeforeHwnd": 7869156,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 5182624,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 709,
+      "explanation": null
+    },
+    {
+      "attempt": 8,
+      "target": "Firefox",
+      "targetPid": 45508,
+      "targetHwnd": 5182624,
+      "fgBeforeHwnd": 7869156,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 5182624,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 690,
+      "explanation": null
+    },
+    {
+      "attempt": 9,
+      "target": "Firefox",
+      "targetPid": 45508,
+      "targetHwnd": 5182624,
+      "fgBeforeHwnd": 7869156,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 5182624,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 774,
+      "explanation": null
+    },
+    {
+      "attempt": 10,
+      "target": "Firefox",
+      "targetPid": 45508,
+      "targetHwnd": 5182624,
+      "fgBeforeHwnd": 7869156,
+      "fgBeforeName": "charmap",
+      "fgAfterHwnd": 5182624,
+      "fgAfterName": "firefox",
+      "apiStatus": 200,
+      "apiResponse": {
+        "ok": true
+      },
+      "becameForeground": true,
+      "elapsedMs": 668,
+      "explanation": null
+    }
+  ]
+}

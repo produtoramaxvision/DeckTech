@@ -315,6 +315,8 @@ try {
       $native::ShowWindow($handle, $SW_RESTORE) | Out-Null
     }
 
+    $result.attachedFg = $attachedFg
+    $result.attachedTgt = $attachedTgt
     $result.setForegroundReturn = $native::SetForegroundWindow($handle)
 
     if ($attachedTgt) {
