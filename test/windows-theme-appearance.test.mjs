@@ -333,6 +333,54 @@ test("startThemeWatcher: 'error' seguido de 'exit' (Node não garante exclusivid
   assert.equal(onExitCalls, 1, "'error' e 'exit' disparando os dois não deve chamar onExit duas vezes nem tentar limpar o workDir duas vezes");
 });
 
+test("startThemeWatcher: a linha READY do script aciona onReady, e só ela — CHANGED continua indo pra onChange (contrato do handshake de prontidão)", () => {
+  const child = fakeChildProcess();
+  const seen = [];
+  startThemeWatcher("Software\\Unused", {
+    onChange: () => seen.push("change"),
+    onReady: () => seen.push("ready"),
+    onExit: () => {},
+    spawnFn: () => child,
+  });
+  // PowerShell termina linha com CRLF (Write-Output), e o parser de
+  // startThemeWatcher faz trim() em cada linha -- este teste prova que faz.
+  child.stdout.emit("data", "READY\r\nCHANGED\r\n");
+  assert.deepEqual(seen, ["ready", "change"], "READY e CHANGED têm que cair em handlers diferentes, nessa ordem");
+});
+
+test("startThemeWatcher: onReady é opcional — um chamador que não passa onReady não quebra ao receber READY", () => {
+  const child = fakeChildProcess();
+  startThemeWatcher("Software\\Unused", {
+    onChange: () => {},
+    onExit: () => {},
+    spawnFn: () => child,
+  });
+  assert.doesNotThrow(() => child.stdout.emit("data", "READY\r\n"));
+});
+
+test("createWindowsAppearanceTracker: READY invalida o cache — uma mudança de tema durante a compilação do Add-Type (janela em que NÃO existe evento) não deixa o token congelado", async () => {
+  let readCount = 0;
+  const values = ["apps=light", "apps=dark"];
+  let ready = () => {};
+  const tracker = createWindowsAppearanceTracker({
+    read: async () => values[Math.min(readCount++, values.length - 1)],
+    startWatcher: (_k, { onReady }) => { ready = onReady; return fakeChildProcess(); },
+    log: { debug: () => {}, warn: () => {} },
+  });
+
+  // 1ª token(): liga o watcher (lazy-start) e lê "apps=light". Nesse
+  // instante o watcher AINDA não armou — é a janela do Add-Type.
+  assert.equal(await tracker.token(), "apps=light");
+  assert.equal(readCount, 1);
+
+  // O tema mudou DENTRO da janela: nenhum evento existe pra isso.
+  // READY chega depois. Sem a invalidação, token() devolveria o
+  // "apps=light" cacheado pra sempre.
+  ready();
+  assert.equal(await tracker.token(), "apps=dark", "depois de READY o token tem que ser relido, não servido do cache pré-armamento");
+  assert.equal(readCount, 2, "exatamente uma releitura extra por vida do watcher");
+});
+
 // --- Real machine: o watcher de verdade, contra uma chave descartável -----
 // Nunca toca HKCU\...\Personalize\AppsUseLightTheme — só uma sub-chave de
 // teste, criada e destruída por este teste. O flip real de AppsUseLightTheme
@@ -356,14 +404,25 @@ test("PLAT-07 (máquina real): startThemeWatcher detecta uma mudança REAL de re
   try {
     const changes = [];
     let exitCode;
-    const child = await new Promise((resolve) => {
+    // Espera o READY do próprio watcher, não um sleep fixo. O sleep de
+    // 800ms que estava aqui perdia a corrida sob carga: `Add-Type` compila
+    // o P/Invoke em C# antes de armar RegNotifyChangeKeyValue, e isso leva
+    // 1,8s ocioso mas >10,8s com a suite inteira rodando em paralelo —
+    // reproduzido nesta máquina (`node --test` completo: 0 !== 1 com
+    // duration 11543ms; o mesmo arquivo isolado passava 3/3 em ~1,85s).
+    // Mexer no registro antes de o watcher armar perde o evento PRA SEMPRE
+    // (RegNotifyChangeKeyValue não tem backlog), daí o teste falhar no
+    // deadline em vez de só demorar mais.
+    const child = await new Promise((resolve, reject) => {
+      const ceiling = setTimeout(
+        () => reject(new Error("watcher não emitiu READY em 60s")),
+        60_000,
+      );
       const c = startThemeWatcher(SCRATCH_KEY_PATH, {
         onChange: () => changes.push(Date.now()),
+        onReady: () => { clearTimeout(ceiling); resolve(c); },
         onExit: (code) => { exitCode = code; },
       });
-      // dá um instante pro powershell.exe subir e entrar na chamada
-      // bloqueante antes de mexermos no registro.
-      setTimeout(() => resolve(c), 800);
     });
     const pid = child.pid;
     assert.ok(pid > 0, "watcher deveria ter um pid real");

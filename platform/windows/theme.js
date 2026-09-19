@@ -116,6 +116,19 @@ export async function readWindowsIconAppearance(execFn = defaultExec) {
 // linha ASCII pura nunca é afetada por codepage.
 const CHANGED_LINE = "CHANGED";
 const KEY_MISSING_LINE = "KEY_MISSING";
+// Handshake de prontidao. O script so arma RegNotifyChangeKeyValue depois
+// que `Add-Type` compila o P/Invoke em C#, o que numa maquina carregada
+// leva segundos -- medido nesta: 1,8s ocioso, >10,8s sob a suite inteira
+// rodando em paralelo. Antes desta linha quem quisesse saber "ja da pra
+// mexer no registro?" so podia CHUTAR um sleep, e o chute perdia a corrida
+// sob carga (test/windows-theme-appearance.test.mjs usava 800ms fixos).
+// Janela residual conhecida: entre imprimir READY e entrar na chamada
+// bloqueante passam microssegundos em que a chave ainda nao esta armada.
+// Fechar isso exigiria fAsynchronous=$true + evento + WaitForSingleObject,
+// que mudaria o ciclo de vida do handle e a semantica de saida/orfao que
+// os testes PLAT-07 fixam -- nao vale o risco pra uma janela que nunca foi
+// o que falhou aqui.
+const WATCHER_READY_LINE = "READY";
 
 /**
  * Script PowerShell do watcher: abre a chave uma vez, então chama
@@ -151,6 +164,8 @@ if ($null -eq $key) {
   Write-Output "${KEY_MISSING_LINE}"
   exit 1
 }
+Write-Output "${WATCHER_READY_LINE}"
+[Console]::Out.Flush()
 try {
   while ($true) {
     $result = [DokkePlat07.RegWatch]::RegNotifyChangeKeyValue($key.Handle, $false, $filter, [IntPtr]::Zero, $false)
@@ -175,10 +190,10 @@ try {
  * passa o path via `-File`, nunca via `-Command` com o script inline
  * (evita qualquer risco de escaping).
  * @param {string} keyPath
- * @param {{onChange: () => void, onExit: (code: number|null) => void, spawnFn?: typeof spawn}} handlers
+ * @param {{onChange: () => void, onExit: (code: number|null) => void, onReady?: () => void, spawnFn?: typeof spawn}} handlers
  * @returns {import("node:child_process").ChildProcess}
  */
-export function startThemeWatcher(keyPath, { onChange, onExit, spawnFn = spawn }) {
+export function startThemeWatcher(keyPath, { onChange, onExit, onReady, spawnFn = spawn }) {
   const workDir = mkdtempSync(join(tmpdir(), "decktech-plat07 watch-"));
   const scriptPath = join(workDir, "watch-theme.ps1");
   writeFileSync(scriptPath, WATCH_SCRIPT, "utf8");
@@ -198,6 +213,9 @@ export function startThemeWatcher(keyPath, { onChange, onExit, spawnFn = spawn }
       const line = buffer.slice(0, idx).trim();
       buffer = buffer.slice(idx + 1);
       if (line === CHANGED_LINE) onChange();
+      // `onReady` e opcional: chamadores antigos (e os testes que injetam
+      // um spawnFn falso sem nunca emitir READY) seguem funcionando.
+      else if (line === WATCHER_READY_LINE) onReady?.();
     }
   });
 
@@ -339,6 +357,20 @@ export function createWindowsAppearanceTracker(deps = {}) {
     log.debug("icon.win.theme_changed", {});
   }
 
+  function onWatcherReady() {
+    // A primeira `read()` que `ensureToken()` dispara corre EM PARALELO com
+    // a compilacao do Add-Type dentro do watcher. Se o tema mudar nessa
+    // janela, nao existe evento (o processo ainda nao escutava) e o valor
+    // que a leitura trouxe pode ser o de antes da mudanca -- token
+    // congelado ate a PROXIMA mudanca, o mesmo tipo de defeito que o
+    // Round-2 achou no lazy-start. Invalidar em READY custa no maximo UMA
+    // releitura por vida do watcher e fecha a janela: dali pra frente todo
+    // evento chega, e o estado anterior e relido em vez de presumido.
+    cached = null;
+    generation++; // mesma razao do onWatcherChange: descarta leitura em voo
+    log.debug("icon.win.theme_watch_ready", {});
+  }
+
   function onWatcherExit(code) {
     // Sem auto-restart IMEDIATO: nada aqui religa o watcher síncrono/na
     // hora — reiniciar sozinho DENTRO deste handler arriscaria um
@@ -380,7 +412,7 @@ export function createWindowsAppearanceTracker(deps = {}) {
   function startInternal() {
     if (child || stopped) return;
     try {
-      child = startWatcher(keyPath, { onChange: onWatcherChange, onExit: onWatcherExit });
+      child = startWatcher(keyPath, { onChange: onWatcherChange, onReady: onWatcherReady, onExit: onWatcherExit });
     } catch (err) {
       log.warn("icon.win.theme_watch_start_failed", { message: err?.message ?? String(err) });
     }
