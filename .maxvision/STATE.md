@@ -186,7 +186,10 @@ Nenhum.
   agora de propósito: trocar a escala tipográfica do cliente inteiro é mudança de design system,
   precisa sair dos tokens da Fase 6 (`design/tokens.mjs`) em vez de seis números soltos, e é a
   Fase 15 que é dona do visual do cliente. Mesma família do achado aberto da Onda 1 sobre o `h2`
-  da galeria em 13px sem tokens de escala. *(sinalizado pelo hook impeccable, 2026-09-19)*
+  da galeria em 13px sem tokens de escala. *(sinalizado pelo hook impeccable, 2026-09-19; **decisão do usuário em 2026-09-19: fica para a
+  Fase 15**, sem suprimir o aviso — o hook vai continuar disparando a cada edição em
+  `public/index.html` e isso foi aceito como o preço de não apagar o lembrete de um problema
+  real de legibilidade)*
 
 - **[SEM FASE] Strings `Dokke` de runtime sem dono.** `server.js:1349` imprime
   `Dokke ouvindo em http://127.0.0.1:3000` no boot de um produto chamado DeckTech. Conferido:
