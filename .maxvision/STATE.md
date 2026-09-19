@@ -138,6 +138,17 @@ Nenhum.
   PLAT-07 (`windows-theme-appearance`), que era sensível a carga até o handshake `READY` de
   `d341fdb` — mas isso é hipótese, não medição.
 
+  **ATUALIZAÇÃO 2026-09-19, causa provável encontrada.** A revisão da p14 (minor m1) apontou que
+  `node --test` descobre QUALQUER `.js/.mjs/.cjs` dentro de um diretório chamado `test` — não só
+  `*.test.mjs`. Eu tinha mergeado a harness de foreground como `test/scratch/fg-harness.mjs`, e
+  o runner **executava** ela a cada rodada. Ela sobrevivia por um autoguarda
+  (`process.execArgv.some(a => a.startsWith("--test"))` → `exit(0)`) e um `exit(0)` sem asserção
+  é reportado como teste que PASSA. Ou seja: a suíte tinha uma linha verde que não verificava
+  nada, e o arquivo cujo trabalho é spawnar janelas descartáveis e roubar o foreground do sistema
+  estava a um `execArgv` frágil de rodar no meio da suíte. Movida pra `tools/`, com
+  `test/test-dir-discovery.test.mjs` travando a categoria inteira. **Não é prova** de que era
+  essa a falha — não capturei a saída — mas é exatamente a forma de defeito que a produz.
+
 - **[Fase 15] Escala tipográfica do cliente PWA abaixo do mínimo legível.** Cinco regras de
   `public/index.html` usam `font-size: 11px` — `.robscard .os:537`, `.sheet .srow .pin:659`,
   `.up-banner .up-download:739`, `:773` e `.login-card .lfoot:793`. Todas herdadas do Dokke,
