@@ -383,15 +383,15 @@ Preenchido pelo roadmap.
 | TEST-05 | Fase 13 | Pendente |
 | TEST-06 | Fase 13 | Pendente |
 | TEST-07 | Fase 13 | Pendente |
-| PLAT-05 | Fase 3 → Fase 14 | **REABERTA** — não traz a janela pra frente |
-| PLAT-11 | Fase 14 | Pendente |
-| PLAT-12 | Fase 14 | Pendente |
+| PLAT-05 | Fase 3 → Fase 14 | **Concluída** — reaberta na Fase 3, fechada na 14 via AttachThreadInput (80–100%, ver STATE.md) |
+| PLAT-11 | Fase 14 | **Concluída** — uma entrada por janela, 3 estados, monitor |
+| PLAT-12 | Fase 14 | **Concluída** — focus/minimize/close por janela, `WM_CLOSE` sem force-kill |
 | UI-13 | Fase 15 | **Concluída** em `5ff25f8` |
 | UI-14 | Fase 15 | Pendente |
 | OBS-03 | Fase 15 | Pendente |
 | ACT-01 | Fase 16 | Pendente |
 
-Total de requisitos únicos: 88 em 17 fases. Fechados: Fases 0, 1, 2, 3 e 6 = 34,
+Total de requisitos únicos: 88 em 17 fases. Concluídos: 38. Fase 14 fechada.
 mais UI-13, entregue antes de a Fase 15 existir. PLAT-05 conta como fechada na Fase 3 e
 REABERTA na Fase 14 — aparece uma vez só, com as duas fases na mesma linha.
 Esta tabela é gerada do ROADMAP, então as duas não podem divergir em silêncio.
