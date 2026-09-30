@@ -1,0 +1,30 @@
+name: Sugerir uma melhoria / Request a feature
+description: Explique o problema antes da solução proposta.
+title: "[Idea]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema / Problem
+      description: Quem enfrenta o problema e em qual situação?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Resultado desejado / Desired outcome
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Plataforma principal / Primary platform
+      options:
+        - Windows
+        - macOS
+        - Android
+        - iPhone/iPad PWA
+        - All platforms
+    validations:
+      required: true

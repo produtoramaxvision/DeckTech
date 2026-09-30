@@ -1,0 +1,54 @@
+name: Relatar um bug / Report a bug
+description: Informe um defeito reproduzível sem dados sensíveis.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Não publique PINs, tokens, chaves, IPs privados ou logs não revisados. Vulnerabilidades devem seguir SECURITY.md.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Plataforma / Platform
+      options:
+        - Windows host
+        - macOS host
+        - Android APK
+        - iPhone/iPad PWA
+        - Other browser
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versão / Version
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir / Reproduction steps
+      description: Liste passos mínimos e determinísticos.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Resultado esperado / Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Resultado observado / Actual result
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Verificações / Checks
+      options:
+        - label: Removi dados sensíveis e confirmei que isto não é uma vulnerabilidade. / I removed sensitive data and confirmed this is not a vulnerability.
+          required: true

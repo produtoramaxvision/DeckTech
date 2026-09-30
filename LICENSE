@@ -1,0 +1,35 @@
+DeckTech - documentação do repositório público / public repository documentation
+Copyright (c) 2026 Produtora MaxVision, CNPJ 38.386.434/0001-44, Diadema/SP. Todos os direitos reservados. / All rights reserved.
+
+PORTUGUÊS
+
+Os textos, imagens e demais materiais deste repositório são protegidos por
+direito autoral. Nenhuma permissão é concedida para copiá-los, modificá-los,
+distribuí-los, sublicenciá-los ou criar obras derivadas, exceto o que os Termos
+de Serviço do GitHub permitem para repositórios públicos ou mediante autorização
+prévia e por escrito da Produtora MaxVision.
+
+Este arquivo não licencia o software DeckTech. Os executáveis publicados nas
+Releases deste repositório são software proprietário, distribuído gratuitamente,
+e sua instalação e uso são regidos pelo Contrato de Licença de Uso (EULA.md).
+O código-fonte do DeckTech não é publicado. Partes do DeckTech são derivadas de
+código licenciado sob a licença MIT; esse aviso de copyright e de permissão, e
+os avisos dos demais componentes de terceiros, estão em THIRD_PARTY_NOTICES.md e
+continuam valendo para esses componentes.
+
+ENGLISH
+
+The text, images and other material in this repository are protected by
+copyright. No permission is granted to copy, modify, distribute, sublicense or
+create derivative works from them, except as the GitHub Terms of Service allow
+for public repositories or with prior written permission from Produtora
+MaxVision.
+
+This file does not license the DeckTech software. The executables published in
+this repository's Releases are proprietary software distributed free of charge;
+their installation and use are governed by the End User License Agreement
+(EULA.md, Portuguese prevailing; EULA.en.md is a convenience translation).
+DeckTech source code is not published. Parts of DeckTech are derived from code
+licensed under the MIT License; that copyright and permission notice, and the
+notices of all other third-party components, are in THIRD_PARTY_NOTICES.md and
+remain in force for those components.
