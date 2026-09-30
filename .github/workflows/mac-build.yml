@@ -1,0 +1,96 @@
+name: mac-build
+
+# macOS validation + DMG for a release gate commit of the private source repository.
+# Manual only. The run-name carries the commit so the release verifier can bind this run to
+# the gate commit (the run's own head_sha is this public repository's commit, not the source's).
+run-name: mac-build ${{ inputs.commit }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Full 40-character commit SHA of the private source repository to build
+        type: string
+        required: true
+
+permissions: {}
+
+jobs:
+  mac-build:
+    name: macOS build and validation
+    runs-on: macos-latest
+    environment: mac-build
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - name: Validate the commit input
+        shell: bash
+        env:
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          if [[ ! "$COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::commit must be a full 40-character lowercase hexadecimal SHA"
+            exit 1
+          fi
+      # Read-only deploy key of the private repository. The credential is not persisted in the
+      # checkout's git config, and there is no cache step anywhere in this workflow.
+      - name: Check out the private source at the exact commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: produtoramaxvision/DeckTech-app
+          ref: ${{ inputs.commit }}
+          ssh-key: ${{ secrets.DECKTECH_APP_DEPLOY_KEY }}
+          persist-credentials: false
+          show-progress: false
+          path: app
+      - name: Assert the checked-out commit is the requested one
+        shell: bash
+        env:
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          actual="$(git -C app rev-parse HEAD)"
+          if [[ "$actual" != "$COMMIT" ]]; then
+            echo "::error::checked-out HEAD does not equal the requested commit"
+            exit 1
+          fi
+      # pnpm's version comes from the `packageManager` field of the private package.json.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: app/package.json
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      # One private script runs the whole validation and the DMG build. Its stdout carries only
+      # step names, PASS/FAIL, durations and the node test summary counters; the full log is
+      # encrypted to a public key at exit, so nothing of the source reaches this repository's logs.
+      - name: Build macOS tester package
+        shell: bash
+        working-directory: app
+        env:
+          EXPECTED_COMMIT: ${{ inputs.commit }}
+          MAC_BUILD_LOG_DIR: ${{ runner.temp }}/mac-build-log
+        run: bash tools/ci/mac-public-build.sh
+      - name: Upload macOS tester package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: DeckTech-macOS-tester
+          path: |
+            app/mac/dist/DeckTech-macOS.dmg
+            app/mac/dist/DeckTech-macOS.dmg.sha256
+            app/mac/dist/DeckTech-macOS.dmg.provenance.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+      - name: Upload encrypted build log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mac-build-log-encrypted
+          path: |
+            ${{ runner.temp }}/mac-build-log/mac-build.log.enc
+            ${{ runner.temp }}/mac-build-log/mac-build.log.key.enc
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
