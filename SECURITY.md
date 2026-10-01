@@ -1,30 +1,8 @@
-# Política de Segurança / Security Policy
+English | [Português (Brasil)](SECURITY.pt-BR.md)
 
-Responsável: Produtora MaxVision, CNPJ 38.386.434/0001-44, Diadema/SP.
+# Security Policy
 
-## Versões suportadas
-
-Somente a versão publicada como [release mais recente](https://github.com/produtoramaxvision/DeckTech/releases/latest) recebe correções de segurança. Versões anteriores não são suportadas.
-
-## Relatar uma vulnerabilidade
-
-Não abra Issue ou Discussion pública. Abra a página [Security > Advisories](https://github.com/produtoramaxvision/DeckTech/security/advisories) e use o botão **Report a vulnerability** (relato privado de vulnerabilidade do GitHub).
-
-Se você não tiver uma conta no GitHub, envie o relato para [contato@decktech.com.br](mailto:contato@decktech.com.br) e identifique a mensagem como assunto de segurança. O relato deve continuar privado.
-
-Inclua a versão, plataforma, impacto, passos mínimos para reproduzir e, se possível, uma sugestão de correção. Remova PINs, tokens, chaves, dados pessoais e detalhes de instalações reais. Os mantenedores farão a triagem pelo canal privado utilizado; não há SLA garantido.
-
-## Endurecimento do servidor local
-
-O servidor do host só aceita requisições cujo cabeçalho `Host` seja `localhost` ou um endereço IP desta máquina. Quando o cabeçalho `Origin` está presente, o servidor rejeita mudanças de estado se o esquema, o host e a porta não corresponderem à origem da própria requisição; clientes nativos podem omitir o `Origin`, sem que isso dispense a autenticação. Isso impede que uma página da web use um nome DNS controlado para alcançar o servidor local (DNS rebinding). O PIN continua sendo o controle de acesso; esse endurecimento não substitui uma rede local confiável no fluxo HTTP do navegador e da PWA.
-
-## Escopo do pareamento
-
-Um link de pareamento (`decktech://pair`) só é aceito se o host nele apontar para a rede local (LAN, endereço privado RFC 1918) da própria instalação ou para o Tailscale dela (100.64.0.0/10); qualquer outro endereço é recusado, mesmo que o link tenha uma assinatura válida — o DeckTech nunca pareia pela internet. Ao anunciar o pareamento, o Windows e o macOS preferem sempre um endereço de rede privada quando o computador tem mais de um, e mostram um aviso na tela Conectar quando nenhum está disponível, em vez de oferecer um QR que o app Android recusaria de qualquer forma. Um link de pareamento aberto fora do próprio app (câmera, navegador ou outro app) sempre exige confirmação explícita, com o host e a porta em destaque e o botão de cancelar focado por padrão.
-
-## Bloqueio por PIN e permissões do Electron
-
-O acesso por PIN é protegido contra força bruta: 5 falhas do mesmo endereço bloqueiam esse endereço por 60 segundos, dobrando a cada novo bloqueio seguido até 1h; um limite global bloqueia novos logins por PIN de qualquer endereço por 30 minutos após 5 endereços DISTINTOS falharem dentro de 2 horas (falhas repetidas do mesmo endereço não contam mais de uma vez — um único cliente mal-comportado nunca dispara o bloqueio global sozinho), dobrando até 24h a cada novo gatilho (aparelhos já conectados continuam funcionando). Mesmo o PIN correto é recusado enquanto um desses bloqueios estiver ativo, e a resposta informa quanto tempo falta. No app Windows (Electron), qualquer solicitação de permissão do navegador embutido (câmera, notificações, geolocalização etc.) é negada por padrão desde antes da primeira janela aberta (incluindo a tela do contrato de licença), como defesa em profundidade — a interface hoje não solicita nenhuma.
+Responsible party: Produtora MaxVision, CNPJ 38.386.434/0001-44, Diadema/SP.
 
 ## Supported versions
 
@@ -44,7 +22,7 @@ The host server only accepts requests whose `Host` header is `localhost` or an I
 
 ## Pairing scope
 
-A pairing link (`decktech://pair`) is only accepted if its host points to the installation's own local network (LAN, an RFC 1918 private address) or its Tailscale overlay (100.64.0.0/10); any other address is rejected, even with a validly formed link — DeckTech never pairs over the internet. When advertising itself for pairing, Windows and macOS always prefer a private-network address when the computer has more than one, and show a notice on the Connect screen when none is available, instead of offering a QR code the Android app would reject anyway. A pairing link opened outside the app itself (camera, browser, or another app) always requires explicit confirmation, with the host and port highlighted and the cancel button focused by default.
+The Android app only accepts a pairing link (`decktech://pair`) whose host is a private-network IPv4 address (RFC 1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), an address in Tailscale's range (100.64.0.0/10) or a `.local` name; any other address is rejected, even with a validly formed link — DeckTech never pairs over the internet. The app checks the range of the address, not whether it belongs to a specific computer: the security code and the PIN still have to match the computer you mean to pair with. When advertising itself for pairing, Windows and macOS always prefer a private-network address when the computer has more than one, and show a notice on the Connect screen when none is available, instead of offering a QR code the Android app would reject anyway. A pairing link opened outside the app itself (camera, browser, or another app) requires explicit confirmation, with the host and port highlighted and the cancel button focused by default; the only link accepted without that dialog is one identical to the connection the app already has saved.
 
 ## PIN lockout and Electron permissions
 

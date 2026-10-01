@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Dúvidas e suporte / Questions and support
+  - name: Questions and support (Dúvidas e suporte)
     url: https://github.com/produtoramaxvision/DeckTech/discussions
-    about: Use Discussions para ajuda sem dados sensíveis.
-  - name: Relatar uma vulnerabilidade / Report a vulnerability
+    about: Use Discussions for help that involves no sensitive data. (Use Discussions para ajuda sem dados sensíveis.)
+  - name: Report a vulnerability (Relatar uma vulnerabilidade)
     url: https://github.com/produtoramaxvision/DeckTech/security/advisories
-    about: Envie detalhes de segurança somente pelo canal privado.
+    about: Send security details only through the private channel. (Envie detalhes de segurança somente pelo canal privado.)
