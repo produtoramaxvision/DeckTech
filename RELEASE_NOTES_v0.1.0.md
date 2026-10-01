@@ -42,7 +42,3 @@ The [README](https://github.com/produtoramaxvision/DeckTech/blob/main/README.md)
 ## Checksums
 
 SHA-256 checksums are in `SHA256SUMS.txt`. The DMG also has `DeckTech-macOS.dmg.sha256`.
-
-## Next version
-
-v0.1.1 is planned to expand live controls with new microphone, streaming and recording buttons, OBS sources and transitions, sounds, browser tabs, and a press-and-drag hold menu.
