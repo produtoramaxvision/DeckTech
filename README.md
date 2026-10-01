@@ -8,72 +8,72 @@
 
 <h1 align="center">DeckTech</h1>
 
-<p align="center"><a href="README.en.md">Read in English</a></p>
+<p align="center"><strong>English</strong> | <a href="README.pt-BR.md">Português (Brasil)</a></p>
 
-O DeckTech transforma um Mac ou PC Windows em host de um dock remoto. O aplicativo inicia um servidor Node.js local e entrega a interface aos dispositivos da mesma rede por APK Android, PWA no iPhone ou navegador.
+DeckTech turns a Mac or Windows PC into the host for a remote app dock. The application starts a local Node.js server and provides its interface to devices on the same network through the Android APK, an iPhone PWA, or a browser.
 
-Este repositório público contém somente documentação, suporte à comunidade e releases oficiais. O código-fonte do DeckTech é proprietário e não é publicado.
+This public repository contains only documentation, community support, and official releases. DeckTech is proprietary software and its source code is not published.
 
-Responsável e licenciante: Produtora MaxVision, CNPJ 38.386.434/0001-44, Diadema/SP.
+Responsible party and licensor: Produtora MaxVision, CNPJ 38.386.434/0001-44, Diadema/SP.
 
 ## Downloads
 
-| Plataforma | Download direto |
+| Platform | Direct download |
 |---|---|
-| Windows 11 (x64, build 22000 ou superior) | [`DeckTech-Setup.exe`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/DeckTech-Setup.exe) |
+| Windows 11 (x64, build 22000 or later) | [`DeckTech-Setup.exe`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/DeckTech-Setup.exe) |
 | Android 5.0+ | [`decktech.apk`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/decktech.apk) |
 | macOS 14+ | [`DeckTech-macOS.dmg`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/DeckTech-macOS.dmg) |
 
-Consulte também a [release mais recente](https://github.com/produtoramaxvision/DeckTech/releases/latest) e o arquivo [`SHA256SUMS.txt`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/SHA256SUMS.txt). Não instale APK Debug nem arquivos recebidos por canais não oficiais.
+You can also review the [latest release](https://github.com/produtoramaxvision/DeckTech/releases/latest) and [`SHA256SUMS.txt`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/SHA256SUMS.txt). Never install a Debug APK or files received through unofficial channels.
 
-## Instalação e primeira execução
+## Installation and first run
 
 ### Windows
 
-1. Baixe e execute `DeckTech-Setup.exe`.
-2. O instalador atual não tem assinatura de código. Se o Microsoft Defender SmartScreen aparecer, confira se o arquivo veio deste repositório e se o SHA-256 confere; então selecione **Mais informações** e **Executar assim mesmo** somente se aceitar o risco.
-3. Na primeira abertura, o DeckTech mostra o contrato de licença (EULA): marque a caixa de confirmação para habilitar **Aceitar e começar**, ou escolha **Recusar e sair** para fechar o aplicativo sem instalar nada.
-4. O DeckTech requer Windows 11 (build 22000 ou superior); o instalador recusa versões anteriores. Na aba **Conectar**, o host mostra o endereço local e o código de acesso (PIN) de seis dígitos — só aparece um endereço aqui se o computador estiver numa rede local (Wi-Fi ou Ethernet), não apenas numa VPN.
+1. Download and run `DeckTech-Setup.exe`.
+2. The current installer is unsigned. If Microsoft Defender SmartScreen appears, confirm that the file came from this repository and that its SHA-256 matches; select **More info** and **Run anyway** only if you accept the risk.
+3. On first launch, DeckTech shows the license agreement (EULA): tick the agreement checkbox to enable **Accept and start**, or choose **Decline and quit** to close the app. Declining is not remembered: the agreement is shown again on the next launch, and the app stays installed until you remove it in **Settings > Apps**. The button labels are in Portuguese (**Aceitar e começar** / **Recusar e sair**) when your system language is Portuguese.
+4. DeckTech requires Windows 11 (build 22000 or later); the installer refuses earlier versions. The host UI on Windows is in Portuguese only in this release: its **Conectar** (Connect) tab shows the local address and the six-digit access code (PIN) — an address only shows up here if the computer is on a local network (Wi-Fi or Ethernet), not just a VPN.
 
 ### macOS
 
-1. Baixe `DeckTech-macOS.dmg`, abra a imagem e arraste o DeckTech para **Aplicativos**.
-2. O aplicativo usa assinatura ad hoc e não é notarizado. Tente abrir com clique direito em **DeckTech** e **Abrir**. Se o Gatekeeper bloquear, tente abrir uma vez e use **Ajustes do Sistema > Privacidade e Segurança > Segurança > Abrir Mesmo Assim**.
-3. Na primeira abertura, aceite o contrato de licença (EULA) exibido antes da janela principal.
-4. Abra a aba **Conectar** para ver o endereço local e o PIN. Diferente do Windows, o app de macOS tem um seletor de idioma (Português/English) nessa mesma aba, e os rótulos seguem o idioma escolhido ali.
+1. Download `DeckTech-macOS.dmg`, open it, and drag DeckTech to **Applications**.
+2. The app is ad-hoc signed and not notarized. Control-click **DeckTech**, choose **Open**, and confirm. If Gatekeeper blocks it, try once and use **System Settings > Privacy & Security > Security > Open Anyway**.
+3. On first launch, accept the license agreement (EULA) shown before the main window.
+4. Open the **Connect** tab to see the local address and PIN. Unlike Windows, the macOS app has a language picker (Português/English) in that same tab, and its labels follow whichever language you choose there.
 
 ### Android
 
-1. Baixe `decktech.apk` neste repositório e autorize a instalação pelo navegador quando o Android solicitar.
-2. Na primeira abertura, aceite o contrato de licença (EULA) exibido no app.
-3. No host Windows ou macOS, abra **Conectar > App Android** e escaneie o QR com a câmera do telefone. O APK passa a confiar somente no certificado HTTPS daquele computador. O computador e o telefone precisam estar na mesma rede local (LAN) ou no mesmo Tailscale: um link de pareamento apontando para qualquer outro endereço é recusado por segurança (veja [SUPPORT.md](SUPPORT.md#solução-de-problemas)).
-4. Se o app encontrar o computador pela descoberta automática, ele mostra um código de segurança de 16 caracteres (`XXXX-XXXX-XXXX-XXXX`). Confirme somente se for igual, caractere por caractere, ao **Código de segurança** exibido na aba **Conectar** do host.
-5. Digite o PIN de seis dígitos. Se o certificado do computador mudar, o app pede uma nova confirmação. Se você abrir o link de pareamento fora do app (pela câmera, pelo navegador ou por outro app), o DeckTech sempre pede uma confirmação extra antes de conectar — só confirme se foi você mesmo que abriu ou escaneou o link agora.
+1. Download `decktech.apk` from this repository and allow installation from the browser when Android asks.
+2. On first launch, accept the license agreement (EULA) shown in the app.
+3. On a Windows or macOS host, open **Connect > Android app** (on Windows: **Conectar > App Android**) and scan the QR code with the phone camera. The APK then trusts only that computer's HTTPS certificate. The computer and phone must be on the same local network (LAN) or the same Tailscale; a pairing link pointing anywhere else is rejected for security (see [Troubleshooting in SUPPORT.md](SUPPORT.md#troubleshooting)).
+4. When the app finds the computer through automatic discovery, it shows a 16-character security code (`XXXX-XXXX-XXXX-XXXX`). Confirm only if it matches, character for character, the **Security code** (on Windows: **Código de segurança**) on the host's **Connect** tab.
+5. Enter the six-digit PIN. If the computer's certificate changes, the app asks you to confirm again. If you open the pairing link outside the app (through the camera, a browser, or another app), DeckTech asks for an extra confirmation before connecting (the one exception is a link identical to the connection the app already has saved) — only confirm if you are the one who just opened or scanned the link.
 
-### iPhone, iPad e navegador
+### iPhone, iPad, and browsers
 
-1. No host, abra **Conectar > Navegador**.
-2. Escaneie ou digite a URL HTTP local no Safari ou navegador.
-3. Informe o PIN de seis dígitos. No Safari, use **Compartilhar > Adicionar à Tela de Início** para instalar a PWA.
+1. On the host, open **Connect > Browser** (on Windows: **Conectar > Navegador**).
+2. Scan or enter the local HTTP URL in Safari or another browser.
+3. Enter the six-digit PIN. In Safari, use **Share > Add to Home Screen** to install the PWA.
 
-O navegador usa HTTP na rede local. Use a PWA somente em uma LAN confiável: o PIN controla o acesso, mas HTTP não impede que outro participante da rede observe ou altere o tráfego. Para o Android, prefira sempre o fluxo HTTPS fixado do QR **App Android**.
+The browser connection uses HTTP on the local network. Use the PWA only on a trusted LAN: the PIN controls access, but HTTP cannot prevent another network participant from observing or changing traffic. On Android, always prefer the pinned HTTPS flow in the **Android app** QR.
 
 ## OBS Studio
 
-Na v0.1.0, a gaveta **OBS Commander** permite trocar cenas, iniciar e parar gravações e transmissões e fixar cenas no dock pela estrela ao lado de cada cena. Execute o OBS no mesmo computador que hospeda o DeckTech.
+In v0.1.0, the **OBS Commander** drawer can switch scenes, start and stop recording and streaming, and pin scenes to the dock using the star beside each scene. Run OBS on the same computer that hosts DeckTech.
 
-1. No OBS, abra **Ferramentas › Configurações do servidor WebSocket**.
-2. Marque **Ativar servidor WebSocket** e use **Porta do servidor: 4455**.
-3. Mantenha **Habilitar autenticação** marcado e clique em **Mostrar informações da conexão**.
-4. Copie a senha, cole no campo da gaveta OBS do DeckTech e toque em **Salvar e conectar**.
+1. In OBS, open **Tools › WebSocket Server Settings**.
+2. Tick **Enable WebSocket server** and use **Server Port: 4455**.
+3. Keep **Enable Authentication** ticked and click **Show Connect Info**.
+4. Copy the password, paste it into DeckTech's OBS drawer and tap **Save and connect**.
 
-O DeckTech também conecta se a autenticação do OBS estiver desativada, mas recomendamos mantê-la ativada. A senha salva fica somente no computador host, em `.obs-password`, nunca é devolvida ao telefone pelas respostas da API ou pelo feed WebSocket. Se você digitá-la no telefone, ela é enviada ao host ao salvar; prefira o Android com HTTPS para essa configuração. O arquivo usa ACL restrita ao usuário proprietário no Windows e permissão `0600` no macOS; o DeckTech reaplica essa proteção ao iniciar. Uma falha na aplicação da ACL é registrada no log, e um administrador pode retomar acesso ao arquivo.
+DeckTech also connects when OBS authentication is disabled, but we recommend leaving it enabled. The saved password stays only on the host computer in `.obs-password`; it is never returned to the phone in API responses or the WebSocket feed. If you enter it on the phone, it is sent to the host when saving; prefer Android with HTTPS for this setup. The file uses an owner-only ACL on Windows and `0600` permissions on macOS; DeckTech reapplies this protection at startup. ACL failures are logged, and an administrator can reclaim access to the file.
 
-Se não conectar, confirme que o OBS está aberto e o servidor WebSocket ativado. Para **senha incorreta**, copie novamente a senha atual do OBS e salve. Se a porta for diferente de **4455**, ajuste-a nas configurações do OBS. Não é necessária uma regra de firewall para a ligação DeckTech–OBS: ela é local, em `127.0.0.1`, no mesmo computador (isso não altera os requisitos de rede entre telefone e DeckTech).
+If connection fails, check that OBS is open and its WebSocket server is enabled. For a **wrong password**, copy the current password from OBS again and save it. If the port differs from **4455**, change it in OBS settings. No firewall rule is needed for the DeckTech–OBS connection: it stays local at `127.0.0.1` on the same computer (this does not change the network requirements between the phone and DeckTech).
 
-## Verificar os checksums
+## Verify checksums
 
-Baixe o artefato e `SHA256SUMS.txt` na mesma pasta. Compare o hash do arquivo com a linha correspondente:
+Download the artifact and `SHA256SUMS.txt` to the same folder, then compare the file hash with its line:
 
 ```powershell
 certutil -hashfile DeckTech-Setup.exe SHA256
@@ -84,23 +84,23 @@ shasum -a 256 DeckTech-macOS.dmg
 sha256sum decktech.apk
 ```
 
-O arquivo [`DeckTech-macOS.dmg.sha256`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/DeckTech-macOS.dmg.sha256) também verifica especificamente o DMG.
+[`DeckTech-macOS.dmg.sha256`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/DeckTech-macOS.dmg.sha256) also verifies the DMG specifically.
 
-## Termos, privacidade e componentes de terceiros
+## Terms, privacy, and third-party components
 
-- [Contrato de Licença de Uso (EULA)](EULA.md) e [English translation](EULA.en.md)
-- [Aviso de Privacidade](PRIVACY.md)
-- [Avisos de terceiros](THIRD_PARTY_NOTICES.md)
-- [Licença desta documentação](LICENSE)
+- [End User License Agreement (EULA), Portuguese](EULA.md): the legally binding version; the English text is [EULA.en.md](EULA.en.md), a courtesy translation. The Windows first-launch screen shows both texts (English first unless your system language is Portuguese); if the two differ, the Portuguese text prevails.
+- [Privacy Notice](PRIVACY.md)
+- [Third-party notices](THIRD_PARTY_NOTICES.md)
+- [License for this documentation](LICENSE)
 
-Os binários são gratuitos, proprietários e licenciados pelo EULA. Licenças de componentes de terceiros continuam valendo para esses componentes.
+The binaries are free of charge, proprietary, and licensed under the EULA. Third-party licenses continue to apply to their respective components.
 
-## Suporte e segurança
+## Support and security
 
-- Bugs reproduzíveis: [abrir uma Issue](https://github.com/produtoramaxvision/DeckTech/issues/new?template=bug_report.yml)
-- Ideias: [abrir uma Discussion](https://github.com/produtoramaxvision/DeckTech/discussions/categories/ideas)
-- Instalação e dúvidas: [SUPPORT.md](SUPPORT.md)
-- Contato direto: [contato@decktech.com.br](mailto:contato@decktech.com.br)
-- Vulnerabilidades: [SECURITY.md](SECURITY.md), sem publicar detalhes sensíveis em Issues
+- Reproducible bugs: [open an Issue](https://github.com/produtoramaxvision/DeckTech/issues/new?template=bug_report.yml)
+- Ideas: [start a Discussion](https://github.com/produtoramaxvision/DeckTech/discussions/categories/ideas)
+- Installation and questions: [SUPPORT.md](SUPPORT.md)
+- Direct contact: [contato@decktech.com.br](mailto:contato@decktech.com.br)
+- Vulnerabilities: [SECURITY.md](SECURITY.md); do not publish sensitive details in Issues
 
-Ao participar, siga o [Código de Conduta](CODE_OF_CONDUCT.md). O repositório não recebe Pull Requests de código; veja [CONTRIBUTING.md](CONTRIBUTING.md).
+Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md). The repository does not accept source-code pull requests; see [CONTRIBUTING.md](CONTRIBUTING.md).

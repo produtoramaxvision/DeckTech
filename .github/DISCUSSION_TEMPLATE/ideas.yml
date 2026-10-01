@@ -4,17 +4,17 @@ body:
   - type: textarea
     id: problem
     attributes:
-      label: Qual problema você quer resolver? / What problem should be solved?
+      label: What problem should be solved? (Qual problema você quer resolver?)
     validations:
       required: true
   - type: textarea
     id: context
     attributes:
-      label: Contexto / Context
-      description: Informe plataforma e fluxo, sem dados sensíveis.
+      label: Context (Contexto)
+      description: Give the platform and workflow, without sensitive data. (Informe plataforma e fluxo, sem dados sensíveis.)
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: Sugestão / Suggestion
+      label: Suggestion (Sugestão)

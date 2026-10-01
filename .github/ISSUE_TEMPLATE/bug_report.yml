@@ -1,16 +1,20 @@
-name: Relatar um bug / Report a bug
-description: Informe um defeito reproduzível sem dados sensíveis.
+name: Report a bug
+description: Report a reproducible defect, without sensitive data. (Relate um defeito reproduzível, sem dados sensíveis.)
 title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Não publique PINs, tokens, chaves, IPs privados ou logs não revisados. Vulnerabilidades devem seguir SECURITY.md.
+        Write in English or Portuguese (Escreva em inglês ou português).
+
+        Do not post PINs, tokens, keys, private IP addresses, or unreviewed logs. Vulnerabilities must follow [SECURITY.md](https://github.com/produtoramaxvision/DeckTech/blob/main/SECURITY.md) and must not be reported here.
+
+        Não publique PINs, tokens, chaves, IPs privados ou logs não revisados. Vulnerabilidades seguem o [SECURITY.pt-BR.md](https://github.com/produtoramaxvision/DeckTech/blob/main/SECURITY.pt-BR.md).
   - type: dropdown
     id: platform
     attributes:
-      label: Plataforma / Platform
+      label: Platform (Plataforma)
       options:
         - Windows host
         - macOS host
@@ -22,33 +26,33 @@ body:
   - type: input
     id: version
     attributes:
-      label: Versão / Version
+      label: Version (Versão)
       placeholder: v0.1.0
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
-      label: Passos para reproduzir / Reproduction steps
-      description: Liste passos mínimos e determinísticos.
+      label: Reproduction steps (Passos para reproduzir)
+      description: List minimal, deterministic steps. (Liste passos mínimos e determinísticos.)
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: Resultado esperado / Expected result
+      label: Expected result (Resultado esperado)
     validations:
       required: true
   - type: textarea
     id: actual
     attributes:
-      label: Resultado observado / Actual result
+      label: Actual result (Resultado observado)
     validations:
       required: true
   - type: checkboxes
     id: checks
     attributes:
-      label: Verificações / Checks
+      label: Checks (Verificações)
       options:
-        - label: Removi dados sensíveis e confirmei que isto não é uma vulnerabilidade. / I removed sensitive data and confirmed this is not a vulnerability.
+        - label: I removed sensitive data and confirmed this is not a vulnerability. (Removi dados sensíveis e confirmei que isto não é uma vulnerabilidade.)
           required: true
