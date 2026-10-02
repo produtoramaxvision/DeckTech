@@ -33,12 +33,21 @@ jobs:
             echo "::error::commit must be a full 40-character lowercase hexadecimal SHA"
             exit 1
           fi
+      - name: Validate the app repository secret
+        shell: bash
+        env:
+          APP_REPO: ${{ secrets.DECKTECH_APP_REPOSITORY }}
+        run: |
+          if [[ ! "$APP_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "::error::DECKTECH_APP_REPOSITORY secret must be configured in owner/name form"
+            exit 1
+          fi
       # Read-only deploy key of the private repository. The credential is not persisted in the
       # checkout's git config, and there is no cache step anywhere in this workflow.
       - name: Check out the private source at the exact commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: produtoramaxvision/DeckTech-app
+          repository: ${{ secrets.DECKTECH_APP_REPOSITORY }}
           ref: ${{ inputs.commit }}
           ssh-key: ${{ secrets.DECKTECH_APP_DEPLOY_KEY }}
           persist-credentials: false
