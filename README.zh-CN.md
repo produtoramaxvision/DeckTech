@@ -11,6 +11,7 @@
 <p align="center"><a href="README.md">English</a> | <a href="README.pt-BR.md">Português (Brasil)</a> | <a href="README.es.md">Español</a> | <a href="README.ru.md">Русский</a> | <strong>简体中文</strong></p>
 
 DeckTech 可以把 Mac 或 Windows 电脑变成远程应用 Dock 的主机。应用会启动一个本地 Node.js 服务器，并通过 Android APK、iPhone 上的 PWA 或浏览器，向同一网络中的设备提供界面。
+使用 DeckTech PRO，手机还可以通过 Home Assistant 和 Philips Hue（Beta）控制家居。
 
 本指南适用于 DeckTech v0.1.1。
 
@@ -29,6 +30,15 @@ DeckTech 可以把 Mac 或 Windows 电脑变成远程应用 Dock 的主机。应
 | macOS 14+ | [`DeckTech-macOS.dmg`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/DeckTech-macOS.dmg) |
 
 你也可以查看[最新发布版本](https://github.com/produtoramaxvision/DeckTech/releases/latest)和 [`SHA256SUMS.txt`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/SHA256SUMS.txt)。切勿安装调试版（Debug）APK，也不要安装通过非官方渠道获得的文件。
+
+## 使用 AI 代理安装
+
+将以下提示词粘贴到你的编程或桌面代理中，让它帮助安装 DeckTech 并说明使用方法。
+代理必须在修改前征得你的同意，密码输入和安全确认由你本人完成。
+
+```text
+Help me install and set up DeckTech. Respond in my language and ask before each step that changes my system. Detect my OS: Windows 10/11, 64-bit x64, build 10240 or later, or macOS 14 or later; stop if unsupported. Read the README and manual from the official produtoramaxvision/DeckTech GitHub repository, and follow their documented installation steps without inventing command flags. Download release files ONLY from https://github.com/produtoramaxvision/DeckTech/releases/latest: DeckTech-Setup.exe for Windows, DeckTech-macOS.dmg for macOS, decktech.apk only if I want Android, SHA256SUMS.txt, and optionally DeckTech-macOS.dmg.sha256. Verify each artifact's SHA-256 against SHA256SUMS.txt BEFORE running or opening it; stop if a checksum is missing or differs. On Windows, run the installer; if SmartScreen appears, let me confirm the official source and matching hash and select More info / Run anyway only if I accept the risk. On macOS, open the DMG and drag DeckTech to Applications; let me Control-click DeckTech, choose Open and confirm; if Gatekeeper blocks it, try once and use System Settings > Privacy & Security > Security > Open Anyway. Never ask for, receive or type passwords; never disable security software or run as administrator beyond what the installer itself asks. Leave password entry and security confirmations to me. Guide first use in order: open DeckTech, let me read and accept the licence, pair my phone using the QR code / six-digit access code on the same Wi-Fi, pin my first apps, optionally connect OBS with me entering its password privately, optionally activate PRO with me entering my licence privately, and show me the manual in the same repository. Explain each step and stop for my approval before changes.
+```
 
 ## 安装与首次运行
 

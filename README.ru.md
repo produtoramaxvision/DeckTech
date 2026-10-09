@@ -11,6 +11,7 @@
 <p align="center"><a href="README.md">English</a> | <a href="README.pt-BR.md">Português (Brasil)</a> | <a href="README.es.md">Español</a> | <strong>Русский</strong> | <a href="README.zh-CN.md">简体中文</a></p>
 
 DeckTech превращает Mac или компьютер с Windows в хост удалённой док-панели приложений. Приложение запускает локальный сервер Node.js и предоставляет свой интерфейс устройствам в той же сети через Android-приложение (APK), PWA на iPhone или браузер.
+С DeckTech PRO телефон также управляет домом через Home Assistant и Philips Hue (Beta).
 
 Это руководство относится к DeckTech v0.1.1.
 
@@ -29,6 +30,15 @@ DeckTech превращает Mac или компьютер с Windows в хос
 | macOS 14+ | [`DeckTech-macOS.dmg`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/DeckTech-macOS.dmg) |
 
 Также можно открыть [последний релиз](https://github.com/produtoramaxvision/DeckTech/releases/latest) и файл [`SHA256SUMS.txt`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/SHA256SUMS.txt). Никогда не устанавливайте отладочный APK (Debug) и файлы, полученные неофициальными способами.
+
+## Установка с помощью ИИ-агента
+
+Вставьте следующий запрос в своего агента для программирования или работы с компьютером, чтобы установить DeckTech и научиться им пользоваться.
+Агент должен спрашивать разрешение перед изменениями, а ввод паролей и подтверждения безопасности оставлять вам.
+
+```text
+Help me install and set up DeckTech. Respond in my language and ask before each step that changes my system. Detect my OS: Windows 10/11, 64-bit x64, build 10240 or later, or macOS 14 or later; stop if unsupported. Read the README and manual from the official produtoramaxvision/DeckTech GitHub repository, and follow their documented installation steps without inventing command flags. Download release files ONLY from https://github.com/produtoramaxvision/DeckTech/releases/latest: DeckTech-Setup.exe for Windows, DeckTech-macOS.dmg for macOS, decktech.apk only if I want Android, SHA256SUMS.txt, and optionally DeckTech-macOS.dmg.sha256. Verify each artifact's SHA-256 against SHA256SUMS.txt BEFORE running or opening it; stop if a checksum is missing or differs. On Windows, run the installer; if SmartScreen appears, let me confirm the official source and matching hash and select More info / Run anyway only if I accept the risk. On macOS, open the DMG and drag DeckTech to Applications; let me Control-click DeckTech, choose Open and confirm; if Gatekeeper blocks it, try once and use System Settings > Privacy & Security > Security > Open Anyway. Never ask for, receive or type passwords; never disable security software or run as administrator beyond what the installer itself asks. Leave password entry and security confirmations to me. Guide first use in order: open DeckTech, let me read and accept the licence, pair my phone using the QR code / six-digit access code on the same Wi-Fi, pin my first apps, optionally connect OBS with me entering its password privately, optionally activate PRO with me entering my licence privately, and show me the manual in the same repository. Explain each step and stop for my approval before changes.
+```
 
 ## Установка и первый запуск
 

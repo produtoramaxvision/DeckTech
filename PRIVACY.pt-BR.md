@@ -145,7 +145,7 @@ O DeckTech não é dirigido a crianças.
 
 ## Este site
 
-O site decktech.com.br é hospedado na Cloudflare, que processa dados técnicos das requisições, como endereço IP, para entregar e proteger o site, conforme a [Política de Privacidade da Cloudflare](https://www.cloudflare.com/privacypolicy/). Sem consentimento de marketing, as páginas não carregam recursos de rastreamento de terceiros; a Cloudflare pode definir cookies técnicos próprios de segurança conforme a política dela. As preferências de tema e idioma ficam salvas apenas no seu navegador. Os links para a compra levam à página de pagamento da Stripe, e os links para o GitHub (Issues, Discussions e versões) levam a páginas do GitHub; o que você publicar lá fica público e segue os termos e a política de privacidade do GitHub.
+O site decktech.com.br é hospedado na Cloudflare, que processa dados técnicos das requisições, como endereço IP, para entregar e proteger o site, conforme a [Política de Privacidade da Cloudflare](https://www.cloudflare.com/privacypolicy/). Sem consentimento de marketing, as páginas não carregam recursos de rastreamento de marketing de terceiros; a Cloudflare pode definir cookies técnicos próprios de segurança conforme a política dela. O Cloudflare Web Analytics mede visitas ao site sem cookies e sem identificar o visitante. As preferências de tema e idioma ficam salvas apenas no seu navegador. Os links para a compra levam à página de pagamento da Stripe, e os links para o GitHub (Issues, Discussions e versões) levam a páginas do GitHub; o que você publicar lá fica público e segue os termos e a política de privacidade do GitHub.
 
 ## Cookies opcionais de marketing
 
