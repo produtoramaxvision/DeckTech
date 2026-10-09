@@ -8,19 +8,21 @@
 
 <h1 align="center">DeckTech</h1>
 
-<p align="center"><strong>English</strong> | <a href="README.pt-BR.md">Português (Brasil)</a></p>
+<p align="center"><strong>English</strong> | <a href="README.pt-BR.md">Português (Brasil)</a> | <a href="README.es.md">Español</a> | <a href="README.ru.md">Русский</a> | <a href="README.zh-CN.md">简体中文</a></p>
 
-DeckTech turns a Mac or Windows PC into the host for a remote app dock. The application starts a local Node.js server and provides its interface to devices on the same network through the Android APK, an iPhone PWA, or a browser.
+DeckTech turns a Mac or Windows PC into the host for a remote app dock. It provides 40 buttons across 5 pages (8 buttons per page) to launch and switch apps on your computer. The application starts a local Node.js server and provides its interface to devices on the same network through the Android APK, an iPhone PWA, or a browser.
+
+This guide covers DeckTech v0.1.1. The [DeckTech Manual](MANUAL.md) explains the panel, OBS, PRO and every gesture and action.
 
 This public repository contains only documentation, community support, and official releases. DeckTech is proprietary software and its source code is not published.
 
-Responsible party and licensor: Produtora MaxVision, CNPJ 38.386.434/0001-44, Diadema/SP.
+Responsible party and licensor: Produtora MaxVision, São Paulo/Brasil.
 
 ## Downloads
 
 | Platform | Direct download |
 |---|---|
-| Windows 11 (x64, build 22000 or later) | [`DeckTech-Setup.exe`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/DeckTech-Setup.exe) |
+| Windows 10 or 11 (64-bit, x64, build 10240 or later) | [`DeckTech-Setup.exe`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/DeckTech-Setup.exe) |
 | Android 5.0+ | [`decktech.apk`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/decktech.apk) |
 | macOS 14+ | [`DeckTech-macOS.dmg`](https://github.com/produtoramaxvision/DeckTech/releases/latest/download/DeckTech-macOS.dmg) |
 
@@ -33,14 +35,14 @@ You can also review the [latest release](https://github.com/produtoramaxvision/D
 1. Download and run `DeckTech-Setup.exe`.
 2. The current installer is unsigned. If Microsoft Defender SmartScreen appears, confirm that the file came from this repository and that its SHA-256 matches; select **More info** and **Run anyway** only if you accept the risk.
 3. On first launch, DeckTech shows the license agreement (EULA): tick the agreement checkbox to enable **Accept and start**, or choose **Decline and quit** to close the app. Declining is not remembered: the agreement is shown again on the next launch, and the app stays installed until you remove it in **Settings > Apps**. The button labels are in Portuguese (**Aceitar e começar** / **Recusar e sair**) when your system language is Portuguese.
-4. DeckTech requires Windows 11 (build 22000 or later); the installer refuses earlier versions. The host UI on Windows is in Portuguese only in this release: its **Conectar** (Connect) tab shows the local address and the six-digit access code (PIN) — an address only shows up here if the computer is on a local network (Wi-Fi or Ethernet), not just a VPN.
+4. DeckTech requires Windows 10 or 11 (64-bit, x64, build 10240 or later); the installer refuses earlier versions and 32-bit Windows. The host UI on Windows is in Portuguese only in this release: its **Conectar** (Connect) tab shows the local address and the six-digit access code (Código de acesso) — an address only shows up here if the computer is on a local network (Wi-Fi or Ethernet), not just a VPN.
 
 ### macOS
 
 1. Download `DeckTech-macOS.dmg`, open it, and drag DeckTech to **Applications**.
 2. The app is ad-hoc signed and not notarized. Control-click **DeckTech**, choose **Open**, and confirm. If Gatekeeper blocks it, try once and use **System Settings > Privacy & Security > Security > Open Anyway**.
 3. On first launch, accept the license agreement (EULA) shown before the main window.
-4. Open the **Connect** tab to see the local address and PIN. Unlike Windows, the macOS app has a language picker (Português/English) in that same tab, and its labels follow whichever language you choose there.
+4. Open the **Connect** tab to see the local address and six-digit access code. Unlike Windows, the macOS app has a language picker (Português/English) in that same tab, and its labels follow whichever language you choose there.
 
 ### Android
 
@@ -48,19 +50,19 @@ You can also review the [latest release](https://github.com/produtoramaxvision/D
 2. On first launch, accept the license agreement (EULA) shown in the app.
 3. On a Windows or macOS host, open **Connect > Android app** (on Windows: **Conectar > App Android**) and scan the QR code with the phone camera. The APK then trusts only that computer's HTTPS certificate. The computer and phone must be on the same local network (LAN) or the same Tailscale; a pairing link pointing anywhere else is rejected for security (see [Troubleshooting in SUPPORT.md](SUPPORT.md#troubleshooting)).
 4. When the app finds the computer through automatic discovery, it shows a 16-character security code (`XXXX-XXXX-XXXX-XXXX`). Confirm only if it matches, character for character, the **Security code** (on Windows: **Código de segurança**) on the host's **Connect** tab.
-5. Enter the six-digit PIN. If the computer's certificate changes, the app asks you to confirm again. If you open the pairing link outside the app (through the camera, a browser, or another app), DeckTech asks for an extra confirmation before connecting (the one exception is a link identical to the connection the app already has saved) — only confirm if you are the one who just opened or scanned the link.
+5. Enter the six-digit access code. If the computer's certificate changes, the app asks you to confirm again. If you open the pairing link outside the app (through the camera, a browser, or another app), DeckTech asks for an extra confirmation before connecting (the one exception is a link identical to the connection the app already has saved) — only confirm if you are the one who just opened or scanned the link.
 
 ### iPhone, iPad, and browsers
 
 1. On the host, open **Connect > Browser** (on Windows: **Conectar > Navegador**).
 2. Scan or enter the local HTTP URL in Safari or another browser.
-3. Enter the six-digit PIN. In Safari, use **Share > Add to Home Screen** to install the PWA.
+3. Enter the six-digit access code. In Safari, use **Share > Add to Home Screen** to install the PWA.
 
-The browser connection uses HTTP on the local network. Use the PWA only on a trusted LAN: the PIN controls access, but HTTP cannot prevent another network participant from observing or changing traffic. On Android, always prefer the pinned HTTPS flow in the **Android app** QR.
+The browser connection uses HTTP on the local network. Use the PWA only on a trusted LAN: the access code controls access, but HTTP cannot prevent another network participant from observing or changing traffic. On Android, always prefer the pinned HTTPS flow in the **Android app** QR.
 
 ## OBS Studio
 
-In v0.1.0, the **OBS Commander** drawer can switch scenes, start and stop recording and streaming, and pin scenes to the dock using the star beside each scene. Run OBS on the same computer that hosts DeckTech.
+The **OBS Commander** drawer can switch scenes, start and stop recording and streaming, and pin scenes to the dock using the star beside each scene. Run OBS on the same computer that hosts DeckTech.
 
 1. In OBS, open **Tools › WebSocket Server Settings**.
 2. Tick **Enable WebSocket server** and use **Server Port: 4455**.
@@ -94,6 +96,17 @@ sha256sum decktech.apk
 - [License for this documentation](LICENSE)
 
 The binaries are free of charge, proprietary, and licensed under the EULA. Third-party licenses continue to apply to their respective components.
+
+## Support the project
+
+See [ways to support DeckTech and propose partnerships](SUPPORT_THE_PROJECT.md).
+Financial support is optional and separate from technical support.
+
+## Made by Produtora MaxVision
+
+Produtora MaxVision is the studio behind DeckTech, based in São Paulo/Brasil. You can also hire the studio
+for separate projects and services; see the [project support guide](SUPPORT_THE_PROJECT.md).
+Learn about DeckTech at [decktech.com.br](https://decktech.com.br).
 
 ## Support and security
 

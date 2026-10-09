@@ -1,6 +1,6 @@
 # DeckTech End User License Agreement (EULA)
 
-Version 1.0. Effective from the publication of the DeckTech version it accompanies.
+Version 1.1. Effective from the publication of the DeckTech version it accompanies.
 
 This translation is provided for convenience. The Portuguese version (EULA.md) prevails.
 
@@ -20,9 +20,11 @@ This translation is provided for convenience. The Portuguese version (EULA.md) p
 
 2.3. "Official Channels": the decktech.com.br website and the DeckTech releases page at https://github.com/produtoramaxvision/DeckTech/releases.
 
+2.4. "DeckTech PRO": the DeckTech features that only work with a paid license, marked as PRO in the app and on the website, also governed by the DeckTech PRO Terms published on the Official Channels.
+
 ## 3. License
 
-3.1. MaxVision grants the User a free, non-exclusive, non-transferable, non-sublicensable, worldwide license to install and use DeckTech on any number of devices, for personal or commercial purposes, under this agreement.
+3.1. For the free version of DeckTech, MaxVision grants the User a free, non-exclusive, non-transferable, non-sublicensable, worldwide license to install and use DeckTech on any number of devices, for personal or commercial purposes, under this agreement. DeckTech PRO features are licensed only on purchase, under the DeckTech PRO Terms, which prevail over this clause and over clause 10.1 for those features.
 
 3.2. The license covers only programs obtained from the Official Channels. No rights to source code are granted.
 
@@ -62,13 +64,15 @@ e) use DeckTech to break the law or infringe third-party rights.
 
 ## 7. Updates and network connections
 
-7.1. DeckTech works on the local network and requires no account. DeckTech does not include telemetry: it does not send MaxVision usage data, the app list, the PIN or the User's settings.
+7.1. DeckTech works on the local network and requires no account. DeckTech does not include telemetry: it does not send MaxVision usage data, the app list, the access code or the User's settings.
 
-7.2. To check for and download updates, DeckTech connects to GitHub servers (such as github.com, api.github.com and GitHub's file download domains). GitHub may log technical connection data, such as the IP address, under its own privacy policy. MaxVision does not receive those logs on an individual basis.
+7.2. To check for and download updates, DeckTech connects to GitHub servers (such as github.com, api.github.com and GitHub's file download domains). DeckTech checks for a new version when it starts with internet. On Windows, it downloads the update and installs it when the User closes the app or with the update button; on macOS and Android, installation depends on the User's confirmation. GitHub may log technical connection data, such as the IP address, under GitHub's own privacy policy. MaxVision does not receive those logs on an individual basis.
 
-7.3. When adding or displaying a website shortcut, DeckTech may contact the website itself, its specified icon/CDN URLs, GitHub assets, or Google's favicon service (https://www.google.com/s2/favicons). Requests may send the page address to the website, the domain to the favicon service, and technical connection data to the respective provider, under their own policies.
+7.3. When adding or displaying a website shortcut, DeckTech may contact the website itself, the icon or CDN addresses it specifies, GitHub assets, or Google's favicon service (https://www.google.com/s2/favicons). Requests may send the page address to the website, the domain to the favicon service, and technical connection data to the respective provider, under their own policies.
 
 7.4. Updates are governed by this agreement unless accompanied by new terms.
+
+7.5. Minimum version. MaxVision may set a minimum version of DeckTech for reasons of security, correction of a serious defect or compatibility. When the User's computer is connected to the internet and the update is available, DeckTech may require installation of the minimum version in order to continue to be used. Without a connection, or if the update cannot be downloaded, DeckTech continues to work. DeckTech does not interrupt a stream or recording in progress in order to update.
 
 ## 8. Technical validity and support
 
@@ -78,13 +82,13 @@ e) use DeckTech to break the law or infringe third-party rights.
 
 ## 9. Privacy
 
-9.1. DeckTech keeps the list of pinned apps, the PIN, the installation's TLS certificate and the settings on the User's computer. Clients also retain local session data and preferences; on Android, the host address and certificate fingerprint are persisted. The TLS private key remains on the host. That data travels only over the local network between the computer and the devices the User connects, unless the User sets up a tunnel or proxy.
+9.1. DeckTech keeps the list of pinned apps, the access code, the installation's TLS certificate and the settings on the User's computer. Clients also retain local session data and preferences; on Android, the host address and certificate fingerprint are persisted. The TLS private key remains on the host. That data travels only over the local network between the computer and the devices the User connects, unless the User sets up a tunnel or proxy.
 
-9.2. MaxVision does not collect or receive that data. Apart from opening websites and links triggered by the User, DeckTech's only connections to external services are those described in clause 7.
+9.2. MaxVision does not collect or receive that data, except what a DeckTech PRO User sends when turning on PRO features, as described in the DeckTech PRO Terms and in the Privacy Notice (for example, the names of the actions the User allows for Alexa). Apart from opening websites and links triggered by the User, DeckTech's only connections to external services are those described in clause 7 and, only for those who buy and use DeckTech PRO, those described in those documents.
 
 ## 10. Warranty and liability
 
-**10.1. DeckTech is provided free of charge, "as is". To the maximum extent permitted by applicable law, MaxVision gives no additional contractual warranty, including fitness for a particular purpose or uninterrupted or error-free operation.**
+**10.1. The free version of DeckTech is provided free of charge, "as is". To the maximum extent permitted by applicable law, MaxVision gives no additional contractual warranty, including fitness for a particular purpose or uninterrupted or error-free operation. For PRO features, clause 14 of the DeckTech PRO Terms applies.**
 
 **10.2. To the maximum extent permitted by applicable law, MaxVision is not liable for indirect damages, lost profits or data loss arising from the use of, or inability to use, DeckTech.**
 

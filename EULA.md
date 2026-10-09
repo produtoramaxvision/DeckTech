@@ -1,6 +1,6 @@
 # Contrato de Licença de Uso do Usuário Final (EULA) — DeckTech
 
-Versão 1.0. Vigente a partir da publicação da versão do DeckTech que o acompanha.
+Versão 1.1. Vigente a partir da publicação da versão do DeckTech que o acompanha.
 
 Há uma tradução em inglês deste contrato (EULA.en.md). Em caso de divergência, prevalece a versão em português.
 
@@ -20,9 +20,11 @@ Há uma tradução em inglês deste contrato (EULA.en.md). Em caso de divergênc
 
 2.3. "Canais Oficiais": o site decktech.com.br e a página de releases do DeckTech em https://github.com/produtoramaxvision/DeckTech/releases.
 
+2.4. "DeckTech PRO": os recursos do DeckTech que só funcionam com uma licença paga, indicados como PRO no aplicativo e no site, regidos também pelos Termos do DeckTech PRO publicados nos Canais Oficiais.
+
 ## 3. Licença
 
-3.1. A MaxVision concede ao Usuário uma licença de uso gratuita, não exclusiva, intransferível, sem direito de sublicenciar e válida no mundo inteiro, para instalar e usar o DeckTech em quantos dispositivos desejar, para fins pessoais ou comerciais, nos termos deste contrato.
+3.1. Quanto à versão gratuita do DeckTech, a MaxVision concede ao Usuário uma licença de uso gratuita, não exclusiva, intransferível, sem direito de sublicenciar e válida no mundo inteiro, para instalar e usar o DeckTech em quantos dispositivos desejar, para fins pessoais ou comerciais, nos termos deste contrato. Os recursos do DeckTech PRO são licenciados somente mediante compra, nos termos dos Termos do DeckTech PRO, que prevalecem sobre esta cláusula e sobre a cláusula 10.1 quanto a esses recursos.
 
 3.2. A licença abrange somente os programas obtidos nos Canais Oficiais. Nenhum direito sobre o código-fonte é concedido.
 
@@ -62,13 +64,15 @@ e) usar o DeckTech para violar a lei ou direitos de terceiros.
 
 ## 7. Atualizações e conexões de rede
 
-7.1. O DeckTech funciona na rede local e não exige conta. O DeckTech não inclui telemetria: não envia à MaxVision dados de uso, a lista de apps, o PIN ou as configurações do Usuário.
+7.1. O DeckTech funciona na rede local e não exige conta. O DeckTech não inclui telemetria: não envia à MaxVision dados de uso, a lista de apps, o código de acesso ou as configurações do Usuário.
 
-7.2. Para verificar e baixar atualizações, o DeckTech se conecta aos servidores do GitHub (como github.com, api.github.com e os domínios de download de arquivos do GitHub). O GitHub pode registrar dados técnicos da conexão, como o endereço IP, conforme a política de privacidade dele. A MaxVision não recebe esses registros de forma individualizada.
+7.2. Para verificar e baixar atualizações, o DeckTech se conecta aos servidores do GitHub (como github.com, api.github.com e os domínios de download de arquivos do GitHub). O DeckTech verifica se há versão nova ao iniciar com internet. No Windows, baixa a atualização e a instala quando o Usuário fecha o aplicativo ou pelo botão de atualizar; no macOS e no Android, a instalação depende da confirmação do Usuário. O GitHub pode registrar dados técnicos da conexão, como o endereço IP, conforme a política de privacidade do próprio GitHub. A MaxVision não recebe esses registros de forma individualizada.
 
 7.3. Ao adicionar ou exibir um atalho de site, o DeckTech pode consultar o próprio site, os endereços de ícones/CDNs por ele indicados, assets do GitHub ou o serviço de ícones do Google (https://www.google.com/s2/favicons). A consulta pode enviar o endereço da página ao site, o domínio ao serviço de ícones e dados técnicos da conexão ao respectivo provedor, conforme as políticas deles.
 
 7.4. As atualizações são regidas por este contrato, salvo se acompanhadas de novos termos.
+
+7.5. Versão mínima. A MaxVision pode definir uma versão mínima do DeckTech por motivo de segurança, correção grave de defeito ou compatibilidade. Quando o computador do Usuário estiver conectado à internet e a atualização estiver disponível, o DeckTech pode exigir a instalação da versão mínima para continuar a ser usado. Sem conexão, ou se a atualização não puder ser baixada, o DeckTech continua funcionando. O DeckTech não interrompe uma transmissão ou gravação em andamento para se atualizar.
 
 ## 8. Validade técnica e suporte
 
@@ -78,13 +82,13 @@ e) usar o DeckTech para violar a lei ou direitos de terceiros.
 
 ## 9. Privacidade
 
-9.1. O DeckTech guarda no computador do Usuário a lista de apps fixados, o PIN, o certificado TLS da instalação e as configurações. Os clientes também guardam dados locais de sessão e preferências; no Android, são persistidos o endereço do host e a impressão digital do certificado. A chave privada TLS permanece no host. Esses dados trafegam somente na rede local entre o computador e os dispositivos conectados pelo Usuário, salvo se o próprio Usuário configurar um túnel ou proxy.
+9.1. O DeckTech guarda no computador do Usuário a lista de apps fixados, o código de acesso, o certificado TLS da instalação e as configurações. Os clientes também guardam dados locais de sessão e preferências; no Android, são persistidos o endereço do host e a impressão digital do certificado. A chave privada TLS permanece no host. Esses dados trafegam somente na rede local entre o computador e os dispositivos conectados pelo Usuário, salvo se o próprio Usuário configurar um túnel ou proxy.
 
-9.2. A MaxVision não coleta nem recebe esses dados. Além da abertura de sites e links acionada pelo próprio Usuário, as únicas conexões do DeckTech a serviços externos são as descritas na cláusula 7.
+9.2. A MaxVision não coleta nem recebe esses dados, ressalvado o que o Usuário do DeckTech PRO enviar ao ativar recursos PRO, conforme descrito nos Termos do DeckTech PRO e no Aviso de Privacidade (por exemplo, o nome das ações que o Usuário liberar para a Alexa). Além da abertura de sites e links acionada pelo próprio Usuário, as únicas conexões do DeckTech a serviços externos são as descritas na cláusula 7 e, somente para quem compra e usa o DeckTech PRO, as descritas nesses documentos.
 
 ## 10. Garantia e responsabilidade
 
-**10.1. O DeckTech é fornecido gratuitamente, "no estado em que se encontra". Na máxima extensão permitida pela lei aplicável, a MaxVision não oferece garantia contratual adicional, inclusive de adequação a finalidade específica ou de funcionamento ininterrupto ou livre de erros.**
+**10.1. A versão gratuita do DeckTech é fornecida gratuitamente, "no estado em que se encontra". Na máxima extensão permitida pela lei aplicável, a MaxVision não oferece garantia contratual adicional, inclusive de adequação a finalidade específica ou de funcionamento ininterrupto ou livre de erros. Para os recursos PRO, vale a cláusula 14 dos Termos do DeckTech PRO.**
 
 **10.2. Na máxima extensão permitida pela lei aplicável, a MaxVision não responde por danos indiretos, lucros cessantes ou perda de dados decorrentes do uso ou da impossibilidade de uso do DeckTech.**
 

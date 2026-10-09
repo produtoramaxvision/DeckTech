@@ -1,4 +1,4 @@
-[English](CODE_OF_CONDUCT.md) | Português (Brasil)
+[English](CODE_OF_CONDUCT.md) | Português (Brasil) | [Español](CODE_OF_CONDUCT.es.md) | [Русский](CODE_OF_CONDUCT.ru.md) | [简体中文](CODE_OF_CONDUCT.zh-CN.md)
 
 # Código de Conduta
 
