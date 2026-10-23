@@ -1,0 +1,202 @@
+name: landing-deploy
+
+# Deploys the DeckTech landing (Cloudflare Workers static assets) for a commit of the private
+# source repository. Manual only. Two jobs with separated trust:
+#   build   - has the read-only deploy key of the private repository, never a Cloudflare credential.
+#             Runs one private script (guards, build, landing tests, pack). Its stdout carries only
+#             step names, PASS/FAIL and test counters; the full log is encrypted to a public key.
+#   deploy  - has the Cloudflare credentials, never the source. Downloads the tarball, verifies it
+#             against the digest the build job published as a job output, extracts it and runs
+#             wrangler deploy from the extracted docs directory.
+# The run-name carries the commit so a run can be bound to the source commit it deployed.
+run-name: landing-deploy ${{ inputs.commit }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Full 40-character commit SHA of the private source repository to deploy (must be the tip of its main branch)
+        type: string
+        required: true
+
+permissions: {}
+
+# One deploy at a time; a second run waits instead of cancelling a deploy that may be half done.
+concurrency:
+  group: landing-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and validate the landing
+    runs-on: ubuntu-latest
+    environment: landing-build
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      site_sha256: ${{ steps.digest.outputs.sha256 }}
+    steps:
+      - name: Validate the commit input
+        shell: bash
+        env:
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          if [[ ! "$COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::commit must be a full 40-character lowercase hexadecimal SHA"
+            exit 1
+          fi
+      - name: Validate the app repository secret
+        shell: bash
+        env:
+          APP_REPO: ${{ secrets.DECKTECH_APP_REPOSITORY }}
+        run: |
+          if [[ ! "$APP_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            echo "::error::DECKTECH_APP_REPOSITORY secret must be configured in owner/name form"
+            exit 1
+          fi
+      # Read-only deploy key of the private repository. The credential is not persisted in the
+      # checkout's git config. fetch-depth 0 also fetches refs/remotes/origin/main, which the
+      # private script compares with HEAD (the landing ships from the tip of main only).
+      - name: Check out the private source at the exact commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ secrets.DECKTECH_APP_REPOSITORY }}
+          ref: ${{ inputs.commit }}
+          ssh-key: ${{ secrets.DECKTECH_APP_DEPLOY_KEY }}
+          persist-credentials: false
+          show-progress: false
+          fetch-depth: 0
+          path: app
+      - name: Assert the checked-out commit is the requested one
+        shell: bash
+        env:
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          actual="$(git -C app rev-parse HEAD)"
+          if [[ "$actual" != "$COMMIT" ]]; then
+            echo "::error::checked-out HEAD does not equal the requested commit"
+            exit 1
+          fi
+      # pnpm's version comes from the `packageManager` field of the private package.json.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: app/package.json
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Build and validate the landing
+        shell: bash
+        working-directory: app
+        env:
+          EXPECTED_COMMIT: ${{ inputs.commit }}
+          LANDING_BUILD_LOG_DIR: ${{ runner.temp }}/landing-build-log
+          LANDING_SITE_DIR: ${{ runner.temp }}/landing-site
+        run: bash tools/ci/landing-public-build.sh
+      # The digest travels as a job output (GitHub's own channel), so the deploy job does not trust a
+      # checksum file that sits next to the tarball it describes.
+      - name: Publish the site digest
+        id: digest
+        shell: bash
+        env:
+          SITE_DIR: ${{ runner.temp }}/landing-site
+        run: |
+          digest="$(cut -d' ' -f1 "$SITE_DIR/landing-site.tar.gz.sha256")"
+          if [[ ! "$digest" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "::error::site digest is not a SHA-256"
+            exit 1
+          fi
+          echo "sha256=$digest" >> "$GITHUB_OUTPUT"
+      - name: Upload landing site
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: landing-site
+          path: |
+            ${{ runner.temp }}/landing-site/landing-site.tar.gz
+            ${{ runner.temp }}/landing-site/landing-site.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+      - name: Upload encrypted build log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: landing-build-log-encrypted
+          path: |
+            ${{ runner.temp }}/landing-build-log/mac-build.log.enc
+            ${{ runner.temp }}/landing-build-log/mac-build.log.key.enc
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  deploy:
+    name: Deploy the landing to Cloudflare
+    needs: build
+    runs-on: ubuntu-latest
+    environment: landing-production
+    timeout-minutes: 20
+    permissions: {}
+    steps:
+      - name: Validate the commit input
+        shell: bash
+        env:
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          if [[ ! "$COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::commit must be a full 40-character lowercase hexadecimal SHA"
+            exit 1
+          fi
+      - name: Download landing site
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: landing-site
+          path: ${{ runner.temp }}/landing-download
+      - name: Verify the tarball against the build job's digest
+        shell: bash
+        env:
+          EXPECTED_SHA256: ${{ needs.build.outputs.site_sha256 }}
+          DOWNLOAD_DIR: ${{ runner.temp }}/landing-download
+        run: |
+          if [[ ! "$EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "::error::the build job did not publish a valid site digest"
+            exit 1
+          fi
+          cd "$DOWNLOAD_DIR"
+          echo "$EXPECTED_SHA256  landing-site.tar.gz" | sha256sum -c -
+      - name: Extract the site
+        shell: bash
+        env:
+          COMMIT: ${{ inputs.commit }}
+          DOWNLOAD_DIR: ${{ runner.temp }}/landing-download
+        run: |
+          # Only docs/dist and docs/wrangler.jsonc may be inside.
+          if tar -tzf "$DOWNLOAD_DIR/landing-site.tar.gz" | grep -v -E '^docs/(dist(/|$)|wrangler\.jsonc$)'; then
+            echo "::error::the tarball holds files outside docs/dist and docs/wrangler.jsonc"
+            exit 1
+          fi
+          mkdir landing-site
+          tar -xzf "$DOWNLOAD_DIR/landing-site.tar.gz" -C landing-site
+          node -e '
+            const stamp = JSON.parse(require("fs").readFileSync("landing-site/docs/dist/build.json", "utf8"));
+            if (stamp.commit !== process.env.COMMIT || stamp.dirty !== false) {
+              console.error("::error::the build stamp does not match the requested commit or records a dirty tree");
+              process.exit(1);
+            }
+          '
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          package-manager-cache: false
+      # cloudflare/wrangler-action v4.1.3, pinned by commit SHA. The version must match
+      # tools/release/landing-config.mjs's WRANGLER_VERSION and .github/workflows/landing.yml
+      # (test/release-landing-public-deploy.test.mjs asserts it in the private repository).
+      - name: Deploy to Cloudflare
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: landing-site/docs
+          packageManager: npm
+          wranglerVersion: "4.142.0"
+          command: deploy

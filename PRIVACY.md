@@ -118,12 +118,14 @@ Requests from outside (for example, from an iPhone shortcut or a Home Assistant 
 | Amazon (Alexa) | Voice and action names | Independent controller | [Amazon policy](https://www.amazon.com/gp/help/customer/display.html?nodeId=GX7NJQ4ZB8MHFRNJ) |
 | GitHub | Releases and updates; public reports | Independent controller | [GitHub statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) |
 | Google | Website icons on the phone deck | Independent controller | [Google policy](https://policies.google.com/privacy) |
+| Google (Analytics and Tag Manager) | Audience measurement of the site | Processor | [Google policy](https://policies.google.com/privacy) |
+| Stape | Hosting of the site's tagging server (server.decktech.com.br) | Processor | [Stape policy](https://stape.io/privacy-policy) |
 
 Messages sent to contato@decktech.com.br reach MaxVision's mailbox through Cloudflare's e-mail forwarding service.
 
 ## International transfer
 
-These suppliers may process data outside Brazil, especially in the United States: Cloudflare's network is global, and the Alexa add-on adapter runs in the US East region of Amazon Web Services. Basis: transfer necessary to perform the contract (LGPD, art. 33, IX, combined with art. 7, V), or contractual safeguards (art. 33, II), depending on the supplier.
+These suppliers may process data outside Brazil, especially in the United States: Cloudflare's network is global, and the Alexa add-on adapter runs in the US East region of Amazon Web Services. Basis: transfer necessary to perform the contract (LGPD, art. 33, IX, combined with art. 7, V), or contractual safeguards (art. 33, II), depending on the supplier. Measurement data sent to Google Analytics may also be processed by Google and Stape outside Brazil.
 
 ## Your rights, without an account
 
@@ -145,7 +147,17 @@ DeckTech is not directed to children.
 
 ## This website
 
-The decktech.com.br website is hosted on Cloudflare, which processes technical request data such as IP address to deliver and protect it, under the [Cloudflare Privacy Policy](https://www.cloudflare.com/privacypolicy/). Without marketing consent, the pages load no third-party marketing tracking resources; Cloudflare may set its own technical security cookies under its policy. Cloudflare Web Analytics measures visits to the site without cookies and without identifying the visitor. Theme and language preferences are stored only in your browser. The purchase links lead to Stripe's payment page, and links to GitHub (Issues, Discussions and releases) lead to GitHub; public submissions there follow its own terms and privacy policy.
+The decktech.com.br website is hosted on Cloudflare, which processes technical request data such as IP address to deliver and protect it, under the [Cloudflare Privacy Policy](https://www.cloudflare.com/privacypolicy/). Google Tag Manager and Google Analytics load on every visit, as described in "Audience measurement" below. Without marketing consent, the pages load no third-party marketing tracking resources; Cloudflare may set its own technical security cookies under its policy. Cloudflare Web Analytics measures visits to the site without cookies and without identifying the visitor. Theme and language preferences are stored only in your browser. The purchase links lead to Stripe's payment page, and links to GitHub (Issues, Discussions and releases) lead to GitHub; public submissions there follow its own terms and privacy policy.
+
+## Audience measurement
+
+The site uses Google Analytics 4, loaded through Google Tag Manager, to understand how it is used: pages viewed and clicks on downloading, on buying DeckTech PRO and on links to other sites. The measurements go through DeckTech's own tagging server, at server.decktech.com.br (hosted by Stape behind Cloudflare), before they reach Google. The server receives the visitor's IP address and forwards it to Google Analytics truncated (the last number is set to zero), only so that country and region can be told; the full address is not forwarded.
+
+Until you choose, and if you reject site measurement, Google Analytics receives only cookieless measurements, which do not identify you or link your visits together. If you accept site measurement, Google Analytics sets its own cookies (`_ga` and `_ga_*`, set in your browser by the Google tag) to recognize the same browser across visits. The legal basis for these cookies is your consent (LGPD art. 7, I). Event data stays in the Google Analytics property for 14 months.
+
+You can reject as easily as accept, and change or withdraw the choice through "Cookie preferences" in the footer or from [the home page](https://decktech.com.br/?cookies=1). The choice is stored only in your browser for 12 months. Withdrawal stops later measurement with cookies and removes the cookies the site can read; it does not erase measurements already sent.
+
+If you accept site measurement and buy DeckTech PRO, the Stripe payment link carries a code made of the Google Analytics identifiers of your browser and of your visit (client and session), so that the confirmed purchase can be tied to the visit. MaxVision's licensing service reports the confirmed purchase to Google Analytics through the tagging server only in that case; without that consent the purchase is not measured. Google processes these measurements under the [Google Privacy Policy](https://policies.google.com/privacy).
 
 ## Optional marketing cookies
 
