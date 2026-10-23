@@ -29,7 +29,9 @@ concurrency:
 jobs:
   build:
     name: Build and validate the landing
-    runs-on: ubuntu-latest
+    # Windows, like the owner's PC where the landing layout tests (font metrics, CLS, overflow at
+    # 320-1920 px) are calibrated: on ubuntu-latest nine of them fail on font rendering alone.
+    runs-on: windows-latest
     environment: landing-build
     timeout-minutes: 60
     permissions:
